@@ -7,8 +7,6 @@ TODO
 - Clear cache/UI if the save goes away
 	- Write "cannot find save" in date slot
 - Port `platform_openProcess` to Linux
-- Read player positional weights from YAML file
-- Write defaults to config
 - To player-info
 	- ⭐ Add footedness
 	- Add height/weight

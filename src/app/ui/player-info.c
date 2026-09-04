@@ -188,17 +188,6 @@ void ui_renderPlayerInfoWindow(WindowContext context, const Player *player) {
 
 	// Ratings
 	{
-		static const char *labels[POSITION_GROUPED_COUNT] = {
-			"Goalkeeper",
-			"Full back",
-			"Centre back",
-			"Wing back",
-			"Defensive midfielder",
-			"Midfielder",
-			"Winger",
-			"Attacking midfielder",
-			"Striker"
-		};
 		GtkBox *boxRoles = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:top-roles")));
 		uint8_t i = 0;
 		while (i < POSITION_GROUPED_COUNT && player->ratings[i].value > 0.f) {
@@ -206,7 +195,7 @@ void ui_renderPlayerInfoWindow(WindowContext context, const Player *player) {
 			gtk_box_append(boxRoles, parent);
 
 			GtkWidget *labelContainer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-			GtkWidget *roleLabel = gtk_label_new(labels[player->ratings[i].position]);
+			GtkWidget *roleLabel = gtk_label_new(positionGroupedNames[player->ratings[i].position]);
 			gtk_label_set_xalign(GTK_LABEL(roleLabel), 0);
 			gtk_widget_add_css_class(roleLabel, "heading");
 			gtk_widget_set_hexpand(roleLabel, true);

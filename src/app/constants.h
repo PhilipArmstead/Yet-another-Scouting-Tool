@@ -236,71 +236,136 @@
 #define PLAYER_OFFSET_PREFERRED_POSITION 0x266
 
 // Attribute indices relative to PLAYER_OFFSET_ATTRIBUTES (0x217)
-#define ATTR_CRO 0
-#define ATTR_DRI 1
-#define ATTR_FIN 2
-#define ATTR_HEA 3
-#define ATTR_LON 4
-#define ATTR_MAR 5
-#define ATTR_OTB 6
-#define ATTR_PAS 7
-#define ATTR_PEN 8
-#define ATTR_TCK 9
-#define ATTR_VIS 10
-#define ATTR_HAN 11
-#define ATTR_AER 12
-#define ATTR_CMD 13
-#define ATTR_COM 14
-#define ATTR_KIC 15
-#define ATTR_THR 16
-#define ATTR_ANT 17
-#define ATTR_DEC 18
-#define ATTR_ONE 19
-#define ATTR_POS 20
-#define ATTR_REF 21
-#define ATTR_FIR 22
-#define ATTR_TEC 23
-#define ATTR_LEF 24
-#define ATTR_RIG 25
-#define ATTR_FLA 26
-#define ATTR_COR 27
-#define ATTR_TEA 28
-#define ATTR_WOR 29
-#define ATTR_LTH 30
-#define ATTR_ECC 31
-#define ATTR_TRO 32
-#define ATTR_TTP 33
-#define ATTR_ACC 34
-#define ATTR_FRE 35
-#define ATTR_STR 36
-#define ATTR_STA 37
-#define ATTR_PAC 38
-#define ATTR_JUM 39
-#define ATTR_LDR 40
-#define ATTR_DIR 41
-#define ATTR_BAL 42
-#define ATTR_BRA 43
-#define ATTR_CON 44 /* Consistency */
-#define ATTR_AGG 45
-#define ATTR_AGI 46
-#define ATTR_IMP 47
-#define ATTR_INJ 48
-#define ATTR_VER 49
-#define ATTR_NAT 50
-#define ATTR_DET 51
-#define ATTR_CMP 52 /* Composure */
-#define ATTR_CNT 53 /* Concentration */
-#define ATTR_ADA 54 /* Adaptability */
-#define ATTR_AMB 55 /* Ambition */
-#define ATTR_LOY 56 /* Loyalty */
-#define ATTR_PRE 57 /* Pressure */
-#define ATTR_PRO 58 /* Professionalism */
-#define ATTR_SPO 59 /* Sportsmanship */
-#define ATTR_TEM 60 /* Temperament */
-#define ATTR_CNY 61 /* Controversy */
+#define ATTR_CRO 0 // Crossing
+#define ATTR_DRI 1 // Dribbling
+#define ATTR_FIN 2 // Finishing
+#define ATTR_HEA 3 // Heading
+#define ATTR_LON 4 // LongShots
+#define ATTR_MAR 5 // Marking
+#define ATTR_OTB 6 // OffTheBall
+#define ATTR_PAS 7 // Passing
+#define ATTR_PEN 8 // PenaltyTaking
+#define ATTR_TCK 9 // Tackling
+#define ATTR_VIS 10 // Vision
+#define ATTR_HAN 11 // Handling
+#define ATTR_AER 12 // AerialReach
+#define ATTR_CMD 13 // CommandOfArea
+#define ATTR_COM 14 // Communication
+#define ATTR_KIC 15 // Kicking
+#define ATTR_THR 16 // Throwing
+#define ATTR_ANT 17 // Anticipation
+#define ATTR_DEC 18 // Decisions
+#define ATTR_ONE 19 // OneOnOnes
+#define ATTR_POS 20 // Positioning
+#define ATTR_REF 21 // Reflexes
+#define ATTR_FIR 22 // FirstTouch
+#define ATTR_TEC 23 // Technique
+#define ATTR_LEF 24 // LeftFoot
+#define ATTR_RIG 25 // RightFoot
+#define ATTR_FLA 26 // Flair
+#define ATTR_COR 27 // CornerTaking
+#define ATTR_TEA 28 // Teamwork
+#define ATTR_WOR 29 // WorkRate
+#define ATTR_LTH 30 // LongThrows
+#define ATTR_ECC 31 // Eccentricity
+#define ATTR_TRO 32 // RushingOut
+#define ATTR_TTP 33 // Punching
+#define ATTR_ACC 34 // Acceleration
+#define ATTR_FRE 35 // FreeKickTaking
+#define ATTR_STR 36 // Strength
+#define ATTR_STA 37 // Stamina
+#define ATTR_PAC 38 // Pace
+#define ATTR_JUM 39 // JumpingReach
+#define ATTR_LDR 40 // Leadership
+#define ATTR_DIR 41 // Dirtiness
+#define ATTR_BAL 42 // Balance
+#define ATTR_BRA 43 // Bravery
+#define ATTR_CON 44 // Consistency
+#define ATTR_AGG 45 // Aggression
+#define ATTR_AGI 46 // Agility
+#define ATTR_IMP 47 // ImportantMatches
+#define ATTR_INJ 48 // InjuryProneness
+#define ATTR_VER 49 // Versatility
+#define ATTR_NAT 50 // NaturalFitness
+#define ATTR_DET 51 // Determination
+#define ATTR_CMP 52 // Composure
+#define ATTR_CNT 53 // Concentration
+#define ATTR_ADA 54 // Adaptability
+#define ATTR_AMB 55 // Ambition
+#define ATTR_LOY 56 // Loyalty
+#define ATTR_PRE 57 // Pressure
+#define ATTR_PRO 58 // Professionalism
+#define ATTR_SPO 59 // Sportsmanship
+#define ATTR_TEM 60 // Temperament
+#define ATTR_CNY 61 // Controversy
 #define ATTRIBUTE_COUNT (ATTR_CNY + 1)
 #define PERSONALITY_COUNT 8
 #define TRUE_ATTRIBUTE_COUNT (ATTRIBUTE_COUNT - PERSONALITY_COUNT)
+
+static const char *attributeNames[ATTRIBUTE_COUNT] = {
+	"Crossing",
+	"Dribbling",
+	"Finishing",
+	"Heading",
+	"LongShots",
+	"Marking",
+	"OffTheBall",
+	"Passing",
+	"PenaltyTaking",
+	"Tackling",
+	"Vision",
+	"Handling",
+	"AerialReach",
+	"CommandOfArea",
+	"Communication",
+	"Kicking",
+	"Throwing",
+	"Anticipation",
+	"Decisions",
+	"OneOnOnes",
+	"Positioning",
+	"Reflexes",
+	"FirstTouch",
+	"Technique",
+	"LeftFoot",
+	"RightFoot",
+	"Flair",
+	"CornerTaking",
+	"Teamwork",
+	"WorkRate",
+	"LongThrows",
+	"Eccentricity",
+	"RushingOut",
+	"Punching",
+	"Acceleration",
+	"FreeKickTaking",
+	"Strength",
+	"Stamina",
+	"Pace",
+	"JumpingReach",
+	"Leadership",
+	"Dirtiness",
+	"Balance",
+	"Bravery",
+	"Consistency",
+	"Aggression",
+	"Agility",
+	"ImportantMatches",
+	"InjuryProneness",
+	"Versatility",
+	"NaturalFitness",
+	"Determination",
+	"Composure",
+	"Concentration",
+	"Adaptability",
+	"Ambition",
+	"Loyalty",
+	"Pressure",
+	"Professionalism",
+	"Sportsmanship",
+	"Temperament",
+	"Controversy",
+};
 
 #define ABILITY_CA 0
 #define ABILITY_PA 2

@@ -320,11 +320,11 @@ static void fillWeightsForPosition(
 		if (gameContext.options.weights[i].scale == 0) {
 			break;
 		}
-		if (gameContext.options.weights[i].role == p) {
+		if (gameContext.options.weights[i].position == p) {
 			matchingIndex = i;
 			break;
 		}
-		if (gameContext.options.weights[i].role == POSITION_GROUPED_COUNT) {
+		if (gameContext.options.weights[i].position == POSITION_GROUPED_COUNT) {
 			generalIndex = i;
 		}
 	}

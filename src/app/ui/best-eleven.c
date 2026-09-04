@@ -89,7 +89,7 @@ void ui_renderBestElevenWindow(const WindowContext context) {
 	GtkStringList *formationList = GTK_STRING_LIST(gtk_builder_get_object(context.builder, "string-list:formation"));
 	while (gtk_string_list_get_string(formationList, 0) != NULL)
 		gtk_string_list_remove(formationList, 0);
-	for (uint8_t i = 0; i < gameContext.options.formationCount; ++i)
+	for (uint8_t i = 0; i < vector_length(gameContext.options.formations); ++i)
 		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
 }
 

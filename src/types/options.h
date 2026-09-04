@@ -4,7 +4,6 @@
 #pragma once
 
 #define FORMATION_NAME_LENGTH 32
-#define OPTIONS_MAX_FORMATIONS 32
 
 #define FORMATION_POSITION_COUNT 11
 
@@ -14,14 +13,18 @@ typedef struct {
 } Formation;
 
 typedef struct {
-	float weights[ATTRIBUTE_COUNT];
-	PositionGrouped role; // POSITION_GROUPED_COUNT means all roles unless otherwise explicitly defined
+	float weight;
+	uint8_t attribute;
+} RatingWeight;
+
+typedef struct {
+	RatingWeight *weights;
+	PositionGrouped position; // POSITION_GROUPED_COUNT means all roles unless otherwise explicitly defined
 	float scale;
 } PositionWeights;
 
 typedef struct {
-	Formation formations[OPTIONS_MAX_FORMATIONS];
-	PositionWeights weights[POSITION_GROUPED_COUNT];
-	uint8_t formationCount;
+	Formation *formations;
+	PositionWeights *weights;
 	bool darkMode;
 } Options;

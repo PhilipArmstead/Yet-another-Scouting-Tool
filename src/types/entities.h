@@ -47,6 +47,31 @@ typedef enum PositionGrouped {
 	POSITION_GROUPED_COUNT,
 } PositionGrouped;
 
+static const char *positionGroupedCodes[POSITION_GROUPED_COUNT + 1] = {
+	"GK",
+	"FB",
+	"CB",
+	"WB",
+	"DM",
+	"MC",
+	"W",
+	"AM",
+	"ST",
+	"General",
+};
+
+static const char *positionGroupedNames[POSITION_GROUPED_COUNT] = {
+	"Goalkeeper",
+	"Full back",
+	"Centre back",
+	"Wing back",
+	"Defensive midfielder",
+	"Midfielder",
+	"Winger",
+	"Attacking midfielder",
+	"Striker"
+};
+
 typedef struct {
 	float value;
 	PositionGrouped position;

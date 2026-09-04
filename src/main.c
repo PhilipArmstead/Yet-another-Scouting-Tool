@@ -4,8 +4,6 @@
 #include <gtk/gtk.h>
 
 #include "app/callbacks.h"
-#include "app/config.h"
-#include "app/data.h"
 #include "app/options.h"
 #include "app/player-table.h"
 #include "app/ui.h"

@@ -3,6 +3,7 @@
 
 #include "options.h"
 #include "app/types.h"
+#include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
 
@@ -16,7 +17,6 @@
 
 extern GameContext gameContext;
 
-// Accumulates a single formation while parsing its block of lines.
 typedef struct {
 	Formation current;
 	bool haveCurrent;
@@ -24,6 +24,12 @@ typedef struct {
 	bool positionsValid;
 	uint8_t positionCount;
 } FormationParser;
+
+typedef struct {
+	PositionWeights current;
+	bool haveCurrent;
+	bool inWeights;
+} RatingsParser;
 
 
 static char *trimLeading(char *text) {
@@ -107,7 +113,7 @@ static void copyFormationName(char *destination, const char *value) {
 }
 
 // Validates the accumulated formation and, if valid, appends it to the options.
-static void formationParser_finalize(FormationParser *parser) {
+static void formationParser_finalise(FormationParser *parser) {
 	if (!parser->haveCurrent) {
 		return;
 	}
@@ -122,23 +128,32 @@ static void formationParser_finalize(FormationParser *parser) {
 			parser->current.name,
 			FORMATION_POSITION_COUNT
 		);
-	} else if (options->formationCount >= OPTIONS_MAX_FORMATIONS) {
-		LOG_WARN(
-			"Ignoring formation '%s': exceeded maximum of %d",
-			parser->current.name,
-			OPTIONS_MAX_FORMATIONS
-		);
 	} else {
-		options->formations[options->formationCount++] = parser->current;
+		vector_push(options->formations, parser->current);
 	}
 
 	*parser = (FormationParser){0};
 }
 
-// Begins a new formation list item, finalising any previous one.
+static void ratingsParser_finalise(RatingsParser *parser) {
+	if (!parser->haveCurrent) {
+		return;
+	}
+
+	Options *options = &gameContext.options;
+	vector_push(options->weights, parser->current);
+	*parser = (RatingsParser){0};
+}
+
 static void formationParser_begin(FormationParser *parser) {
-	formationParser_finalize(parser);
+	formationParser_finalise(parser);
 	*parser = (FormationParser){0};
+	parser->haveCurrent = true;
+}
+
+static void ratingsParser_begin(RatingsParser *parser) {
+	ratingsParser_finalise(parser);
+	*parser = (RatingsParser){0};
 	parser->haveCurrent = true;
 }
 
@@ -164,6 +179,24 @@ static void formationParser_positions(FormationParser *parser, char *value) {
 	}
 }
 
+static void formationParser_weight(RatingsParser *parser, const char *key, const char *value) {
+	for (uint8_t i = 0; i < ATTRIBUTE_COUNT; ++i) {
+		if (!strcasecmp(key, attributeNames[i])) {
+			vector_push(parser->current.weights, ((RatingWeight){.attribute = i, .weight = strtof(value, NULL)}));
+			return;
+		}
+	}
+}
+
+static inline PositionGrouped readRatingsPosition(const char *value) {
+	for (PositionGrouped i = 0; i < POSITION_GROUPED_COUNT; ++i) {
+		if (!strcasecmp(value, positionGroupedCodes[i])) {
+			return i;
+		}
+	}
+	return POSITION_GROUPED_COUNT;
+}
+
 static void formationParser_keyValue(FormationParser *parser, const char *key, char *value) {
 	if (!parser->haveCurrent) {
 		LOG_WARN("Ignoring formation field '%s' outside a list item", key);
@@ -183,33 +216,44 @@ static void formationParser_keyValue(FormationParser *parser, const char *key, c
 	LOG_WARN("Unrecognised formation field '%s'", key);
 }
 
+static void ratingsParser_keyValue(RatingsParser *parser, const char *key, char *value) {
+	if (!parser->haveCurrent) {
+		LOG_WARN("Ignoring ratings field '%s' outside a list item", key);
+		return;
+	}
+
+	if (!strcmp(key, "position")) {
+		parser->current.position = readRatingsPosition(value);
+		parser->inWeights = false;
+		return;
+	}
+
+	if (parser->inWeights) {
+		formationParser_weight(parser, key, value);
+		return;
+	}
+
+	if (!strcmp(key, "weights")) {
+		parser->inWeights = true;
+		return;
+	}
+
+	LOG_WARN("Unrecognised ratings field '%s'", key);
+}
+
 // Handles one indented line inside a `formations:` block.
 static void formationParser_line(FormationParser *parser, char *cursor) {
 	if (cursor[0] == '-') {
 		formationParser_begin(parser);
-		char *rest = trimLeading(cursor + 1);
-		if (*rest == '\0') {
+		cursor = trimLeading(cursor + 1);
+		if (*cursor == '\0') {
 			return;
 		}
-
-		char *separator = strchr(rest, ':');
-		if (!separator) {
-			LOG_WARN("Ignoring malformed formation entry '%s'", rest);
-			return;
-		}
-
-		*separator = '\0';
-		char *key = rest;
-		char *value = trimLeading(separator + 1);
-		trimTrailing(key);
-		trimTrailing(value);
-		formationParser_keyValue(parser, key, value);
-		return;
 	}
 
 	char *separator = strchr(cursor, ':');
 	if (!separator) {
-		LOG_WARN("Ignoring malformed formation line '%s'", cursor);
+		LOG_WARN("Ignoring malformed formation entry '%s'", cursor);
 		return;
 	}
 
@@ -219,6 +263,33 @@ static void formationParser_line(FormationParser *parser, char *cursor) {
 	trimTrailing(key);
 	trimTrailing(value);
 	formationParser_keyValue(parser, key, value);
+}
+
+
+// Handles one indented line inside a `ratings:` block.
+static void ratingsParser_line(RatingsParser *parser, char *cursor) {
+	if (cursor[0] == '-') {
+		if (!parser->inWeights) {
+			ratingsParser_begin(parser);
+		}
+		cursor = trimLeading(cursor + 1);
+		if (*cursor == '\0') {
+			return;
+		}
+	}
+
+	char *separator = strchr(cursor, ':');
+	if (!separator) {
+		LOG_WARN("Ignoring malformed ratings entry '%s'", cursor);
+		return;
+	}
+
+	*separator = '\0';
+	char *key = cursor;
+	char *value = trimLeading(separator + 1);
+	trimTrailing(key);
+	trimTrailing(value);
+	ratingsParser_keyValue(parser, key, value);
 }
 
 static void applyOption(const char *key, const char *value) {
@@ -240,30 +311,25 @@ static void setDefaults(void) {
 	memset(options, 0, sizeof(*options));
 	options->darkMode = true;
 
-	// TODO: use a vector for this, lose the formationCount property and the limit of 32
-	static const struct {
-		const char *name;
-		PositionCode positions[FORMATION_POSITION_COUNT];
-	} formations[] = {
-		{
-			"4-4-2",
-			{
-				POSITION_CODE_GK,
-				POSITION_CODE_DL,
-				POSITION_CODE_DC,
-				POSITION_CODE_DC,
-				POSITION_CODE_DR,
-				POSITION_CODE_ML,
-				POSITION_CODE_MC,
-				POSITION_CODE_MC,
-				POSITION_CODE_MR,
-				POSITION_CODE_ST,
-				POSITION_CODE_ST,
-			},
+	vector_push(options->formations, ((Formation){
+		.name = "4-4-2",
+		.positions = {
+			POSITION_CODE_GK,
+			POSITION_CODE_DL,
+			POSITION_CODE_DC,
+			POSITION_CODE_DC,
+			POSITION_CODE_DR,
+			POSITION_CODE_ML,
+			POSITION_CODE_MC,
+			POSITION_CODE_MC,
+			POSITION_CODE_MR,
+			POSITION_CODE_ST,
+			POSITION_CODE_ST,
 		},
-		{
-			"4-3-3",
-			{
+	}));
+	vector_push(options->formations, ((Formation){
+		.name = "4-3-3",
+		.positions = {
 				POSITION_CODE_GK,
 				POSITION_CODE_DL,
 				POSITION_CODE_DC,
@@ -275,11 +341,11 @@ static void setDefaults(void) {
 				POSITION_CODE_AML,
 				POSITION_CODE_AMR,
 				POSITION_CODE_ST,
-			},
 		},
-		{
-			"4-2-3-1",
-			{
+	}));
+	vector_push(options->formations, ((Formation){
+		.name = "4-2-3-1",
+		.positions = {
 				POSITION_CODE_GK,
 				POSITION_CODE_DL,
 				POSITION_CODE_DC,
@@ -291,11 +357,11 @@ static void setDefaults(void) {
 				POSITION_CODE_AMC,
 				POSITION_CODE_AMR,
 				POSITION_CODE_ST,
-			},
 		},
-		{
-			"4-2-4 IF",
-			{
+	}));
+	vector_push(options->formations, ((Formation){
+			.name = "4-2-4 IF",
+			.positions = {
 				POSITION_CODE_GK,
 				POSITION_CODE_DL,
 				POSITION_CODE_DC,
@@ -308,59 +374,47 @@ static void setDefaults(void) {
 				POSITION_CODE_ST,
 				POSITION_CODE_ST,
 			},
-		},
-	};
+	}));
 
-	options->formationCount = (uint8_t)(sizeof(formations) / sizeof(formations[0]));
-	for (uint8_t i = 0; i < options->formationCount; ++i) {
-		snprintf(options->formations[i].name, FORMATION_NAME_LENGTH, "%s", formations[i].name);
-		memcpy(options->formations[i].positions, formations[i].positions, sizeof(formations[i].positions));
-	}
+	vector_push(options->weights, ((PositionWeights){.position = POSITION_GROUPED_GK, .scale = 1, .weights = NULL}));
+	vector_push(options->weights, ((PositionWeights){.position = POSITION_GROUPED_COUNT, .scale = 1.05f, .weights = NULL}));
 
-	// TODO: use a vector for this
-	static PositionWeights weights[] = {
-		{.role = POSITION_GROUPED_GK, .weights = {0}},
-		{.role = POSITION_GROUPED_COUNT, .weights = {0}},
-	};
 	// Ref: https://fm-arena.com/find-comment/53835/
-	weights[0].weights[ATTR_DET] = 20;
-	weights[0].weights[ATTR_CON] = 18.53f;
-	weights[0].weights[ATTR_REF] = 19.35f;
-	weights[0].weights[ATTR_AER] = 6.45f;
-	weights[0].weights[ATTR_AGI] = 7.35f;
-	weights[0].weights[ATTR_PAC] = 6.37f;
-	weights[0].weights[ATTR_ACC] = 3.38f;
-	weights[0].weights[ATTR_INJ] = -11.03f;
-	weights[0].weights[ATTR_DIR] = -3.68f;
-	weights[0].weights[ATTR_FIR] = 3.83f;
-	weights[0].weights[ATTR_WOR] = 8.7f;
-	weights[0].weights[ATTR_JUM] = 3.22f;
-	weights[0].weights[ATTR_STA] = 7.35f;
-	weights[0].weights[ATTR_TEC] = 3.53f;
-	weights[0].weights[ATTR_FLA] = 11.03f;
-	weights[0].weights[ATTR_COM] = 3.53f;
-	weights[0].weights[ATTR_PRE] = 3.38f;
-	weights[0].weights[ATTR_PRO] = 2.2f;
-	weights[0].weights[ATTR_NAT] = 2.35f;
-	weights[0].scale = 1;
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_DET, .weight = 20}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_CON, .weight = 18.53f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_REF, .weight = 19.35f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_AER, .weight = 6.45f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_AGI, .weight = 7.35f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_PAC, .weight = 6.37f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_ACC, .weight = 3.38f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_INJ, .weight = -11.03f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_DIR, .weight = -3.68f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_FIR, .weight = 3.83f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_WOR, .weight = 8.7f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_JUM, .weight = 3.22f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_STA, .weight = 7.35f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_TEC, .weight = 3.53f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_FLA, .weight = 11.03f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_COM, .weight = 3.53f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_PRE, .weight = 3.38f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_PRO, .weight = 2.2f}));
+	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_NAT, .weight = 2.35f}));
 
-	weights[1].weights[ATTR_PAC] = 20;
-	weights[1].weights[ATTR_ACC] = 19.26f;
-	weights[1].weights[ATTR_JUM] = 9.15f;
-	weights[1].weights[ATTR_DRI] = 3.04f;
-	weights[1].weights[ATTR_BAL] = 3.03f;
-	weights[1].weights[ATTR_CON] = 9.57f;
-	weights[1].weights[ATTR_ANT] = 8.51f;
-	weights[1].weights[ATTR_DET] = 9.25f;
-	weights[1].weights[ATTR_AGI] = 3.40f;
-	weights[1].weights[ATTR_STA] = 10.64f;
-	weights[1].weights[ATTR_DIR] = 6.8f;
-	weights[1].weights[ATTR_CMP] = 5.53f;
-	weights[1].weights[ATTR_WOR] = 14.15f;
-	weights[1].weights[ATTR_PRE] = 3.62f;
-	weights[1].weights[ATTR_INJ] = -4.8f;
-	weights[1].scale = 1.05f;
-	memcpy(options->weights, weights, sizeof(weights));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_PAC, .weight = 20}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_ACC, .weight = 19.26f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_JUM, .weight = 9.15f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_DRI, .weight = 3.04f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_BAL, .weight = 3.03f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_CON, .weight = 9.57f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_ANT, .weight = 8.51f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_DET, .weight = 9.25f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_AGI, .weight = 3.40f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_STA, .weight = 10.64f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_DIR, .weight = 6.8f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_CMP, .weight = 5.53f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_WOR, .weight = 14.15f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_PRE, .weight = 3.62f}));
+	vector_push(options->weights[1].weights, ((RatingWeight){.attribute = ATTR_INJ, .weight = -4.8f}));
 }
 
 // Writes the current in-memory defaults to a new options file so the user has one to edit.
@@ -378,13 +432,32 @@ static void writeDefaultOptions(const char *path) {
 	fprintf(file, "dark-mode: %s\n", options->darkMode ? "true" : "false");
 
 	fputs("formations:\n", file);
-	for (uint8_t i = 0; i < options->formationCount; ++i) {
+	for (uint64_t i = 0; i < vector_length(options->formations); ++i) {
 		fprintf(file, "  - name: \"%s\"\n", options->formations[i].name);
 		fputs("    positions:", file);
 		for (uint8_t j = 0; j < FORMATION_POSITION_COUNT; ++j) {
 			fprintf(file, " %s", positionCodeNames[options->formations[i].positions[j]]);
 		}
 		fputc('\n', file);
+	}
+
+	fputs("ratings:\n", file);
+	for (uint64_t i = 0; i <  vector_length(options->weights); ++i) {
+		fprintf(file, "  - position: %s\n", positionGroupedCodes[options->weights[i].position]);
+		fputs("    weights:\n", file);
+		bool isFirstAttribute = true;
+		for (uint64_t j = 0; j < vector_length(options->weights[i].weights); ++j) {
+			const float weight = options->weights[i].weights[j].weight;
+			const uint8_t attribute = options->weights[i].weights[j].attribute;
+			if (weight > 0) {
+				if (isFirstAttribute) {
+					fprintf(file, "      - %s: %.2f\n", attributeNames[attribute], weight);
+					isFirstAttribute = false;
+				} else {
+					fprintf(file, "        %s: %.2f\n", attributeNames[attribute], weight);
+				}
+			}
+		}
 	}
 
 	fclose(file);
@@ -412,12 +485,14 @@ void options_init(void) {
 		return;
 	}
 
-	FormationParser parser = {0};
+	FormationParser formationParser = {0};
+	RatingsParser ratingsParser = {0};
 	bool inFormations = false;
+	bool inRatings = false;
 
 	char line[OPTIONS_LINE_BUFFER_SIZE];
 	while (fgets(line, sizeof(line), file)) {
-		const bool indented = (line[0] == ' ' || line[0] == '\t');
+		const bool indented = line[0] == ' ' || line[0] == '\t';
 		char *cursor = trimLeading(line);
 		trimTrailing(cursor);
 
@@ -426,15 +501,27 @@ void options_init(void) {
 			continue;
 		}
 
+		// TODO: Change format from space-separated string to YAML array
 		if (inFormations) {
 			if (indented) {
-				formationParser_line(&parser, cursor);
+				formationParser_line(&formationParser, cursor);
 				continue;
 			}
 
 			// A non-indented line ends the block; fall through to handle it as a top-level key.
-			formationParser_finalize(&parser);
+			formationParser_finalise(&formationParser);
 			inFormations = false;
+		}
+
+		if (inRatings) {
+			if (indented) {
+				ratingsParser_line(&ratingsParser, cursor);
+				continue;
+			}
+
+			// A non-indented line ends the block; fall through to handle it as a top-level key.
+			ratingsParser_finalise(&ratingsParser);
+			inRatings = false;
 		}
 
 		char *separator = strchr(cursor, ':');
@@ -454,9 +541,8 @@ void options_init(void) {
 		}
 
 		if (!strcmp(key, "formations")) {
-			// The file is authoritative for formations when the key is present.
-			gameContext.options.formationCount = 0;
-			parser = (FormationParser){0};
+			vector_free(gameContext.options.formations);
+			formationParser = (FormationParser){0};
 			inFormations = true;
 			if (*value != '\0') {
 				LOG_WARN("Ignoring inline value for 'formations'");
@@ -464,11 +550,20 @@ void options_init(void) {
 			continue;
 		}
 
+		if (!strcmp(key, "ratings")) {
+			vector_free(gameContext.options.weights);
+			inRatings = true;
+			if (*value != '\0') {
+				LOG_WARN("Ignoring inline value for 'ratings'");
+			}
+			continue;
+		}
+
 		applyOption(key, value);
 	}
 
-	// Finalise a formation still open at end of file.
-	formationParser_finalize(&parser);
+	formationParser_finalise(&formationParser);
+	ratingsParser_finalise(&ratingsParser);
 
 	fclose(file);
 
