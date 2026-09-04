@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 			<object class="GtkAdjustment" id="adjustment:min-condition">
 				<property name="lower">0</property>
 				<property name="upper">100</property>
-				<property name="value">70</property>
+				<property name="value">0</property>
 				<property name="step-increment">1</property>
 				<property name="page-increment">5</property>
 			</object>

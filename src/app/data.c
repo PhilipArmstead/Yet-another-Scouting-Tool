@@ -69,43 +69,45 @@ void clearCaches(void) {
 static void cacheNations(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
-#ifndef MOCKS_MODE
-	uint8_t bytes[4];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + NATION_LIST_PTR_BASE, 4, bytes);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + NATION_LIST_PTR_BASE_OFFSET, 4, bytes);
+	#ifndef MOCKS_MODE
+	uint8_t bytes[8];
+	readFromMemory(processContext.handle, processContext.moduleBaseAddress + NATION_LIST_PTR_BASE, 8, bytes);
+	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_PTR_BASE_OFFSET, 8, bytes);
 
-	uint8_t nationStartBuffer[4];
-	uint8_t nationEndBuffer[4];
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + NATION_LIST_START, 4, nationStartBuffer);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + NATION_LIST_END, 4, nationEndBuffer);
-	const uint64_t nationStart = hexBytesToInt(nationStartBuffer, 4);
-	const uint64_t nationEnd = hexBytesToInt(nationEndBuffer, 4);
+	uint8_t nationStartBuffer[8];
+	uint8_t nationEndBuffer[8];
+	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_START, 8, nationStartBuffer);
+	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_END, 8, nationEndBuffer);
+	const uint64_t nationStart = hexBytesToInt(nationStartBuffer, 8);
+	const uint64_t nationEnd = hexBytesToInt(nationEndBuffer, 8);
 	const uint64_t nationCount = (nationEnd - nationStart) / NATION_LIST_STRIDE;
 	gameContext.nationCount = nationCount;
 	gameContext.nations = malloc(nationCount * sizeof(Nation));
 	for (uint64_t i = 0; i < nationCount; i++) {
-		uint8_t nationBuffer[4];
-		readFromMemory(processContext.handle, nationStart + i * NATION_LIST_STRIDE, 4, nationBuffer);
-		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 4) + NATION_OFFSET_NAME, 4, bytes);
+		uint8_t nationBuffer[8];
+		readFromMemory(processContext.handle, nationStart + i * NATION_LIST_STRIDE, 8, nationBuffer);
+		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME, 8, bytes);
 		readFromMemory(
 			processContext.handle,
-			hexBytesToInt(bytes, 4) + STRING_OFFSET_VALUE,
+			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			MAX_NATION_STRING_LENGTH,
-			(uint8_t *)gameContext.nations[i].name);
-		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 4) + NATION_OFFSET_NAME_CODE, 4, bytes);
+			(uint8_t*)gameContext.nations[i].name
+		);
+		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME_CODE, 8, bytes);
 		readFromMemory(
 			processContext.handle,
-			hexBytesToInt(bytes, 4) + STRING_OFFSET_VALUE,
-			4,
-			(uint8_t *)gameContext.nations[i].code);
+			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+			8,
+			(uint8_t*)gameContext.nations[i].code
+		);
 	}
-#else
+	#else
 	const uint8_t nationCount = 251;
 	gameContext.nationCount = nationCount;
 	gameContext.nations = malloc(nationCount * sizeof(Nation));
 	gameContext.nations[189] = PLAYER_BY_ID_NATION_1;
 	gameContext.nations[170] = PLAYER_BY_ID_NATION_2;
-#endif
+	#endif
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Cached %d nations in %zu microseconds", nationCount, timeEnd - timeStart);
@@ -114,51 +116,53 @@ static void cacheNations(void) {
 static void cacheClubs(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
-#ifndef MOCKS_MODE
-	uint8_t bytes[4];
+	#ifndef MOCKS_MODE
+	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + CLUB_LIST_PTR_BASE, 4, bytes);
 	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + CLUB_LIST_PTR_BASE_OFFSET, 4, bytes);
 
-	uint8_t clubStartBuffer[4];
-	uint8_t clubEndBuffer[4];
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + CLUB_LIST_START, 4, clubStartBuffer);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + CLUB_LIST_END, 4, clubEndBuffer);
-	const uint64_t clubStart = hexBytesToInt(clubStartBuffer, 4);
-	const uint64_t clubEnd = hexBytesToInt(clubEndBuffer, 4);
+	uint8_t clubStartBuffer[8];
+	uint8_t clubEndBuffer[8];
+	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + CLUB_LIST_START, 8, clubStartBuffer);
+	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + CLUB_LIST_END, 8, clubEndBuffer);
+	const uint64_t clubStart = hexBytesToInt(clubStartBuffer, 8);
+	const uint64_t clubEnd = hexBytesToInt(clubEndBuffer, 8);
 	const uint64_t clubCount = (clubEnd - clubStart) / CLUB_LIST_STRIDE;
 	gameContext.clubCount = clubCount;
 	gameContext.clubs = malloc(clubCount * sizeof(Club));
 	uint64_t missed = 0;
 	for (uint64_t i = 0; i < clubCount; i++) {
-		uint8_t clubBuffer[4];
-		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 4, clubBuffer);
-		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 4) + CLUB_OFFSET_NAME, 4, bytes);
-		uint32_t namePointer = (uint32_t)hexBytesToInt(bytes, 4);
+		uint8_t clubBuffer[8];
+		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
+		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 8) + CLUB_OFFSET_NAME, 8, bytes);
+		uint64_t namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		if (!namePointer || !readFromMemory(
-													processContext.handle,
-													hexBytesToInt(bytes, 4) + STRING_OFFSET_VALUE,
-													CLUB_LONG_NAME_LENGTH,
-													(uint8_t *)gameContext.clubs[i - missed].name)) {
+			processContext.handle,
+			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+			CLUB_LONG_NAME_LENGTH,
+			(uint8_t*)gameContext.clubs[i - missed].name
+		)) {
 			missed++;
 			continue;
 		}
 
-		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 4) + CLUB_OFFSET_NAME_SHORT, 4, bytes);
-		namePointer = (uint32_t)hexBytesToInt(bytes, 4);
+		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 8) + CLUB_OFFSET_NAME_SHORT, 8, bytes);
+		namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		readFromMemory(
 			processContext.handle,
-			hexBytesToInt(bytes, 4) + STRING_OFFSET_VALUE,
+			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			CLUB_SHORT_NAME_LENGTH,
-			(uint8_t *)gameContext.clubs[i - missed].shortName);
+			(uint8_t*)gameContext.clubs[i - missed].shortName
+		);
 	}
 
 	gameContext.clubCount -= missed;
-#else
+	#else
 	const uint32_t clubCount = 36289;
 	gameContext.clubCount = clubCount;
 	gameContext.clubs = malloc(clubCount * sizeof(Club));
 	gameContext.clubs[1125] = PLAYER_BY_ID_CLUB;
-#endif
+	#endif
 
 	// TODO: use vector_reserve to shrink the size of Players
 	//  also why are there ~3k empty players sometimes? Newgens?
@@ -170,18 +174,18 @@ static void cachePlayers(const uint8_t half) {
 	const int64_t timeStart = platform_getMicroseconds();
 	uint64_t cached = 0;
 
-#ifndef MOCKS_MODE
+	#ifndef MOCKS_MODE
 	const uint64_t halfCount = (gameContext.playerCount - 1) / 2;
 	const uint64_t start = half ? halfCount + 1 : 0;
 	const uint64_t end = half ? gameContext.playerCount : halfCount + 1;
 
-	uint8_t bytes[4];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 4, bytes);
-	const uint64_t playerStart = hexBytesToInt(bytes, 4);
+	uint8_t bytes[8];
+	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
+	const uint64_t playerStart = hexBytesToInt(bytes, 8);
 	for (uint64_t i = start; i < end; i++) {
-		readFromMemory(processContext.handle, playerStart + i * PLAYER_LIST_STRIDE, 4, bytes);
-		const uint32_t playerAddress = (uint32_t)hexBytesToInt(bytes, 4);
-		const uint32_t personAddress = getPersonAddressFromPlayerAddress(processContext.handle, playerAddress);
+		readFromMemory(processContext.handle, playerStart + i * PLAYER_LIST_STRIDE, 8, bytes);
+		const uint64_t playerAddress = hexBytesToInt(bytes, 8);
+		const uint64_t personAddress = getPersonAddressFromPlayerAddress(processContext.handle, playerAddress);
 		const Player player = getPlayer(processContext.handle, true, personAddress, playerAddress);
 		if (!player.uid) {
 			continue;
@@ -189,7 +193,7 @@ static void cachePlayers(const uint8_t half) {
 		gameContext.players[i] = player;
 		++cached;
 	}
-#else
+	#else
 	// Only one worker seeds the mock data so the two halves never race.
 	if (half == 0) {
 		const Player playerVini = PLAYER_VINI;
@@ -198,13 +202,14 @@ static void cachePlayers(const uint8_t half) {
 			memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
 		}
 	}
-#endif
+	#endif
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG(
 		"Cached %llu players in %llu microseconds",
 		(unsigned long long)cached,
-		(unsigned long long)(timeEnd - timeStart));
+		(unsigned long long)(timeEnd - timeStart)
+	);
 }
 
 // Removes the invalid (zeroed) players the workers skipped, closing the gaps so
@@ -231,14 +236,14 @@ static void compactPlayers(void) {
 }
 
 void runMultiThreadedCache(void) {
-// Prepare player array for multithreaded writing
-#ifndef MOCKS_MODE
+	// Prepare player array for multithreaded writing
+	#ifndef MOCKS_MODE
 	uint8_t bytes[4];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_COUNT_PTR_BASE, 4, bytes);
 	const uint64_t playerCount = hexBytesToInt(bytes, 4);
-#else
+	#else
 	const uint64_t playerCount = 900;
-#endif
+	#endif
 
 	gameContext.playerCount = playerCount;
 	// calloc so that slots the workers skip stay zeroed (uid == 0) and are
@@ -253,7 +258,8 @@ void runMultiThreadedCache(void) {
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
 		snprintf(buffer, sizeof(buffer), "worker-%d", i);
-		g_thread_new(buffer, threadFunction, (void *)(uintptr_t)(i + 1));
+		g_thread_new(buffer, threadFunction, (void*)(uintptr_t)(i + 1));
+		// threadFunction((void*)(uintptr_t)(i + 1));
 	}
 }
 

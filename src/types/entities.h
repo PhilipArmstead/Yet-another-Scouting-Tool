@@ -85,11 +85,11 @@ typedef struct {
 	char commonName[PERSON_COMMON_NAME_LENGTH + 1];
 	uint8_t nationality[4];
 	int64_t clubIndex; // -1 means unemployed
+	uint64_t personAddress;
+	uint64_t playerAddress;
 	uint32_t rowId;
 	uint32_t rid;
 	uint32_t uid;
-	uint32_t personAddress;
-	uint32_t playerAddress;
 	uint32_t guideValue;
 	uint32_t annualWage;
 	uint16_t sharpness;
@@ -126,4 +126,3 @@ typedef struct {
 	const Player *player;
 	float rating;
 } BestElevenRow;
-

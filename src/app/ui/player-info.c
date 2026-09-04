@@ -4,6 +4,7 @@
 #include "app/maths.h"
 #include "app/player.h"
 #include "app/ui.h"
+#include "app/helpers/vector.h"
 
 
 extern GameContext gameContext;
@@ -68,13 +69,11 @@ void ui_renderPlayerInfoWindow(WindowContext context, const Player *player) {
 		gtk_label_set_text(clubNameLabel, club.name);
 	}
 
-	float weights[ATTRIBUTE_COUNT];
-	float scale = 1.0f;
-	getWeightsForPosition(player->ratings[0].position, weights, &scale);
+	const PositionWeights *positionWeights = getWeightsForPosition(player->ratings[0].position);
 	float max = 0;
-	for (int i = 0; i < ATTRIBUTE_COUNT; ++i) {
-		if (weights[i] > max) {
-			max = weights[i];
+	for (uint64_t i = 0; i < vector_length(positionWeights->weights); ++i) {
+		if (positionWeights->weights[i].weight > max) {
+			max = positionWeights->weights[i].weight;
 		}
 	}
 
@@ -82,16 +81,16 @@ void ui_renderPlayerInfoWindow(WindowContext context, const Player *player) {
 	char widgetId[64];
 	GtkLabel *label;
 	GtkWidget *widget;
-	#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {																	\
+	#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {															\
 		snprintf(buffer, 8, "%d", convertTo20Scale(player->attributes[attributeIndex]));		\
 		snprintf(widgetId, 64, "label:%s", id);																							\
 		label = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId)));		\
 		gtk_label_set_text(label, buffer);																									\
 		snprintf(widgetId, 64, "row:%s", id);																								\
 		widget = GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId));							\
-		if (weights[attributeIndex] > max * 0.5f) {																					\
+		if (positionWeights->weights[attributeIndex].weight > max * 0.5f) {									\
 			gtk_widget_add_css_class(widget, "attribute-row--high");													\
-		} else if (weights[attributeIndex] > max * 0.15f) {																	\
+		} else if (positionWeights->weights[attributeIndex].weight > max * 0.15f) {					\
 			gtk_widget_add_css_class(widget, "attribute-row--mid");														\
 		}																																										\
 	}

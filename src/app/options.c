@@ -32,6 +32,21 @@ typedef struct {
 } RatingsParser;
 
 
+static char *trimLeadingWithIndentCount(char *text, uint8_t *indentLevel) {
+	while (true) {
+		if (*text == ' ') {
+			++*indentLevel;
+			++text;
+		} else if (*text == '\t') {
+			*indentLevel = *indentLevel + 2;
+			++text;
+		} else {
+			break;
+		}
+	}
+	return text;
+}
+
 static char *trimLeading(char *text) {
 	while (*text == ' ' || *text == '\t') {
 		++text;
@@ -228,6 +243,12 @@ static void ratingsParser_keyValue(RatingsParser *parser, const char *key, char 
 		return;
 	}
 
+	if (!strcmp(key, "scale")) {
+		parser->current.scale = strtof(value, NULL);
+		parser->inWeights = false;
+		return;
+	}
+
 	if (parser->inWeights) {
 		formationParser_weight(parser, key, value);
 		return;
@@ -311,9 +332,11 @@ static void setDefaults(void) {
 	memset(options, 0, sizeof(*options));
 	options->darkMode = true;
 
-	vector_push(options->formations, ((Formation){
-		.name = "4-4-2",
-		.positions = {
+	vector_push(
+		options->formations,
+		((Formation){
+			.name = "4-4-2",
+			.positions = {
 			POSITION_CODE_GK,
 			POSITION_CODE_DL,
 			POSITION_CODE_DC,
@@ -325,59 +348,72 @@ static void setDefaults(void) {
 			POSITION_CODE_MR,
 			POSITION_CODE_ST,
 			POSITION_CODE_ST,
-		},
-	}));
-	vector_push(options->formations, ((Formation){
-		.name = "4-3-3",
-		.positions = {
-				POSITION_CODE_GK,
-				POSITION_CODE_DL,
-				POSITION_CODE_DC,
-				POSITION_CODE_DC,
-				POSITION_CODE_DR,
-				POSITION_CODE_MC,
-				POSITION_CODE_MC,
-				POSITION_CODE_MC,
-				POSITION_CODE_AML,
-				POSITION_CODE_AMR,
-				POSITION_CODE_ST,
-		},
-	}));
-	vector_push(options->formations, ((Formation){
-		.name = "4-2-3-1",
-		.positions = {
-				POSITION_CODE_GK,
-				POSITION_CODE_DL,
-				POSITION_CODE_DC,
-				POSITION_CODE_DC,
-				POSITION_CODE_DR,
-				POSITION_CODE_DM,
-				POSITION_CODE_DM,
-				POSITION_CODE_AML,
-				POSITION_CODE_AMC,
-				POSITION_CODE_AMR,
-				POSITION_CODE_ST,
-		},
-	}));
-	vector_push(options->formations, ((Formation){
+			},
+			})
+	);
+	vector_push(
+		options->formations,
+		((Formation){
+			.name = "4-3-3",
+			.positions = {
+			POSITION_CODE_GK,
+			POSITION_CODE_DL,
+			POSITION_CODE_DC,
+			POSITION_CODE_DC,
+			POSITION_CODE_DR,
+			POSITION_CODE_MC,
+			POSITION_CODE_MC,
+			POSITION_CODE_MC,
+			POSITION_CODE_AML,
+			POSITION_CODE_AMR,
+			POSITION_CODE_ST,
+			},
+			})
+	);
+	vector_push(
+		options->formations,
+		((Formation){
+			.name = "4-2-3-1",
+			.positions = {
+			POSITION_CODE_GK,
+			POSITION_CODE_DL,
+			POSITION_CODE_DC,
+			POSITION_CODE_DC,
+			POSITION_CODE_DR,
+			POSITION_CODE_DM,
+			POSITION_CODE_DM,
+			POSITION_CODE_AML,
+			POSITION_CODE_AMC,
+			POSITION_CODE_AMR,
+			POSITION_CODE_ST,
+			},
+			})
+	);
+	vector_push(
+		options->formations,
+		((Formation){
 			.name = "4-2-4 IF",
 			.positions = {
-				POSITION_CODE_GK,
-				POSITION_CODE_DL,
-				POSITION_CODE_DC,
-				POSITION_CODE_DC,
-				POSITION_CODE_DR,
-				POSITION_CODE_DM,
-				POSITION_CODE_DM,
-				POSITION_CODE_AML,
-				POSITION_CODE_AMR,
-				POSITION_CODE_ST,
-				POSITION_CODE_ST,
+			POSITION_CODE_GK,
+			POSITION_CODE_DL,
+			POSITION_CODE_DC,
+			POSITION_CODE_DC,
+			POSITION_CODE_DR,
+			POSITION_CODE_DM,
+			POSITION_CODE_DM,
+			POSITION_CODE_AML,
+			POSITION_CODE_AMR,
+			POSITION_CODE_ST,
+			POSITION_CODE_ST,
 			},
-	}));
+			})
+	);
 
-	vector_push(options->weights, ((PositionWeights){.position = POSITION_GROUPED_GK, .scale = 1, .weights = NULL}));
-	vector_push(options->weights, ((PositionWeights){.position = POSITION_GROUPED_COUNT, .scale = 1.05f, .weights = NULL}));
+	vector_push(options->weights, ((PositionWeights){.position = POSITION_GROUPED_GK, .scale = 1.1f, .weights = NULL}));
+	vector_push(
+		options->weights,
+		((PositionWeights){.position = POSITION_GROUPED_COUNT, .scale = 1.1f, .weights = NULL})
+	);
 
 	// Ref: https://fm-arena.com/find-comment/53835/
 	vector_push(options->weights[0].weights, ((RatingWeight){.attribute = ATTR_DET, .weight = 20}));
@@ -442,8 +478,9 @@ static void writeDefaultOptions(const char *path) {
 	}
 
 	fputs("ratings:\n", file);
-	for (uint64_t i = 0; i <  vector_length(options->weights); ++i) {
+	for (uint64_t i = 0; i < vector_length(options->weights); ++i) {
 		fprintf(file, "  - position: %s\n", positionGroupedCodes[options->weights[i].position]);
+		fprintf(file, "    scale: %.2f\n", options->weights[i].scale);
 		fputs("    weights:\n", file);
 		bool isFirstAttribute = true;
 		for (uint64_t j = 0; j < vector_length(options->weights[i].weights); ++j) {
@@ -493,7 +530,11 @@ void options_init(void) {
 	char line[OPTIONS_LINE_BUFFER_SIZE];
 	while (fgets(line, sizeof(line), file)) {
 		const bool indented = line[0] == ' ' || line[0] == '\t';
-		char *cursor = trimLeading(line);
+		uint8_t indentLevel = 0;
+		char *cursor = trimLeadingWithIndentCount(line, &indentLevel);
+		if (inRatings && indentLevel < 6) {
+			ratingsParser.inWeights = false;
+		}
 		trimTrailing(cursor);
 
 		// Skip blank lines and comments without ending an open formations block.
