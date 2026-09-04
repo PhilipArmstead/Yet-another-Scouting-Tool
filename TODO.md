@@ -1,8 +1,14 @@
 TODO
 ===
 
+- Show player count in status bar
+- Refresh date/time periodically
+	- If either has changed, and app is not in focus, refresh players
+- Clear cache/UI if the save goes away
+	- Write "cannot find save" in date slot
 - Port `platform_openProcess` to Linux
 - Read player positional weights from YAML file
+- Write defaults to config
 - To player-info
 	- ⭐ Add footedness
 	- Add height/weight
@@ -15,7 +21,7 @@ TODO
 	- Search for nationality
 	- Search for asking/guide price/wage
 - Best Eleven
-	- Show best XI based on search results
-	- Customise formations (read from YAML file)
-	- Filter best XI
-	- Exclude individuals
+	- Show age
+	- Show condition
+	- Show injuries (and filter on it)
+	- Open player info from clicking row
