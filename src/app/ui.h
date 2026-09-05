@@ -15,12 +15,8 @@ typedef struct {
 
 void ui_init(GtkApplication *app);
 void ui_update(void);
-void connectToProcess(void);
-gboolean update(gpointer userData);
-void updateGameStatus(void);
-void updateInGameDate(void);
-void updateShowCurrentPlayerButton(void);
-
+void ui_updateGameStatus(void);
+void ui_updateInGameDate(void);
 void ui_clearFilterTags(void);
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
 void ui_createClubFilterTag(const char *text, GtkEditable *buffer);

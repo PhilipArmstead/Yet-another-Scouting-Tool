@@ -7,6 +7,8 @@ TODO
 - Clear cache/UI if the save goes away
 	- Write "cannot find save" in date slot
 - Port `platform_openProcess` to Linux
+- Hot reload when config file is modified
+- Implement light mode
 - To player-info
 	- ⭐ Add footedness
 	- Add height/weight

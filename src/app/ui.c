@@ -4,8 +4,6 @@
 #include "ui.h"
 #include "app/callbacks.h"
 #include "app/config.h"
-#include "app/data.h"
-#include "app/game-status.h"
 #include "app/search-handler.h"
 #include "app/helpers/date.h"
 #include "core/logger.h"
@@ -19,10 +17,6 @@
 extern ProcessContext processContext;
 extern GameContext gameContext;
 
-static void handleDisconnect(void);
-static void handleConnect(void);
-static inline void updateWhileConnected(void);
-static inline void updateWhileDisconnected(void);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
 static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer);
 static void loadStylesheet(const char *fileName);
@@ -40,10 +34,6 @@ void ui_init(GtkApplication *app) {
 	runMultiThreadedCache();
 	#endif
 
-	// Periodic callbacks
-	g_timeout_add(1000, update, NULL);
-	update(NULL);
-
 	// Create datalist box
 	SearchDatalist *dataList = g_new0(SearchDatalist, 1);
 
@@ -57,7 +47,7 @@ void ui_init(GtkApplication *app) {
 	gtk_popover_set_child(dataList->popover, GTK_WIDGET(dataList->listBox));
 	gtk_widget_set_parent(GTK_WIDGET(dataList->popover), GTK_WIDGET(dataList->entry));
 
-	gtk_popover_set_pointing_to(dataList->popover, &(GdkRectangle){102, 27, 1, 1});
+	gtk_popover_set_pointing_to(dataList->popover, &(GdkRectangle){.x = 102, .y = 27, .width = 1, .height = 1});
 	gtk_popover_set_position(dataList->popover, GTK_POS_BOTTOM);
 
 	gtk_popover_set_autohide(dataList->popover, FALSE);
@@ -82,77 +72,11 @@ void ui_init(GtkApplication *app) {
 	buf->maxRating = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:rating:max")));
 }
 
-void connectToProcess(void) {
-	clearCaches();
-	platform_openProcess(&processContext);
-
-	if (processContext.handle != NULL) {
-		handleConnect();
-	}
-}
-
-gboolean update(gpointer userData) {
-	(void)userData;
-
-	#ifndef MOCKS_MODE
-	if (processContext.handle != NULL) {
-		updateWhileConnected();
-	} else {
-		updateWhileDisconnected();
-	}
-	#else
-	updateWhileConnected();
-	#endif
-	return G_SOURCE_CONTINUE;
-}
-
 void ui_update(void) {
-	updateGameStatus();
+	ui_updateGameStatus();
 }
 
-static inline void updateWhileConnected(void) {
-	// Get the current time/date
-	DayMonthYear dayMonthYear = getDayMonthYear(&processContext);
-
-	// Bail if the date is invalid and assume we're no longer connected
-	if (dayMonthYear.day == 0 || dayMonthYear.year == 0) {
-		handleDisconnect();
-		return;
-	}
-
-	// Cache the new date if it's different from the last one we saw
-	if (
-		dayMonthYear.day != gameContext.currentDate.day ||
-		dayMonthYear.year != gameContext.currentDate.year ||
-		strncmp(dayMonthYear.month, gameContext.currentDate.month, MONTH_NAME_LENGTH) != 0
-	) {
-		gameContext.currentDate = dayMonthYear;
-		LOG_INFO(
-			"Current Date: %s %d, %d",
-			dayMonthYear.month,
-			dayMonthYear.day,
-			dayMonthYear.year
-		);
-
-		updateInGameDate();
-	}
-
-	// Update the game version if it's different from the last one we saw
-	char versionBuffer[GAME_STATUS_STRING_BUFFER_SIZE] = {0};
-	getGameVersion(&processContext, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
-	if (strncmp(versionBuffer, gameContext.gameVersion, GAME_STATUS_STRING_BUFFER_SIZE) != 0) {
-		strncpy(gameContext.gameVersion, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
-		LOG_INFO("Game Version: %s", versionBuffer);
-
-		updateGameStatus();
-	}
-}
-
-static inline void updateWhileDisconnected(void) {
-	connectToProcess();
-}
-
-void updateInGameDate(void) {
+void ui_updateInGameDate(void) {
 	GtkLabel *dateLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:date")));
 
 	#ifndef MOCKS_MODE
@@ -175,7 +99,7 @@ void updateInGameDate(void) {
 	gtk_label_set_text(dateLabel, buffer);
 }
 
-void updateGameStatus(void) {
+void ui_updateGameStatus(void) {
 	GtkLabel *versionLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:status")));
 
 	#ifndef MOCKS_MODE
@@ -210,27 +134,6 @@ WindowContext openWindow(const char *layoutName, const char *windowName) {
 
 	gtk_window_present(GTK_WINDOW(context.window));
 	return context;
-}
-
-static void handleDisconnect(void) {
-	processContext.handle = NULL;
-
-	gameContext.gameVersion[0] = '\0';
-	gameContext.currentDate = (DayMonthYear){0};
-
-	ui_update();
-}
-
-static void handleConnect(void) {
-	LOG_INFO(
-		"Process opened with PID: %u (base module address of %p)",
-		processContext.pid,
-		(void*)processContext.moduleBaseAddress
-	);
-	ui_update();
-	update(NULL);
-
-	runMultiThreadedCache();
 }
 
 typedef struct {
