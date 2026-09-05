@@ -15,7 +15,7 @@ typedef struct {
 
 void ui_init(GtkApplication *app);
 void ui_update(void);
-void ui_updateGameStatus(void);
+void ui_updateGameVersion(void);
 void ui_updateInGameDate(void);
 void ui_clearFilterTags(void);
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
@@ -26,3 +26,5 @@ WindowContext ui_createPlayerInfoWindow(void);
 void ui_renderPlayerInfoWindow(WindowContext context, const Player *player);
 WindowContext ui_createBestElevenWindow(void);
 void ui_renderBestElevenWindow(WindowContext context);
+
+void ui_setCurrentStatus(const char *status);

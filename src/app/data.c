@@ -7,17 +7,19 @@
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/player.h"
+#include "app/helpers/formatter.h"
 #include "core/logger.h"
 #include "platform/platform.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+#include "ui.h"
+
 
 extern ProcessContext processContext;
 extern GameContext gameContext;
 
-static thread_t threads[THREAD_COUNT];
 static gboolean onThreadComplete(gpointer userData);
 static void cachePlayers(uint8_t half);
 static void cacheClubs(void);
@@ -43,8 +45,7 @@ static gpointer threadFunction(gpointer arg) {
 			break;
 	}
 
-
-	return 0;
+	return NULL;
 }
 
 void clearCaches(void) {
@@ -164,8 +165,6 @@ static void cacheClubs(void) {
 	gameContext.clubs[1125] = PLAYER_BY_ID_CLUB;
 	#endif
 
-	// TODO: use vector_reserve to shrink the size of Players
-	//  also why are there ~3k empty players sometimes? Newgens?
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Cached %d clubs in %zu microseconds", gameContext.clubCount, timeEnd - timeStart);
 }
@@ -277,6 +276,13 @@ static gboolean onThreadComplete(gpointer userData) {
 	// Back in main thread, safe to update UI
 	if (hasClubPartOneFinished && hasClubPartTwoFinished) {
 		compactPlayers();
+
+		char buffer[8];
+		snprintf(buffer, 8, "%llu", gameContext.playerCount);
+		formatter_printNumber(buffer);
+		char bufferStatus[32];
+		snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);
+		ui_setCurrentStatus(bufferStatus);
 	}
 
 	return G_SOURCE_REMOVE;

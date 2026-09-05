@@ -6,6 +6,7 @@
 #include "app/callbacks.h"
 #include "app/data.h"
 #include "app/game-status.h"
+#include "app/maths.h"
 #include "app/options.h"
 #include "app/player-table.h"
 #include "app/ui.h"
@@ -81,6 +82,8 @@ static inline void updateWhileConnected(void) {
 		return;
 	}
 
+	gameContext.isInSave = dayMonthYear.day != 1 && dayMonthYear.year != 1900;
+
 	// Cache the new date if it's different from the last one we saw
 	if (
 		dayMonthYear.day != gameContext.currentDate.day ||
@@ -105,7 +108,21 @@ static inline void updateWhileConnected(void) {
 		strncpy(gameContext.gameVersion, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
 		LOG_INFO("Game Version: %s", versionBuffer);
 
-		ui_updateGameStatus();
+		ui_updateGameVersion();
+	}
+
+	if (gameContext.isInSave) {
+		// Check whether the save has loaded; we'll segfault if we try to run the caching too early
+		uint8_t bytes[4];
+		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_COUNT_PTR_BASE, 4, bytes);
+		const uint64_t playerCount = hexBytesToInt(bytes, 4);
+		if (playerCount > 0 && !gameContext.clubCount) {
+			LOG_DEBUG("Beginning caching");
+			runMultiThreadedCache();
+		}
+	} else {
+		clearCaches();
+		ui_setCurrentStatus("Cannot read save data");
 	}
 }
 
@@ -115,6 +132,8 @@ static inline void updateWhileDisconnected(void) {
 
 	if (processContext.handle != NULL) {
 		handleConnect();
+	} else {
+		ui_setCurrentStatus("Cannot find running process 'fm.exe'");
 	}
 }
 
@@ -125,7 +144,7 @@ static void handleDisconnect(void) {
 	gameContext.gameVersion[0] = '\0';
 	gameContext.currentDate = (DayMonthYear){0};
 
-	ui_update();
+	update(NULL);
 }
 
 static void handleConnect(void) {
@@ -134,8 +153,5 @@ static void handleConnect(void) {
 		processContext.pid,
 		(void*)processContext.moduleBaseAddress
 	);
-	ui_update();
 	update(NULL);
-
-	runMultiThreadedCache();
 }

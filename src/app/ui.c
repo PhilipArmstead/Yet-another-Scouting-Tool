@@ -73,7 +73,8 @@ void ui_init(GtkApplication *app) {
 }
 
 void ui_update(void) {
-	ui_updateGameStatus();
+	ui_updateInGameDate();
+	ui_updateGameVersion();
 }
 
 void ui_updateInGameDate(void) {
@@ -99,18 +100,10 @@ void ui_updateInGameDate(void) {
 	gtk_label_set_text(dateLabel, buffer);
 }
 
-void ui_updateGameStatus(void) {
+void ui_updateGameVersion(void) {
 	GtkLabel *versionLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:status")));
-
-	#ifndef MOCKS_MODE
-	if (processContext.handle == NULL) {
-		gtk_label_set_text(versionLabel, "Not connected");
-		return;
-	}
-	#endif
-
 	if (gameContext.gameVersion[0] == '\0') {
-		gtk_label_set_text(versionLabel, "\0");
+		gtk_label_set_text(versionLabel, "");
 		return;
 	}
 
@@ -134,6 +127,11 @@ WindowContext openWindow(const char *layoutName, const char *windowName) {
 
 	gtk_window_present(GTK_WINDOW(context.window));
 	return context;
+}
+
+void ui_setCurrentStatus(const char *status) {
+	GtkLabel *statusLabel = GTK_LABEL(gtk_builder_get_object(gameContext.builder, "status:player-count"));
+	gtk_label_set_text(statusLabel, status);
 }
 
 typedef struct {

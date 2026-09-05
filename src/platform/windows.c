@@ -101,7 +101,7 @@ void platform_openProcess(ProcessContext *context) {
 	CloseHandle(hSnapshot);
 
 	if (pid == 0) {
-		LOG_ERROR("Process '%s' not found", "fm.exe");
+		LOG_WARN("Process '%s' not found", "fm.exe");
 		return;
 	}
 

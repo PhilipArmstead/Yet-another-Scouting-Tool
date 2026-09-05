@@ -73,6 +73,11 @@ headerbar .title {
 	padding: 2px 6px;
 }
 
+.status-row {
+	border-top: 1px solid var(--border-colour-primary-lighter);
+	padding: 4px 6px;
+}
+
 /** Player search */
 .topbar {
 	background-color: #14181d;

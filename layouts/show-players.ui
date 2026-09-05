@@ -329,91 +329,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 										</child>
 									</object>
 								</child>
-								<!--								<child>-->
-								<!--									<object class="GtkButton">-->
-								<!--										<property name="label">Attribute filter (3…)</property>-->
-								<!--										<style>-->
-								<!--											<class name="attr-filter-btn"/>-->
-								<!--										</style>-->
-								<!--									</object>-->
-								<!--								</child>-->
-								<!--								<child>-->
-								<!--									<object class="GtkBox">-->
-								<!--										<property name="css-classes">sidebar-section-header</property>-->
-								<!--										<property name="spacing">6</property>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">FINANCIAL</property>-->
-								<!--												<property name="halign">start</property>-->
-								<!--												<property name="hexpand">false</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-title"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">▸</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-chevron"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--									</object>-->
-								<!--								</child>-->
-								<!--								<child>-->
-								<!--									<object class="GtkBox">-->
-								<!--										<property name="css-classes">sidebar-section-header</property>-->
-								<!--										<property name="spacing">6</property>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">ORIGIN &amp; COMPETITION</property>-->
-								<!--												<property name="halign">start</property>-->
-								<!--												<property name="hexpand">false</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-title"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">▸</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-chevron"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--									</object>-->
-								<!--								</child>-->
-								<!--								<child>-->
-								<!--									<object class="GtkBox">-->
-								<!--										<property name="css-classes">sidebar-section-header</property>-->
-								<!--										<property name="spacing">6</property>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">AVAILABILITY</property>-->
-								<!--												<property name="halign">start</property>-->
-								<!--												<property name="hexpand">false</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-title"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--										<child>-->
-								<!--											<object class="GtkLabel">-->
-								<!--												<property name="label">▸</property>-->
-								<!--												<style>-->
-								<!--													<class name="section-chevron"/>-->
-								<!--												</style>-->
-								<!--											</object>-->
-								<!--										</child>-->
-								<!--									</object>-->
-								<!--								</child>-->
-								<!--								<child>-->
-								<!--									<object class="GtkBox">-->
-								<!--										<property name="vexpand">true</property>-->
-								<!--									</object>-->
-								<!--								</child>-->
 								<child>
 									<object class="GtkButton" id="button:clear-filters">
 										<property name="label">Clear filters</property>
@@ -438,6 +353,21 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 										<property name="enable-rubberband">true</property>
 									</object>
 								</child>
+							</object>
+						</child>
+					</object>
+				</child>
+				<child>
+					<object class="GtkBox">
+						<property name="orientation">horizontal</property>
+						<property name="hexpand">true</property>
+						<style>
+							<class name="status-row"/>
+						</style>
+						<child>
+							<object class="GtkLabel" id="status:player-count">
+								<property name="label"/>
+								<property name="halign">end</property>
 							</object>
 						</child>
 					</object>
