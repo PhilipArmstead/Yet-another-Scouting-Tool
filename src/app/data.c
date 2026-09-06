@@ -20,6 +20,10 @@
 extern ProcessContext processContext;
 extern GameContext gameContext;
 
+static GThread *threads[THREAD_COUNT];
+static bool cacheInProgress = false;
+static bool hasClubPartOneFinished = false;
+static bool hasClubPartTwoFinished = false;
 static gboolean onThreadComplete(gpointer userData);
 static void cachePlayers(uint8_t half);
 static void cacheClubs(void);
@@ -49,6 +53,16 @@ static gpointer threadFunction(gpointer arg) {
 }
 
 void clearCaches(void) {
+	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
+		if (threads[i] != NULL) {
+			g_thread_join(threads[i]);
+			threads[i] = NULL;
+		}
+	}
+	cacheInProgress = false;
+	hasClubPartOneFinished = false;
+	hasClubPartTwoFinished = false;
+
 	if (gameContext.clubs != NULL) {
 		free(gameContext.clubs);
 		gameContext.clubs = NULL;
@@ -83,14 +97,19 @@ static void cacheNations(void) {
 	const uint64_t nationEnd = hexBytesToInt(nationEndBuffer, 8);
 	const uint64_t nationCount = (nationEnd - nationStart) / NATION_LIST_STRIDE;
 	gameContext.nationCount = nationCount;
-	gameContext.nations = malloc(nationCount * sizeof(Nation));
+	gameContext.nations = calloc(nationCount, sizeof(Nation));
 	for (uint64_t i = 0; i < nationCount; i++) {
 		uint8_t nationBuffer[8];
 		readFromMemory(processContext.handle, nationStart + i * NATION_LIST_STRIDE, 8, nationBuffer);
 		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME, 8, bytes);
+		const uint64_t nameAddress = hexBytesToInt(bytes, 8);
+		if (!nameAddress) {
+			LOG_WARN("Nation %llu has no name pointer", i);
+			continue;
+		}
 		readFromMemory(
 			processContext.handle,
-			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+			nameAddress + STRING_OFFSET_VALUE,
 			MAX_NATION_STRING_LENGTH,
 			(uint8_t*)gameContext.nations[i].name
 		);
@@ -98,14 +117,14 @@ static void cacheNations(void) {
 		readFromMemory(
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
-			8,
+			4,
 			(uint8_t*)gameContext.nations[i].code
 		);
 	}
 	#else
 	const uint8_t nationCount = 251;
 	gameContext.nationCount = nationCount;
-	gameContext.nations = malloc(nationCount * sizeof(Nation));
+	gameContext.nations = calloc(nationCount, sizeof(Nation));
 	gameContext.nations[189] = PLAYER_BY_ID_NATION_1;
 	gameContext.nations[170] = PLAYER_BY_ID_NATION_2;
 	#endif
@@ -174,7 +193,7 @@ static void cachePlayers(const uint8_t half) {
 	uint64_t cached = 0;
 
 	#ifndef MOCKS_MODE
-	const uint64_t halfCount = (gameContext.playerCount - 1) / 2;
+	const uint64_t halfCount = ((gameContext.playerCount > 0 ? gameContext.playerCount : 1) - 1) / 2;
 	const uint64_t start = half ? halfCount + 1 : 0;
 	const uint64_t end = half ? gameContext.playerCount : halfCount + 1;
 
@@ -235,11 +254,18 @@ static void compactPlayers(void) {
 }
 
 void runMultiThreadedCache(void) {
+	if (cacheInProgress) {
+		return;
+	}
+
 	// Prepare player array for multithreaded writing
 	#ifndef MOCKS_MODE
-	uint8_t bytes[4];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_COUNT_PTR_BASE, 4, bytes);
-	const uint64_t playerCount = hexBytesToInt(bytes, 4);
+	uint8_t bytes[8];
+	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
+	const uint64_t playerStart = hexBytesToInt(bytes, 8);
+	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE + 0x08, 8, bytes);
+	const uint64_t playerEnd = hexBytesToInt(bytes, 8);
+	const uint64_t playerCount = (playerEnd - playerStart) / 8;
 	#else
 	const uint64_t playerCount = 900;
 	#endif
@@ -254,16 +280,13 @@ void runMultiThreadedCache(void) {
 		return;
 	}
 
+	cacheInProgress = true;
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
 		snprintf(buffer, sizeof(buffer), "worker-%d", i);
-		g_thread_new(buffer, threadFunction, (void*)(uintptr_t)(i + 1));
-		// threadFunction((void*)(uintptr_t)(i + 1));
+		threads[i] = g_thread_new(buffer, threadFunction, (void*)(uintptr_t)(i + 1));
 	}
 }
-
-static bool hasClubPartOneFinished = false;
-static bool hasClubPartTwoFinished = false;
 
 static gboolean onThreadComplete(gpointer userData) {
 	const uint8_t threadIndex = (uint8_t)userData;
@@ -276,6 +299,7 @@ static gboolean onThreadComplete(gpointer userData) {
 	// Back in main thread, safe to update UI
 	if (hasClubPartOneFinished && hasClubPartTwoFinished) {
 		compactPlayers();
+		cacheInProgress = false;
 
 		char buffer[8];
 		snprintf(buffer, 8, "%llu", gameContext.playerCount);

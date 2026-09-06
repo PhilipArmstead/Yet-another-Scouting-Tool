@@ -113,11 +113,14 @@ static inline void updateWhileConnected(void) {
 
 	if (gameContext.isInSave) {
 		// Check whether the save has loaded; we'll segfault if we try to run the caching too early
-		uint8_t bytes[4];
-		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_COUNT_PTR_BASE, 4, bytes);
-		const uint64_t playerCount = hexBytesToInt(bytes, 4);
+		uint8_t bytes[8];
+		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
+		const uint64_t playerStart = hexBytesToInt(bytes, 8);
+		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE + 0x08, 8, bytes);
+		const uint64_t playerEnd = hexBytesToInt(bytes, 8);
+		const uint64_t playerCount = (playerEnd - playerStart) / 8;
 		if (playerCount > 0 && !gameContext.clubCount) {
-			LOG_DEBUG("Beginning caching");
+			LOG_DEBUG("Beginning caching %llu", playerCount);
 			runMultiThreadedCache();
 		}
 	} else {
