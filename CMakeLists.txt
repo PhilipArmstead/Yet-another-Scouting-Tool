@@ -72,8 +72,7 @@ add_executable(fm_player_rater
 	${GRESOURCE_C}
 	src/main.c
 	src/app/callbacks.c
-	src/app/data.c
-	src/app/game-status.c
+	src/app/cache.c
 	src/app/options.c
 	src/app/player-table.c
 	src/app/player.c
@@ -86,6 +85,7 @@ add_executable(fm_player_rater
 	src/app/callbacks/player.c
 	src/app/helpers/date.c
 	src/app/helpers/formatter.c
+	src/app/helpers/game.c
 	src/app/helpers/vector-shared-pointer.c
 	src/app/helpers/vector-shared-pointer.h
 	src/app/ui/best-eleven.c

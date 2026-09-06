@@ -3,20 +3,20 @@
 
 #include <gtk/gtk.h>
 
+#include "app/cache.h"
 #include "app/callbacks.h"
-#include "app/data.h"
-#include "app/game-status.h"
 #include "app/maths.h"
 #include "app/options.h"
 #include "app/player-table.h"
 #include "app/ui.h"
+#include "app/helpers/game.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "core/logger.h"
 #include "platform/platform.h"
 
 
 ProcessContext processContext = {0};
-GameContext gameContext = {0};
+GameContext gameContext = {.gameKey = 1};
 
 static void activate(GtkApplication *app);
 static gboolean update(gpointer userData);
@@ -73,7 +73,7 @@ static gboolean update(gpointer userData) {
 
 static inline void updateWhileConnected(void) {
 	// Get the current time/date
-	DayMonthYear dayMonthYear = getDayMonthYear(&processContext);
+	DayMonthYear dayMonthYear = game_getDayMonthYear(&processContext);
 
 	// Bail if the date is invalid and assume we're no longer connected
 	if (dayMonthYear.day == 0 || dayMonthYear.year == 0) {
@@ -81,8 +81,6 @@ static inline void updateWhileConnected(void) {
 		handleDisconnect();
 		return;
 	}
-
-	gameContext.isInSave = dayMonthYear.day != 1 && dayMonthYear.year != 1900;
 
 	// Cache the new date if it's different from the last one we saw
 	if (
@@ -103,7 +101,7 @@ static inline void updateWhileConnected(void) {
 
 	// Update the game version if it's different from the last one we saw
 	char versionBuffer[GAME_STATUS_STRING_BUFFER_SIZE] = {0};
-	getGameVersion(&processContext, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
+	game_getVersion(&processContext, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
 	if (strncmp(versionBuffer, gameContext.gameVersion, GAME_STATUS_STRING_BUFFER_SIZE) != 0) {
 		strncpy(gameContext.gameVersion, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
 		LOG_INFO("Game Version: %s", versionBuffer);
@@ -111,26 +109,23 @@ static inline void updateWhileConnected(void) {
 		ui_updateGameVersion();
 	}
 
-	if (gameContext.isInSave) {
-		// Check whether the save has loaded; we'll segfault if we try to run the caching too early
-		uint8_t bytes[8];
-		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
-		const uint64_t playerStart = hexBytesToInt(bytes, 8);
-		readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE + 0x08, 8, bytes);
-		const uint64_t playerEnd = hexBytesToInt(bytes, 8);
-		const uint64_t playerCount = (playerEnd - playerStart) / 8;
-		if (playerCount > 0 && !gameContext.clubCount) {
-			LOG_DEBUG("Beginning caching %llu", playerCount);
-			runMultiThreadedCache();
+	GameKeyStatus gameKeyStatus;
+	const uint64_t gameKey = game_getKey(&processContext, &gameKeyStatus);
+	if (gameKey != gameContext.gameKey) {
+		gameContext.gameKey = gameKey;
+		cache_clear();
+
+		if (gameKeyStatus == GAME_KEY_FOUND && gameContext.currentDate.year > 1970) {
+			ui_setCurrentStatus("Caching data");
+			cache_run();
+		} else {
+			ui_setCurrentStatus("Cannot read save data");
 		}
-	} else {
-		clearCaches();
-		ui_setCurrentStatus("Cannot read save data");
 	}
 }
 
 static inline void updateWhileDisconnected(void) {
-	clearCaches();
+	cache_clear();
 	platform_openProcess(&processContext);
 
 	if (processContext.handle != NULL) {
@@ -144,8 +139,11 @@ static inline void updateWhileDisconnected(void) {
 static void handleDisconnect(void) {
 	processContext.handle = NULL;
 
+	gameContext.gameKey = 1; // Setting this to 0 means we can't tell when it's NULL in game
 	gameContext.gameVersion[0] = '\0';
 	gameContext.currentDate = (DayMonthYear){0};
+
+	cache_clear();
 
 	update(NULL);
 }

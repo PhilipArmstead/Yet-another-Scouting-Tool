@@ -114,10 +114,10 @@ void platform_openProcess(ProcessContext *context) {
 	// Get the base address of the module
 	HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
 	if (snap == INVALID_HANDLE_VALUE) {
-		LOG_ERROR("Failed to create module snapshot: %s", GetLastError());
+		LOG_ERROR("Failed to create module snapshot: %d", GetLastError());
 		CloseHandle(h);
 		return;
-	};
+	}
 
 	MODULEENTRY32W me;
 	uintptr_t baseAddr = 0;

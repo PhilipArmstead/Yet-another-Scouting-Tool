@@ -81,7 +81,7 @@ void ui_updateInGameDate(void) {
 	GtkLabel *dateLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:date")));
 
 	#ifndef MOCKS_MODE
-	if (processContext.handle == NULL || gameContext.currentDate.year <= 1970) {
+	if (processContext.handle == NULL || !gameContext.gameKey) {
 		gtk_label_set_text(dateLabel, "");
 		return;
 	}

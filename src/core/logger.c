@@ -57,7 +57,7 @@ void logger_output(LogLevel level, const char *message, ...) {
 	}
 
 	const bool isError = level < LogLevelWarn;
-	char output[MAX_MESSAGE_SIZE];
+	char output[MAX_MESSAGE_SIZE] = {0};
 
 	if (message == NULL) {
 		message = "(null message)";

@@ -73,8 +73,8 @@ typedef struct {
 	Club *clubs;
 	Nation *nations;
 	Player *players;
+	uint64_t gameKey;
 	uint64_t clubCount;
 	uint64_t nationCount;
 	uint64_t playerCount;
-	bool isInSave;
 } GameContext;

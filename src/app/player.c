@@ -3,7 +3,6 @@
 
 #include "player.h"
 #include "app/constants.h"
-#include "app/game-status.h"
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/helpers/vector.h"

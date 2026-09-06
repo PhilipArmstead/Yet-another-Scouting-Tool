@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "data.h"
+#include "cache.h"
 #include "app/callbacks.h"
 #include "app/config.h"
 #include "app/maths.h"
@@ -34,10 +34,10 @@ static gpointer threadFunction(gpointer arg) {
 
 	switch (functionIndex) {
 		case 1:
-			cacheClubs();
+			cacheNations();
 			break;
 		case 2:
-			cacheNations();
+			cacheClubs();
 			break;
 		case 3:
 			cachePlayers(0);
@@ -52,7 +52,7 @@ static gpointer threadFunction(gpointer arg) {
 	return NULL;
 }
 
-void clearCaches(void) {
+void cache_clear(void) {
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		if (threads[i] != NULL) {
 			g_thread_join(threads[i]);
@@ -105,7 +105,7 @@ static void cacheNations(void) {
 		const uint64_t nameAddress = hexBytesToInt(bytes, 8);
 		if (!nameAddress) {
 			LOG_WARN("Nation %llu has no name pointer", i);
-			continue;
+			return;
 		}
 		readFromMemory(
 			processContext.handle,
@@ -253,7 +253,7 @@ static void compactPlayers(void) {
 	LOG_DEBUG("Compacted players in %zu microseconds (discarded %d)", timeEnd - timeStart, read - write);
 }
 
-void runMultiThreadedCache(void) {
+void cache_run(void) {
 	if (cacheInProgress) {
 		return;
 	}

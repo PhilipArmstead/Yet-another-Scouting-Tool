@@ -5,6 +5,5 @@
 
 #define THREAD_COUNT 4
 
-void clearCaches(void);
-void runMultiThreadedCache(void);
-void clubDataListCreate(void);
+void cache_clear(void);
+void cache_run(void);
