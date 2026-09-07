@@ -3,7 +3,9 @@
 
 #pragma once
 
-#define THREAD_COUNT 4
+#define NON_PLAYERS_THREAD_COUNT 2
+#define PLAYERS_THREAD_COUNT 8
+#define THREAD_COUNT (NON_PLAYERS_THREAD_COUNT + PLAYERS_THREAD_COUNT)
 
 void cache_clear(void);
 void cache_run(void);

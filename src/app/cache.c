@@ -22,31 +22,22 @@ extern GameContext gameContext;
 
 static GThread *threads[THREAD_COUNT];
 static gint cacheInProgress = false;
-static bool hasClubPartOneFinished = false;
-static bool hasClubPartTwoFinished = false;
+static uint8_t completedPlayerThreads = 0;
 static gboolean onThreadComplete(gpointer userData);
-static void cachePlayers(uint8_t half);
+static void cachePlayers(uint8_t workerIndex);
 static void cacheClubs(void);
 static void cacheNations(void);
 
 static gpointer threadFunction(gpointer arg) {
 	const uint8_t functionIndex = (uint8_t)(intptr_t)arg;
 
-	switch (functionIndex) {
-		case 1:
-			cacheNations();
-			break;
-		case 2:
-			cacheClubs();
-			break;
-		case 3:
-			cachePlayers(0);
-			g_idle_add(onThreadComplete, arg);
-			break;
-		default:
-			cachePlayers(1);
-			g_idle_add(onThreadComplete, arg);
-			break;
+	if (functionIndex == 1) {
+		cacheNations();
+	} else if (functionIndex == 2) {
+		cacheClubs();
+	} else {
+		cachePlayers(functionIndex - (NON_PLAYERS_THREAD_COUNT + 1));
+		g_idle_add(onThreadComplete, arg);
 	}
 
 	return NULL;
@@ -62,8 +53,7 @@ void cache_clear(void) {
 		}
 	}
 
-	hasClubPartOneFinished = false;
-	hasClubPartTwoFinished = false;
+	completedPlayerThreads = 0;
 
 	if (gameContext.clubs != NULL) {
 		free(gameContext.clubs);
@@ -200,14 +190,13 @@ static void cacheClubs(void) {
 	LOG_DEBUG("Cached %d clubs in %zu microseconds", gameContext.clubCount, timeEnd - timeStart);
 }
 
-static void cachePlayers(const uint8_t half) {
+static void cachePlayers(const uint8_t workerIndex) {
 	const int64_t timeStart = platform_getMicroseconds();
 	uint64_t cached = 0;
 
 	#ifndef MOCKS_MODE
-	const uint64_t halfCount = ((gameContext.playerCount > 0 ? gameContext.playerCount : 1) - 1) / 2;
-	const uint64_t start = half ? halfCount + 1 : 0;
-	const uint64_t end = half ? gameContext.playerCount : halfCount + 1;
+	const uint64_t start = gameContext.playerCount * workerIndex / PLAYERS_THREAD_COUNT;
+	const uint64_t end = gameContext.playerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 
 	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
@@ -229,13 +218,12 @@ static void cachePlayers(const uint8_t half) {
 		++cached;
 	}
 	#else
-	// Only one worker seeds the mock data so the two halves never race.
-	if (half == 0) {
-		const Player playerVini = PLAYER_VINI;
-		const Player playerJeff = PLAYER_JEFF;
-		for (uint64_t i = 0; i < gameContext.playerCount; i++) {
-			memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
-		}
+	const Player playerVini = PLAYER_VINI;
+	const Player playerJeff = PLAYER_JEFF;
+	const uint64_t start = (gameContext.playerCount * workerIndex) / THREAD_COUNT;
+	const uint64_t end = (gameContext.playerCount * (workerIndex + 1)) / THREAD_COUNT;
+	for (uint64_t i = start; i < end; i++) {
+		memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
 	}
 	#endif
 
@@ -275,6 +263,7 @@ void cache_run(void) {
 	}
 
 	g_atomic_int_set(&cacheInProgress, true);
+	completedPlayerThreads = 0;
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
 		snprintf(buffer, sizeof(buffer), "worker-%d", i);
@@ -284,14 +273,12 @@ void cache_run(void) {
 
 static gboolean onThreadComplete(gpointer userData) {
 	const uint8_t threadIndex = (uint8_t)userData;
-	if (threadIndex == 3) {
-		hasClubPartOneFinished = true;
-	} else if (threadIndex == 4) {
-		hasClubPartTwoFinished = true;
+	if (threadIndex >= (NON_PLAYERS_THREAD_COUNT + 1)) {
+		++completedPlayerThreads;
 	}
 
-	// Back in main thread, safe to update UI
-	if (hasClubPartOneFinished && hasClubPartTwoFinished) {
+	// Back in main thread, update the UI after every player worker completes.
+	if (completedPlayerThreads == PLAYERS_THREAD_COUNT) {
 		g_atomic_int_set(&cacheInProgress, false);
 
 		char buffer[8];

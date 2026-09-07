@@ -24,6 +24,8 @@ static void handleDisconnect(void);
 static void handleConnect(void);
 static inline void updateWhileConnected(void);
 static inline void updateWhileDisconnected(void);
+static guint cacheTimeoutId;
+static gboolean scheduleCacheRun(gpointer data);
 
 int main(const int argc, char **argv) {
 	logger_init();
@@ -112,7 +114,12 @@ static inline void updateWhileConnected(void) {
 
 		if (gameKeyStatus == GAME_KEY_FOUND && gameContext.currentDate.year > 1970) {
 			ui_setCurrentStatus("Caching data");
-			cache_run();
+
+			if (cacheTimeoutId != 0) {
+				g_source_remove(cacheTimeoutId);
+			}
+
+			cacheTimeoutId = g_timeout_add(1000, scheduleCacheRun, NULL);
 		} else {
 			ui_setCurrentStatus("Cannot read save data");
 		}
@@ -150,4 +157,13 @@ static void handleConnect(void) {
 		(void*)processContext.moduleBaseAddress
 	);
 	update(NULL);
+}
+
+static gboolean scheduleCacheRun(gpointer data) {
+	(void)data;
+
+	cacheTimeoutId = 0;
+	cache_run();
+
+	return G_SOURCE_REMOVE;
 }
