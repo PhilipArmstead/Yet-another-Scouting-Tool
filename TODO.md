@@ -14,7 +14,6 @@ TODO
 	- Add condition
 	- Add happiness
 - To player search
-	- Search for positions
 	- Search for nationality
 	- Search for asking/guide price/wage
 - Best Eleven
