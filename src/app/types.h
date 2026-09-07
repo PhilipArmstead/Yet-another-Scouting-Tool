@@ -35,14 +35,19 @@
 #define FILTER_HAS_MAX_AGE (1 << 16)
 
 #define POSITION_MASK_GK (1 << 0)
-#define POSITION_MASK_FB (1 << 1)
-#define POSITION_MASK_CB (1 << 2)
-#define POSITION_MASK_WB (1 << 3)
-#define POSITION_MASK_DM (1 << 4)
-#define POSITION_MASK_MC (1 << 5)
-#define POSITION_MASK_W (1 << 6)
-#define POSITION_MASK_AM (1 << 7)
-#define POSITION_MASK_ST (1 << 8)
+#define POSITION_MASK_DL (1 << 1)
+#define POSITION_MASK_DC (1 << 2)
+#define POSITION_MASK_DR (1 << 3)
+#define POSITION_MASK_WBL (1 << 4)
+#define POSITION_MASK_DM (1 << 5)
+#define POSITION_MASK_WBR (1 << 6)
+#define POSITION_MASK_ML (1 << 7)
+#define POSITION_MASK_MC (1 << 8)
+#define POSITION_MASK_MR (1 << 9)
+#define POSITION_MASK_AML (1 << 10)
+#define POSITION_MASK_AMC (1 << 11)
+#define POSITION_MASK_AMR (1 << 12)
+#define POSITION_MASK_ST (1 << 13)
 
 typedef struct {
 	int64_t clubIndex;
@@ -61,10 +66,28 @@ typedef struct {
 } FilterOptions;
 
 typedef struct {
+	GtkCheckButton *positionGK;
+	GtkCheckButton *positionDL;
+	GtkCheckButton *positionDC;
+	GtkCheckButton *positionDR;
+	GtkCheckButton *positionWBL;
+	GtkCheckButton *positionDM;
+	GtkCheckButton *positionWBR;
+	GtkCheckButton *positionML;
+	GtkCheckButton *positionMC;
+	GtkCheckButton *positionMR;
+	GtkCheckButton *positionAML;
+	GtkCheckButton *positionAMC;
+	GtkCheckButton *positionAMR;
+	GtkCheckButton *positionST;
+} CheckBox;
+
+typedef struct {
+	CheckBox checkboxes;
 	FilterBuffer filterBuffer;
 	FilterOptions filterOptions;
-	Options options;
 	char gameVersion[GAME_STATUS_STRING_BUFFER_SIZE];
+	Options options;
 	SearchDatalist *dataList;
 	SharedPointer *searchResults;
 	DayMonthYear currentDate;

@@ -38,6 +38,11 @@ G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
 	return FALSE;
 }
 
+G_MODULE_EXPORT void callbacks_onFilterRun(void) {
+	searchHandler_doSearch(true);
+	callbacks_updateFilterTags();
+}
+
 void callbacks_updateFilterTags(void) {
 	ui_clearFilterTags();
 

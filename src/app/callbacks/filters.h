@@ -7,6 +7,7 @@
 
 
 G_MODULE_EXPORT void callbacks_onFiltersClear(void);
+G_MODULE_EXPORT void callbacks_onFilterRun(void);
 G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
 	GtkEventControllerKey *controller,
 	guint keyval,

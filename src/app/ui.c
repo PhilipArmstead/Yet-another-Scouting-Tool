@@ -80,6 +80,33 @@ void ui_init(GtkApplication *app) {
 	buf->maxPA = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:pa:max")));
 	buf->minRating = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:rating:min")));
 	buf->maxRating = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:rating:max")));
+
+	// Cache check boxes
+	CheckBox *check = &gameContext.checkboxes;
+	check->positionGK = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:gk"));
+	check->positionDL = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dl"));
+	check->positionDC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dc"));
+	check->positionDR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dr"));
+	check->positionWBL = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:wbl"));
+	check->positionDM = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dm"));
+	check->positionWBR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:wbr"));
+	check->positionML = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:ml"));
+	check->positionMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:mc"));
+	check->positionMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:mr"));
+	check->positionAML = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:aml"));
+	check->positionAMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amc"));
+	check->positionAMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amr"));
+	check->positionST = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:st"));
+
+	// Set cursor pointer on filter accordions
+	gtk_widget_set_cursor_from_name(
+		GTK_WIDGET(gtk_builder_get_object(b, "accordion-button:positions")),
+		"pointer"
+	);
+	gtk_widget_set_cursor_from_name(
+		GTK_WIDGET(gtk_builder_get_object(b, "accordion-button:quality-and-age")),
+		"pointer"
+	);
 }
 
 void connectToProcess(void) {
