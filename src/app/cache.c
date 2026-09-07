@@ -21,7 +21,7 @@ extern ProcessContext processContext;
 extern GameContext gameContext;
 
 static GThread *threads[THREAD_COUNT];
-static bool cacheInProgress = false;
+static gint cacheInProgress = false;
 static bool hasClubPartOneFinished = false;
 static bool hasClubPartTwoFinished = false;
 static gboolean onThreadComplete(gpointer userData);
@@ -53,13 +53,15 @@ static gpointer threadFunction(gpointer arg) {
 }
 
 void cache_clear(void) {
+	g_atomic_int_set(&cacheInProgress, false);
+
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		if (threads[i] != NULL) {
 			g_thread_join(threads[i]);
 			threads[i] = NULL;
 		}
 	}
-	cacheInProgress = false;
+
 	hasClubPartOneFinished = false;
 	hasClubPartTwoFinished = false;
 
@@ -99,6 +101,11 @@ static void cacheNations(void) {
 	gameContext.nationCount = nationCount;
 	gameContext.nations = calloc(nationCount, sizeof(Nation));
 	for (uint64_t i = 0; i < nationCount; i++) {
+		if (!g_atomic_int_get(&cacheInProgress)) {
+			LOG_DEBUG("Ending nations cache early");
+			return;
+		}
+
 		uint8_t nationBuffer[8];
 		readFromMemory(processContext.handle, nationStart + i * NATION_LIST_STRIDE, 8, nationBuffer);
 		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME, 8, bytes);
@@ -152,6 +159,11 @@ static void cacheClubs(void) {
 	gameContext.clubs = malloc(clubCount * sizeof(Club));
 	uint64_t missed = 0;
 	for (uint64_t i = 0; i < clubCount; i++) {
+		if (!g_atomic_int_get(&cacheInProgress)) {
+			LOG_DEBUG("Ending clubs cache early");
+			return;
+		}
+
 		uint8_t clubBuffer[8];
 		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
 		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 8) + CLUB_OFFSET_NAME, 8, bytes);
@@ -201,6 +213,11 @@ static void cachePlayers(const uint8_t half) {
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
 	const uint64_t playerStart = hexBytesToInt(bytes, 8);
 	for (uint64_t i = start; i < end; i++) {
+		if (!g_atomic_int_get(&cacheInProgress)) {
+			LOG_DEBUG("Ending players cache early");
+			return;
+		}
+
 		readFromMemory(processContext.handle, playerStart + i * PLAYER_LIST_STRIDE, 8, bytes);
 		const uint64_t playerAddress = hexBytesToInt(bytes, 8);
 		const uint64_t personAddress = getPersonAddressFromPlayerAddress(processContext.handle, playerAddress);
@@ -230,31 +247,8 @@ static void cachePlayers(const uint8_t half) {
 	);
 }
 
-// Removes the invalid (zeroed) players the workers skipped, closing the gaps so
-// gameContext.players is a dense [0, playerCount) range again. Must run on a
-// single thread after every worker has been joined.
-static void compactPlayers(void) {
-	const int64_t timeStart = platform_getMicroseconds();
-
-	uint64_t write = 0;
-	uint64_t read = 0;
-	for (; read < gameContext.playerCount; ++read) {
-		if (gameContext.players[read].uid == 0) {
-			continue;
-		}
-		if (write != read) {
-			gameContext.players[write] = gameContext.players[read];
-		}
-		++write;
-	}
-	gameContext.playerCount = write;
-
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Compacted players in %zu microseconds (discarded %d)", timeEnd - timeStart, read - write);
-}
-
 void cache_run(void) {
-	if (cacheInProgress) {
+	if (g_atomic_int_get(&cacheInProgress)) {
 		return;
 	}
 
@@ -280,7 +274,7 @@ void cache_run(void) {
 		return;
 	}
 
-	cacheInProgress = true;
+	g_atomic_int_set(&cacheInProgress, true);
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
 		snprintf(buffer, sizeof(buffer), "worker-%d", i);
@@ -298,8 +292,7 @@ static gboolean onThreadComplete(gpointer userData) {
 
 	// Back in main thread, safe to update UI
 	if (hasClubPartOneFinished && hasClubPartTwoFinished) {
-		compactPlayers();
-		cacheInProgress = false;
+		g_atomic_int_set(&cacheInProgress, false);
 
 		char buffer[8];
 		snprintf(buffer, 8, "%llu", gameContext.playerCount);

@@ -81,21 +81,23 @@ void ui_updateInGameDate(void) {
 	GtkLabel *dateLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:date")));
 
 	#ifndef MOCKS_MODE
-	if (processContext.handle == NULL || !gameContext.gameKey) {
+	if (processContext.handle == NULL || !gameContext.gameKey || gameContext.currentDate.year == 1900) {
 		gtk_label_set_text(dateLabel, "");
 		return;
 	}
 	#endif
 
+	DayMonthYearTime d = date_prettify(gameContext.currentDate);
 	char buffer[64] = {0};
 	snprintf(
 		buffer,
 		64,
-		"📅 %s %d%s, %d",
-		gameContext.currentDate.month,
-		gameContext.currentDate.day,
-		getOrdinal(gameContext.currentDate.day),
-		gameContext.currentDate.year
+		"📅 %s %d%s, %d %s",
+		d.month,
+		d.day,
+		date_getOrdinal(d.day),
+		d.year,
+		d.timeString
 	);
 	gtk_label_set_text(dateLabel, buffer);
 }

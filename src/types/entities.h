@@ -110,15 +110,18 @@ typedef struct {
 typedef struct {
 	uint16_t days;
 	uint16_t year;
-} Date;
+	uint8_t time;
+} DateTime;
 
 #define MONTH_NAME_LENGTH 12
 
 typedef struct {
 	char month[MONTH_NAME_LENGTH];
+	char timeString[6];
 	uint16_t year;
 	uint16_t day;
-} DayMonthYear;
+	uint8_t time;
+} DayMonthYearTime;
 
 #define GAME_STATUS_STRING_BUFFER_SIZE 32
 

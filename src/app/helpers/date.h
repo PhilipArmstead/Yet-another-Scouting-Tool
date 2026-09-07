@@ -6,4 +6,5 @@
 #include "app/types.h"
 
 
-const char *getOrdinal(uint16_t day);
+const char *date_getOrdinal(uint16_t day);
+DayMonthYearTime date_prettify(DateTime dateTime);

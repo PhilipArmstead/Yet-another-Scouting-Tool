@@ -20,7 +20,6 @@ GameContext gameContext = {.gameKey = 1};
 
 static void activate(GtkApplication *app);
 static gboolean update(gpointer userData);
-static inline void updateWhileDisconnected(void);
 static void handleDisconnect(void);
 static void handleConnect(void);
 static inline void updateWhileConnected(void);
@@ -72,11 +71,11 @@ static gboolean update(gpointer userData) {
 
 
 static inline void updateWhileConnected(void) {
-	// Get the current time/date
-	DayMonthYear dayMonthYear = game_getDayMonthYear(&processContext);
+	// Get the current date/time
+	const DateTime dateTime = game_getDateTime(&processContext);
 
 	// Bail if the date is invalid and assume we're no longer connected
-	if (dayMonthYear.day == 0 || dayMonthYear.year == 0) {
+	if (dateTime.days == 0 || dateTime.year == 0) {
 		LOG_INFO("Disconnecting because the date is blank");
 		handleDisconnect();
 		return;
@@ -84,19 +83,15 @@ static inline void updateWhileConnected(void) {
 
 	// Cache the new date if it's different from the last one we saw
 	if (
-		dayMonthYear.day != gameContext.currentDate.day ||
-		dayMonthYear.year != gameContext.currentDate.year ||
-		strncmp(dayMonthYear.month, gameContext.currentDate.month, MONTH_NAME_LENGTH) != 0
+		dateTime.days != gameContext.currentDate.days ||
+		dateTime.year != gameContext.currentDate.year ||
+		dateTime.time != gameContext.currentDate.time
 	) {
-		gameContext.currentDate = dayMonthYear;
-		LOG_DEBUG(
-			"Current Date: %s %d, %d",
-			dayMonthYear.month,
-			dayMonthYear.day,
-			dayMonthYear.year
-		);
-
+		LOG_INFO("Date/time change");
+		gameContext.currentDate = dateTime;
 		ui_updateInGameDate();
+		// This is a hack to force invalidate the cache (TODO improve this)
+		gameContext.gameKey = 1;
 	}
 
 	// Update the game version if it's different from the last one we saw
@@ -141,7 +136,7 @@ static void handleDisconnect(void) {
 
 	gameContext.gameKey = 1; // Setting this to 0 means we can't tell when it's NULL in game
 	gameContext.gameVersion[0] = '\0';
-	gameContext.currentDate = (DayMonthYear){0};
+	gameContext.currentDate = (DateTime){0};
 
 	cache_clear();
 

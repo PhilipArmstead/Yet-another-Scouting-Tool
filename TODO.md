@@ -1,9 +1,10 @@
 TODO
 ===
 
-- Show player count in status bar
-- Refresh date/time periodically
-	- If either has changed, and app is not in focus, refresh players
+- Update windows (store in an array) when cache resets
+- use 4 threads for player caching
+- use swap-buffer for caching
+- run cache 2000ms after the last date change, not immediately every time
 - Clear cache/UI if the save goes away
 	- Write "cannot find save" in date slot
 - Port `platform_openProcess` to Linux
@@ -25,3 +26,5 @@ TODO
 	- Show condition
 	- Show injuries (and filter on it)
 	- Open player info from clicking row
+- Club search
+	- Show club data when searching by division / reputation / overall average rating

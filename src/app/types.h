@@ -67,7 +67,7 @@ typedef struct {
 	char gameVersion[GAME_STATUS_STRING_BUFFER_SIZE];
 	SearchDatalist *dataList;
 	SharedPointer *searchResults;
-	DayMonthYear currentDate;
+	DateTime currentDate;
 	GtkBuilder *builder;
 	GtkApplication *app;
 	Club *clubs;

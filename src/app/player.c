@@ -283,7 +283,7 @@ static uint8_t getAge(void *handle, const uint64_t address) {
 	const uint16_t dayOfBirth = (uint16_t)hexBytesToInt(bytes, 2);
 
 	uint8_t age = (uint8_t)(gameContext.currentDate.year - yearOfBirth);
-	if (gameContext.currentDate.day < dayOfBirth) {
+	if (gameContext.currentDate.days < dayOfBirth) {
 		--age;
 	}
 

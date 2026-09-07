@@ -11,71 +11,32 @@
 #include <string.h>
 
 
-#define DAYS_IN_JANUARY 31
-#define DAYS_IN_FEBRUARY 28
-#define DAYS_IN_MARCH 31
-#define DAYS_IN_APRIL 30
-#define DAYS_IN_MAY 31
-#define DAYS_IN_JUNE 30
-#define DAYS_IN_JULY 31
-#define DAYS_IN_AUGUST 31
-#define DAYS_IN_SEPTEMBER 30
-#define DAYS_IN_OCTOBER 31
-#define DAYS_IN_NOVEMBER 30
-#define DAYS_IN_DECEMBER 31
-
-#define DAYS_BEFORE_FEBRUARY DAYS_IN_JANUARY
-#define DAYS_BEFORE_MARCH (DAYS_IN_FEBRUARY + DAYS_BEFORE_FEBRUARY)
-#define DAYS_BEFORE_APRIL (DAYS_IN_MARCH + DAYS_BEFORE_MARCH)
-#define DAYS_BEFORE_MAY (DAYS_IN_APRIL + DAYS_BEFORE_APRIL)
-#define DAYS_BEFORE_JUNE (DAYS_IN_MAY + DAYS_BEFORE_MAY)
-#define DAYS_BEFORE_JULY (DAYS_IN_JUNE + DAYS_BEFORE_JUNE)
-#define DAYS_BEFORE_AUGUST (DAYS_IN_JULY + DAYS_BEFORE_JULY)
-#define DAYS_BEFORE_SEPTEMBER (DAYS_IN_AUGUST + DAYS_BEFORE_AUGUST)
-#define DAYS_BEFORE_OCTOBER (DAYS_IN_SEPTEMBER + DAYS_BEFORE_SEPTEMBER)
-#define DAYS_BEFORE_NOVEMBER (DAYS_IN_OCTOBER + DAYS_BEFORE_OCTOBER)
-#define DAYS_BEFORE_DECEMBER (DAYS_IN_NOVEMBER + DAYS_BEFORE_NOVEMBER)
-
-static Date getDate(const ProcessContext *context);
-
 // Assumes valid ProcessContext
-DayMonthYear game_getDayMonthYear(const ProcessContext *context) {
+DateTime game_getDateTime(const ProcessContext *context) {
 	#ifndef MOCKS_MODE
-	const Date date = getDate(context);
+	uint8_t bytes[4];
+	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
 
-	static const struct {
-		uint16_t threshold;
-		uint16_t offset;
-		const char *name;
-	} months[12] = {
-		{DAYS_BEFORE_FEBRUARY, 0, "January"},
-		{DAYS_BEFORE_MARCH, DAYS_BEFORE_FEBRUARY, "February"},
-		{DAYS_BEFORE_APRIL, DAYS_BEFORE_MARCH, "March"},
-		{DAYS_BEFORE_MAY, DAYS_BEFORE_APRIL, "April"},
-		{DAYS_BEFORE_JUNE, DAYS_BEFORE_MAY, "May"},
-		{DAYS_BEFORE_JULY, DAYS_BEFORE_JUNE, "June"},
-		{DAYS_BEFORE_AUGUST, DAYS_BEFORE_JULY, "July"},
-		{DAYS_BEFORE_SEPTEMBER, DAYS_BEFORE_AUGUST, "August"},
-		{DAYS_BEFORE_OCTOBER, DAYS_BEFORE_SEPTEMBER, "September"},
-		{DAYS_BEFORE_NOVEMBER, DAYS_BEFORE_OCTOBER, "October"},
-		{DAYS_BEFORE_DECEMBER, DAYS_BEFORE_NOVEMBER, "November"},
-		{UINT16_MAX, DAYS_BEFORE_DECEMBER, "December"},
-	};
+	const uint8_t yearBytes[2] = {bytes[2], bytes[3]};
+	const uint16_t year = (uint16_t)hexBytesToInt(yearBytes, 2);
 
-	DayMonthYear dayMonthYear = {.year = date.year};
-	for (uint8_t i = 0; i < 12; ++i) {
-		if (date.days <= months[i].threshold) {
-			dayMonthYear.day = date.days - months[i].offset;
-			strncpy(dayMonthYear.month, months[i].name, MONTH_NAME_LENGTH - 1);
-			dayMonthYear.month[MONTH_NAME_LENGTH - 1] = '\0';
-			break;
-		}
+	uint16_t days = (uint16_t)hexBytesToInt(bytes, 1);
+	if (bytes[1] & 1) {
+		days += 256;
 	}
-	#else
-	const DayMonthYear dayMonthYear = {.day = 11, .month = "August", .year = 2026};
-	#endif
 
-	return dayMonthYear;
+	const uint8_t time = bytes[1] >> 1;
+
+	// Adjust for leap year - if leap year and day > Feb 28, subtract 1
+	if (days > 59) {
+		const bool isLeapYear = !(year % 4) && (year % 100 || !(year % 400));
+		days -= isLeapYear;
+	}
+
+	return (DateTime){.days = days, .year = year, .time = time};
+	#else
+	return (DayMonthYear) { .days = 210, .year = 2026, time = 28 };
+	#endif
 }
 
 // Assumes valid ProcessContext
@@ -127,26 +88,4 @@ uint64_t game_getKey(const ProcessContext *context, GameKeyStatus *outStatus) {
 		*outStatus = GAME_KEY_NULL;
 	}
 	return nameAddress;
-}
-
-// Assumes valid ProcessContext
-static Date getDate(const ProcessContext *context) {
-	uint8_t bytes[4];
-	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
-
-	const uint8_t yearBytes[2] = {bytes[2], bytes[3]};
-	const uint16_t year = (uint16_t)hexBytesToInt(yearBytes, 2);
-
-	uint16_t days = (uint16_t)hexBytesToInt(bytes, 1);
-	if (bytes[1] & 1) {
-		days += 256;
-	}
-
-	// Adjust for leap year - if leap year and day > Feb 28, subtract 1
-	if (days > 59) {
-		const bool isLeapYear = !(year % 4) && (year % 100 || !(year % 400));
-		days -= isLeapYear;
-	}
-
-	return (Date){days, year};
 }

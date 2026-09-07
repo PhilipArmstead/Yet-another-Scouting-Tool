@@ -6,7 +6,7 @@
 #include "app/types.h"
 
 
-DayMonthYear game_getDayMonthYear(const ProcessContext *context);
+DateTime game_getDateTime(const ProcessContext *context);
 void game_getVersion(const ProcessContext *context, char *versionBuffer, uint8_t bufferSize);
 
 typedef enum {
