@@ -7,6 +7,8 @@
 
 
 void callbacks_init(void);
+G_MODULE_EXPORT void callbacks_onShowQualityAccordionToggle(void);
+G_MODULE_EXPORT void callbacks_onShowPositionAccordionToggle(void);
 G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void);
 gboolean callbacks_onWindowKeypress(
 	GtkEventControllerKey *controller,

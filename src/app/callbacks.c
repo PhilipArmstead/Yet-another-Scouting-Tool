@@ -11,6 +11,8 @@
 
 extern GameContext gameContext;
 
+static void accordionToggle(const char *name);
+
 void callbacks_init(void) {
 	// Capture keypresses within sidebar to trigger search
 	GtkEventControllerKey *controllerKey = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
@@ -65,4 +67,27 @@ gboolean callbacks_onWindowKeypress(
 
 
 	return FALSE;
+}
+
+G_MODULE_EXPORT void callbacks_onShowQualityAccordionToggle(void) {
+	accordionToggle("quality-and-age");
+	// gtk_widget_set_cursor
+}
+
+G_MODULE_EXPORT void callbacks_onShowPositionAccordionToggle(void) {
+	accordionToggle("positions");
+}
+
+static void accordionToggle(const char *name) {
+	char labelText[32];
+	snprintf(labelText, sizeof(labelText), "accordion-label:%s", name);
+	GtkLabel *label = GTK_LABEL(gtk_builder_get_object(gameContext.builder, labelText));
+
+	char boxText[32];
+	snprintf(boxText, sizeof(boxText), "filter-body:%s", name);
+	GtkWidget *box = GTK_WIDGET(gtk_builder_get_object(gameContext.builder, boxText));
+
+	const bool visibility = gtk_widget_get_visible(GTK_WIDGET(box));
+	gtk_label_set_text(label, visibility ? "▶" : "▼");
+	gtk_widget_set_visible(box, !visibility);
 }

@@ -25,6 +25,14 @@ button {
 	background: initial;
 }
 
+.button--plain {
+	background: inherit;
+	border: none;
+	color: red;
+	padding: 0;
+	margin: 0;
+}
+
 dropdown label {
 	color: var(--colour-primary);
 	font-size: 1.1rem;
@@ -193,6 +201,7 @@ headerbar .title {
 
 .section-chevron {
 	color: var(--colour-primary-darker);
+	font-size: 0.6em;
 }
 
 .quality-body {
