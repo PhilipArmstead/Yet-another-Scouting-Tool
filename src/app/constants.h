@@ -494,6 +494,14 @@ static const char *attributeNames[ATTRIBUTE_COUNT] = {
 // (+0x04 from here)
 #define CITY_OFFSET_NAME 0x18
 
+/** Injury Instance */
+#define INJURY_OFFSET_INSTANCE 0x08
+#define INJURY_OFFSET_MINIMUM_DATE 0x20
+#define INJURY_OFFSET_MINIMUM_DAYS 0x28
+#define INJURY_OFFSET_EXTRA_DAYS 0x2A
+// Bit mask: 1 = physio, 2 = specialist, 4 = injection, 8 = isolation
+#define INJURY_OFFSET_TREATMENT 0x30
+
 /** Injury */
 // This is 0x60 bytes long
 #define INJURY_OFFSET_ROW_ID 0x08

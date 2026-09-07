@@ -458,6 +458,14 @@ static void bindStatusValue(const GtkSignalListItemFactory *factory, GtkListItem
 		return;
 	}
 
+	if (row->player->injury.name != NULL) {
+		GtkWidget *label = gtk_label_new("🚑");
+		gtk_box_append(GTK_BOX(box), label);
+		char buffer[128] = {0};
+		snprintf(buffer, 128, "Injured: %s", row->player->injury.name);
+		gtk_widget_set_tooltip_text(label, buffer);
+	}
+
 	if (row->player->canDevelopQuickly) {
 		GtkWidget *label = gtk_label_new("🧠");
 		gtk_box_append(GTK_BOX(box), label);

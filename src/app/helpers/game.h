@@ -6,6 +6,7 @@
 #include "app/types.h"
 
 
+DateTime game_parseDateTime(uint8_t dateTimeBytes[4]);
 DateTime game_getDateTime(const ProcessContext *context);
 void game_getVersion(const ProcessContext *context, char *versionBuffer, uint8_t bufferSize);
 

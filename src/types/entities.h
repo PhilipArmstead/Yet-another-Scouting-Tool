@@ -78,12 +78,36 @@ typedef struct {
 } Rating;
 
 typedef struct {
+	uint16_t days;
+	uint16_t year;
+	uint8_t time;
+} DateTime;
+
+#define MONTH_NAME_LENGTH 12
+
+typedef struct {
+	char month[MONTH_NAME_LENGTH];
+	char timeString[6];
+	uint16_t year;
+	uint16_t day;
+	uint8_t time;
+} DayMonthYearTime;
+
+typedef struct {
+	char *name;
+	DateTime date;
+	uint16_t duration;
+	uint8_t treatmentMask;
+} Injury;
+
+typedef struct {
 	uint8_t attributes[ATTRIBUTE_COUNT];
 	Rating ratings[POSITION_GROUPED_COUNT];
 	char forename[PERSON_FORENAME_LENGTH + 1];
 	char surname[PERSON_SURNAME_LENGTH + 1];
 	char commonName[PERSON_COMMON_NAME_LENGTH + 1];
 	uint8_t nationality[4];
+	Injury injury;
 	int64_t clubIndex; // -1 means unemployed
 	uint64_t personAddress;
 	uint64_t playerAddress;
@@ -106,22 +130,6 @@ typedef struct {
 	bool canDevelopQuickly;
 	bool isHotProspect;
 } Player;
-
-typedef struct {
-	uint16_t days;
-	uint16_t year;
-	uint8_t time;
-} DateTime;
-
-#define MONTH_NAME_LENGTH 12
-
-typedef struct {
-	char month[MONTH_NAME_LENGTH];
-	char timeString[6];
-	uint16_t year;
-	uint16_t day;
-	uint8_t time;
-} DayMonthYearTime;
 
 #define GAME_STATUS_STRING_BUFFER_SIZE 32
 

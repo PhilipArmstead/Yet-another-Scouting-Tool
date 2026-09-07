@@ -5,6 +5,7 @@
 #include "app/constants.h"
 #include "app/maths.h"
 #include "app/mocks.h"
+#include "app/helpers/game.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -120,6 +121,31 @@ Player getPlayer(
 	getPersonForename(handle, personAddress, player.forename);
 	getPersonSurname(handle, personAddress, player.surname);
 	getPersonCommonName(handle, personAddress, player.commonName);
+
+	readFromMemory(handle, playerAddress + PLAYER_OFFSET_INJURY_POINTER, 8, bytes);
+	const uint64_t injuryAddress = hexBytesToInt(bytes, 8);
+	if (injuryAddress) {
+		readFromMemory(handle, injuryAddress, 8, bytes);
+		const uint64_t injuryStartAddress = hexBytesToInt(bytes, 8);
+		if (injuryStartAddress) {
+			readFromMemory(handle, injuryStartAddress, 8, bytes);
+			const uint64_t injuryInstanceAddress = hexBytesToInt(bytes, 8);
+			readFromMemory(handle, injuryInstanceAddress + 0x20, 2, bytes);
+			player.injury.date = game_parseDateTime(bytes);
+			readFromMemory(handle, injuryInstanceAddress + 0x28, 2, bytes);
+			player.injury.duration = (uint16_t)hexBytesToInt(bytes, 2);
+			readFromMemory(handle, injuryInstanceAddress + 0x30, 1, bytes);
+			player.injury.treatmentMask = (uint8_t)hexBytesToInt(bytes, 1);
+			readFromMemory(handle, injuryInstanceAddress + 0x08, 8, bytes);
+			readFromMemory(handle, hexBytesToInt(bytes, 8) + 0x18, 8, bytes);
+			const uint64_t injuryNameAddress = hexBytesToInt(bytes, 8);
+			readFromMemory(handle, injuryNameAddress, 4, bytes);
+			const uint8_t length = (uint8_t)hexBytesToInt(bytes, 4);
+			player.injury.name = malloc(length + 1);
+			readFromMemory(handle, injuryNameAddress + 0x04, length, (uint8_t*)player.injury.name);
+			player.injury.name[length] = '\0';
+		}
+	}
 
 	readFromMemory(
 		handle,

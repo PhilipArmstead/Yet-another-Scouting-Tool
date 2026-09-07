@@ -11,21 +11,16 @@
 #include <string.h>
 
 
-// Assumes valid ProcessContext
-DateTime game_getDateTime(const ProcessContext *context) {
-	#ifndef MOCKS_MODE
-	uint8_t bytes[4];
-	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
-
-	const uint8_t yearBytes[2] = {bytes[2], bytes[3]};
+DateTime game_parseDateTime(uint8_t dateTimeBytes[4]) {
+	const uint8_t yearBytes[2] = {dateTimeBytes[2], dateTimeBytes[3]};
 	const uint16_t year = (uint16_t)hexBytesToInt(yearBytes, 2);
 
-	uint16_t days = (uint16_t)hexBytesToInt(bytes, 1);
-	if (bytes[1] & 1) {
+	uint16_t days = (uint16_t)hexBytesToInt(dateTimeBytes, 1);
+	if (dateTimeBytes[1] & 1) {
 		days += 256;
 	}
 
-	const uint8_t time = bytes[1] >> 1;
+	const uint8_t time = dateTimeBytes[1] >> 1;
 
 	// Adjust for leap year - if leap year and day > Feb 28, subtract 1
 	if (days > 59) {
@@ -34,6 +29,14 @@ DateTime game_getDateTime(const ProcessContext *context) {
 	}
 
 	return (DateTime){.days = days, .year = year, .time = time};
+}
+
+// Assumes valid ProcessContext
+DateTime game_getDateTime(const ProcessContext *context) {
+	#ifndef MOCKS_MODE
+	uint8_t bytes[4];
+	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
+	return game_parseDateTime(bytes);
 	#else
 	return (DayMonthYear) { .days = 210, .year = 2026, time = 28 };
 	#endif
