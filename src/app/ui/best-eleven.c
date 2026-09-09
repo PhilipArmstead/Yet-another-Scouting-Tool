@@ -10,10 +10,11 @@
 
 
 typedef struct {
-	uint8_t minAge;
-	uint8_t maxAge;
 	uint16_t minCondition;
 	uint16_t maxCondition;
+	uint8_t minAge;
+	uint8_t maxAge;
+	bool excludeInjured;
 } BestElevenFilters;
 
 extern GameContext gameContext;
@@ -81,6 +82,17 @@ void ui_createBestElevenWindow(void) {
 		(GClosureNotify)g_free,
 		0
 	);
+	GtkWidget *checkboxExcludeInjured = GTK_WIDGET(
+		gtk_builder_get_object(context.builder, "checkbox:best-xi:exclude-injured")
+	);
+	g_signal_connect_data(
+		checkboxExcludeInjured,
+		"toggled",
+		G_CALLBACK(onFilterChange),
+		cbContext,
+		(GClosureNotify)g_free,
+		0
+	);
 
 	ui_renderBestElevenWindow(context);
 }
@@ -113,8 +125,12 @@ static void renderBestElevenTable(const WindowContext context) {
 	GtkSpinButton *spinMaxAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-age"));
 	GtkSpinButton *spinMinCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-condition"));
 	GtkSpinButton *spinMaxCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-condition"));
+	GtkCheckButton *checkboxExcludeInjured = GTK_CHECK_BUTTON(
+		gtk_builder_get_object(context.builder, "checkbox:best-xi:exclude-injured")
+	);
 
 	const BestElevenFilters filters = {
+		.excludeInjured = gtk_check_button_get_active(checkboxExcludeInjured),
 		.maxAge = (uint8_t)gtk_spin_button_get_value_as_int(spinMaxAge),
 		.minAge = (uint8_t)gtk_spin_button_get_value_as_int(spinMinAge),
 		// Convert percentages to 0-10000 scale
@@ -128,6 +144,8 @@ static void renderBestElevenTable(const WindowContext context) {
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Found best XI for %d players in %zu microseconds", playerCount, timeEnd - timeStart);
 
+	uint8_t playerIncludedCount = 0;
+	float ratingTotal = 0;
 	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
 		GtkWidget *widgetRow = gtk_list_box_row_new();
 		GtkListBoxRow *row = GTK_LIST_BOX_ROW(widgetRow);
@@ -184,6 +202,9 @@ static void renderBestElevenTable(const WindowContext context) {
 			GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
 			gtk_box_append(GTK_BOX(widgetNationalityBox), flagImage);
 			gtk_widget_set_tooltip_text(flagImage, nation.name);
+
+			++playerIncludedCount;
+			ratingTotal += player->ratings[0].value;
 		}
 
 		uint8_t c = 1;
@@ -195,6 +216,26 @@ static void renderBestElevenTable(const WindowContext context) {
 		gtk_list_box_row_set_child(row, widgetGrid);
 
 		// TODO: show condition, if we're going to filter on them
+	}
+
+	if (playerIncludedCount > 0) {
+		char ratingBuffer[8];
+		const float averageRating = ratingTotal / (float)playerIncludedCount;
+		formatter_formatRating(averageRating, ratingBuffer);
+
+		char averageRatingBuffer[128];
+		snprintf(averageRatingBuffer, sizeof(averageRatingBuffer), "<span weight=\"800\">Average:</span> %s", ratingBuffer);
+		GtkWidget *widgetLabelAverageRating = gtk_label_new("");
+		gtk_label_set_markup(GTK_LABEL(widgetLabelAverageRating), averageRatingBuffer);
+		GtkWidget *widgetRow = gtk_list_box_row_new();
+		GtkListBoxRow *row = GTK_LIST_BOX_ROW(widgetRow);
+		gtk_widget_add_css_class(widgetRow, "average-rating");
+		gtk_widget_set_hexpand(widgetRow, true);
+		gtk_widget_set_halign(widgetLabelAverageRating, GTK_ALIGN_END);
+		gtk_list_box_row_set_activatable(row, false);
+		gtk_list_box_row_set_selectable(row, false);
+		gtk_list_box_row_set_child(row, widgetLabelAverageRating);
+		gtk_list_box_append(listBox, widgetRow);
 	}
 }
 
@@ -446,7 +487,8 @@ static void assignFormation(
 				player->age < filters.minAge ||
 				player->age > filters.maxAge ||
 				player->condition < filters.minCondition ||
-				player->condition > filters.maxCondition
+				player->condition > filters.maxCondition ||
+				(filters.excludeInjured && player->injury.duration)
 			) {
 				continue;
 			}

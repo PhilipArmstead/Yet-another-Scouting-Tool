@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(YaST VERSION 24.0.107 LANGUAGES C)
+project(YaST VERSION 24.0.108 LANGUAGES C)
 
 # Default build type for single-config generators only.
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)

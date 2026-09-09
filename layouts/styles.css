@@ -435,3 +435,7 @@ headerbar .title {
 .best-eleven-root .table row {
 	padding: 12px 8px;
 }
+
+.best-eleven-root .average-rating {
+	font-size: 1.1em;
+}

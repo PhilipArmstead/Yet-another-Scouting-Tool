@@ -16,7 +16,6 @@ TODO
 	- ⭐ Pull players from in-game shortlist
 - Best Eleven
 	- ⭐ Show condition
-	- ⭐ Show injuries (and filter on it)
 - Club search
 	- ⭐ Show club data when searching by division / reputation / overall average rating
 

@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 			<object class="GtkAdjustment" id="adjustment:min-condition">
 				<property name="lower">0</property>
 				<property name="upper">100</property>
-				<property name="value">0</property>
+				<property name="value">80</property>
 				<property name="step-increment">1</property>
 				<property name="page-increment">5</property>
 			</object>
@@ -249,6 +249,22 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 														<property name="digits">0</property>
 													</object>
 												</child>
+											</object>
+										</child>
+									</object>
+								</child>
+								<child>
+									<object class="GtkBox">
+										<property name="orientation">horizontal</property>
+										<property name="spacing">8</property>
+										<child>
+											<object class="GtkCheckButton" id="checkbox:best-xi:exclude-injured">
+												<property name="label">Exclude injured?</property>
+												<property name="halign">start</property>
+												<property name="active">true</property>
+												<style>
+													<class name="heading"/>
+												</style>
 											</object>
 										</child>
 									</object>
