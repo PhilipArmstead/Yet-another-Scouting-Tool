@@ -131,7 +131,7 @@ void ui_updateInGameDate(void) {
 }
 
 void ui_updateGameVersion(void) {
-	GtkLabel *versionLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:status")));
+	GtkLabel *versionLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:version")));
 	if (gameContext.gameVersion[0] == '\0') {
 		gtk_label_set_text(versionLabel, "");
 		return;
@@ -160,7 +160,7 @@ WindowContext openWindow(const char *layoutName, const char *windowName) {
 }
 
 void ui_setCurrentStatus(const char *status) {
-	GtkLabel *statusLabel = GTK_LABEL(gtk_builder_get_object(gameContext.builder, "status:player-count"));
+	GtkLabel *statusLabel = GTK_LABEL(gtk_builder_get_object(gameContext.builder, "label:application-status"));
 	gtk_label_set_text(statusLabel, status);
 }
 

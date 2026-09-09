@@ -19,7 +19,7 @@ void callbacks_init(void) {
 	g_signal_connect(controllerKey, "key-released", G_CALLBACK(callbacks_onFiltersKeypress), NULL);
 	gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(controllerKey), GTK_PHASE_BUBBLE);
 
-	GtkWidget *sidebar = GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "sidebar"));
+	GtkWidget *sidebar = GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "box:sidebar"));
 	gtk_widget_add_controller(sidebar, GTK_EVENT_CONTROLLER(controllerKey));
 
 	// Attach datalist callbacks

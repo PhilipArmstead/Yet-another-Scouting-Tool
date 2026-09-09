@@ -70,7 +70,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							</object>
 						</child>
 						<child>
-							<object class="GtkLabel" id="label:status">
+							<object class="GtkLabel" id="label:version">
 								<property name="label"/>
 								<style>
 									<class name="version"/>
@@ -110,7 +110,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 						<property name="vexpand">true</property>
 						<property name="css-classes">body</property>
 						<child>
-							<object class="GtkBox" id="sidebar">
+							<object class="GtkBox" id="box:sidebar">
 								<property name="orientation">vertical</property>
 								<property name="width-request">190</property>
 								<property name="spacing">6</property>
@@ -478,7 +478,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							<class name="status-row"/>
 						</style>
 						<child>
-							<object class="GtkLabel" id="status:player-count">
+							<object class="GtkLabel" id="label:application-status">
 								<property name="label"/>
 								<property name="halign">end</property>
 							</object>
