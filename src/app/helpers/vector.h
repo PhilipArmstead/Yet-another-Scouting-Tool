@@ -3,10 +3,11 @@
 
 #pragma once
 
-#include <stddef.h>  // for max_align_t
-#include <stdint.h>  // for SIZE_MAX
+#include <stddef.h> // for max_align_t
+#include <stdint.h> // for SIZE_MAX
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Metadata stored immediately BEFORE the user-visible pointer ("fat pointer").
 // Note: a bare `size_t count; size_t capacity;` header is only incidentally
@@ -77,6 +78,24 @@ static inline size_t vector__allocateSize(size_t elementSize, size_t capacity) {
 
 // Remove and return the last element (caller must ensure non-empty).
 #define vector_pop(vector) ((vector)[--((Header*)(vector) - 1)->count])
+
+// Remove the element at `index` and copy following elements down by one.
+// Safe on NULL and out-of-range indexes; `result` is left unchanged then.
+#define vector_splice(vector, index, result)											\
+	do {																														\
+		size_t spliceIndex = (index);																	\
+		if ((vector) != NULL) {																				\
+			Header *header = (Header*)(vector) - 1;											\
+			if (spliceIndex < header->count) {													\
+				*(result) = (vector)[spliceIndex];												\
+				memmove(																									\
+					(vector) + spliceIndex,																	\
+					(vector) + spliceIndex + 1,															\
+					(header->count - spliceIndex - 1) * sizeof(*(vector)));	\
+				--header->count;																					\
+			}																														\
+		}																															\
+	} while (0)
 
 // Ensure capacity for at least `n` total elements without changing count.
 // Useful to pre-size and avoid repeated reallocs.

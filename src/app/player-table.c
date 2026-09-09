@@ -175,7 +175,7 @@ static void onRowClicked(
 	const SearchPlayerRow *row = gtk_list_item_get_item(listItem);
 
 	if (row != NULL && row->player != NULL && clickCount == 2) {
-		ui_renderPlayerInfoWindow(ui_createPlayerInfoWindow(), row->player);
+		ui_createPlayerInfoWindow(row->player);
 	}
 }
 
@@ -637,6 +637,7 @@ void playerTable_init(void) {
 		g_signal_connect(columnViewSorter, "changed", G_CALLBACK(onSorterChanged), NULL);
 	}
 
+	gameContext.searchResults = sharedPointer_new(NULL);
 	playerTable_clear();
 
 	gtk_column_view_sort_by_column(context.table, ratingColumn, GTK_SORT_DESCENDING);

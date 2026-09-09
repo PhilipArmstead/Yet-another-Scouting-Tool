@@ -82,6 +82,20 @@ typedef struct {
 	GtkCheckButton *positionST;
 } CheckBox;
 
+typedef enum {
+	WINDOW_PLAYER_SEARCH,
+	WINDOW_PLAYER_INFO,
+	WINDOW_BEST_XI,
+} WindowType;
+
+
+typedef struct {
+	GtkBuilder *builder;
+	GtkWidget *window;
+	void *data;
+	WindowType type;
+} WindowContext;
+
 typedef struct {
 	CheckBox checkboxes;
 	FilterBuffer filterBuffer;
@@ -96,6 +110,7 @@ typedef struct {
 	Club *clubs;
 	Nation *nations;
 	Player *players;
+	WindowContext *windows;
 	uint64_t gameKey;
 	uint64_t clubCount;
 	uint64_t nationCount;

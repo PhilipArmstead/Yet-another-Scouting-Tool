@@ -6,6 +6,5 @@
 
 
 G_MODULE_EXPORT void callbacks_onShowBestEleven(void) {
-	const WindowContext context = ui_createBestElevenWindow();
-	ui_renderBestElevenWindow(context);
+	ui_createBestElevenWindow();
 }

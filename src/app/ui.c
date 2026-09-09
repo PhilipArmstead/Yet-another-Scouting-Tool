@@ -7,7 +7,7 @@
 #include "app/config.h"
 #include "app/search-handler.h"
 #include "app/helpers/date.h"
-#include "core/logger.h"
+#include "app/helpers/vector.h"
 #include "platform/platform.h"
 
 #include <gtk/gtk.h>
@@ -18,6 +18,7 @@
 extern ProcessContext processContext;
 extern GameContext gameContext;
 
+static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
 static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer);
 static void loadStylesheet(const char *fileName);
@@ -26,7 +27,7 @@ void ui_init(GtkApplication *app) {
 	loadStylesheet("styles.css");
 
 	// Show main window
-	const WindowContext context = openWindow("show-players", "window:show-players");
+	const WindowContext context = openWindow("show-players", "window:show-players", WINDOW_PLAYER_SEARCH);
 	gameContext.builder = context.builder;
 	gtk_window_set_application(GTK_WINDOW(context.window), GTK_APPLICATION(app));
 
@@ -148,13 +149,14 @@ void ui_updateGameVersion(void) {
 	gtk_label_set_text(versionLabel, buffer);
 }
 
-WindowContext openWindow(const char *layoutName, const char *windowName) {
+WindowContext openWindow(const char *layoutName, const char *windowName, const WindowType type) {
 	char pathToAppLayout[256] = {0};
 	snprintf(pathToAppLayout, sizeof(pathToAppLayout), RESOURCE_BASE "/layouts/%s.ui", layoutName);
 
-	WindowContext context = {0};
+	WindowContext context = {.type = type};
 	context.builder = gtk_builder_new_from_resource(pathToAppLayout);
 	context.window = GTK_WIDGET(gtk_builder_get_object(context.builder, windowName));
+	g_signal_connect(context.window, "close_request", G_CALLBACK(onWindowClose), NULL);
 
 	GtkEventControllerKey *closeController = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
 	gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(closeController), GTK_PHASE_CAPTURE);
@@ -162,7 +164,32 @@ WindowContext openWindow(const char *layoutName, const char *windowName) {
 	gtk_widget_add_controller(context.window, GTK_EVENT_CONTROLLER(closeController));
 
 	gtk_window_present(GTK_WINDOW(context.window));
+
+	vector_push(gameContext.windows, context);
+
 	return context;
+}
+
+static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
+	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
+		if (gameContext.windows[i].window == widget) {
+			WindowContext out;
+			vector_splice(gameContext.windows, i, &out);
+		}
+	}
+
+	(void)userData;
+	return G_SOURCE_REMOVE;
+}
+
+void ui_refreshAllWindows(void) {
+	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
+		if (gameContext.windows[i].type == WINDOW_BEST_XI) {
+			ui_renderBestElevenWindow(gameContext.windows[i]);
+		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
+			ui_renderPlayerInfoWindow(gameContext.windows[i]);
+		}
+	}
 }
 
 void ui_setCurrentStatus(const char *status) {
@@ -234,12 +261,12 @@ static void onTagClick(GtkWidget *self) {
 	}
 }
 
-void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
+static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
 	gtk_editable_set_text(buffer, "");
 	onTagClick(self);
 }
 
-void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
+static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
 	gtk_entry_buffer_set_text(buffer, "", 1);
 	onTagClick(self);
 }

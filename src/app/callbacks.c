@@ -64,14 +64,11 @@ gboolean callbacks_onWindowKeypress(
 	}
 #endif
 
-
-
 	return FALSE;
 }
 
 G_MODULE_EXPORT void callbacks_onShowQualityAccordionToggle(void) {
 	accordionToggle("quality-and-age");
-	// gtk_widget_set_cursor
 }
 
 G_MODULE_EXPORT void callbacks_onShowPositionAccordionToggle(void) {

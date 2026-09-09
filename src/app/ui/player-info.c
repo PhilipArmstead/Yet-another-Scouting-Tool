@@ -9,14 +9,17 @@
 
 extern GameContext gameContext;
 
-WindowContext ui_createPlayerInfoWindow(void) {
-	const WindowContext context = openWindow("player-info", "window:player-info");
+void ui_createPlayerInfoWindow(const Player *player) {
+	WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO);
 	gtk_window_set_default_size(GTK_WINDOW(context.window), 420, 900);
+	context.data = (void*)player;
 
-	return context;
+	ui_renderPlayerInfoWindow(context);
 }
 
-void ui_renderPlayerInfoWindow(WindowContext context, const Player *player) {
+void ui_renderPlayerInfoWindow(WindowContext context) {
+	const Player *player = context.data;
+
 	// Player name
 	GtkLabel *commonNameLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:common-name")));
 	if (player->commonName[0] == '\0') {

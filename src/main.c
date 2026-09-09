@@ -12,6 +12,7 @@
 #include "app/ui.h"
 #include "app/helpers/game.h"
 #include "app/helpers/vector-shared-pointer.h"
+#include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
 
@@ -33,10 +34,6 @@ int main(const int argc, char **argv) {
 
 	LOG_INFO("App started");
 
-	options_init();
-
-	gameContext.searchResults = sharedPointer_new(NULL);
-
 	GtkApplication *app = gtk_application_new("com.philarmstead.yast", G_APPLICATION_DEFAULT_FLAGS);
 	gameContext.app = app;
 	g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
@@ -49,6 +46,9 @@ int main(const int argc, char **argv) {
 }
 
 static void activate(GtkApplication *app) {
+	vector_reserve(gameContext.windows, 10);
+
+	options_init();
 	ui_init(app);
 	callbacks_init();
 	playerTable_init();

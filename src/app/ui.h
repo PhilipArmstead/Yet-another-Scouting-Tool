@@ -8,11 +8,6 @@
 #include "app/types.h"
 
 
-typedef struct {
-	GtkBuilder *builder;
-	GtkWidget *window;
-} WindowContext;
-
 void ui_init(GtkApplication *app);
 void ui_update(void);
 void ui_updateGameVersion(void);
@@ -21,10 +16,11 @@ void ui_clearFilterTags(void);
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
 void ui_createClubFilterTag(const char *text, GtkEditable *buffer);
 
-WindowContext openWindow(const char *layoutName, const char *windowName);
-WindowContext ui_createPlayerInfoWindow(void);
-void ui_renderPlayerInfoWindow(WindowContext context, const Player *player);
-WindowContext ui_createBestElevenWindow(void);
+WindowContext openWindow(const char *layoutName, const char *windowName, WindowType type);
+void ui_createPlayerInfoWindow(const Player *player);
+void ui_renderPlayerInfoWindow(WindowContext context);
+void ui_createBestElevenWindow(void);
 void ui_renderBestElevenWindow(WindowContext context);
+void ui_refreshAllWindows(void);
 
 void ui_setCurrentStatus(const char *status);

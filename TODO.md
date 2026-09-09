@@ -1,9 +1,6 @@
 TODO
 ===
 
-- ⭐ Update windows (store in an array) when cache resets
-- Clear cache/UI if the save goes away
-	- Write "cannot find save" in date slot
 - Port `platform_openProcess` to Linux
 - Implement light mode
 - To player-info

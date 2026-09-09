@@ -51,6 +51,5 @@ static void showPlayerById(uint32_t uniqueId) {
 		player.playerAddress
 	);
 
-	const WindowContext context = ui_createPlayerInfoWindow();
-	ui_renderPlayerInfoWindow(context, &player);
+	ui_createPlayerInfoWindow(&player);
 }

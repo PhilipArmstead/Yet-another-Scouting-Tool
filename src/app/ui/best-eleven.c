@@ -32,8 +32,8 @@ static void renderBestElevenTable(WindowContext context);
 static void onFormationSelected(GObject *object, GParamSpec *pspec, gpointer userData);
 static void onFilterChange(GObject *object, gpointer userData);
 
-WindowContext ui_createBestElevenWindow(void) {
-	const WindowContext context = openWindow("best-xi", "window:best-xi");
+void ui_createBestElevenWindow(void) {
+	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI);
 	gtk_window_set_default_size(GTK_WINDOW(context.window), 420, 900);
 
 	SharedPointer *snapshot = gameContext.searchResults;
@@ -82,7 +82,7 @@ WindowContext ui_createBestElevenWindow(void) {
 		0
 	);
 
-	return context;
+	ui_renderBestElevenWindow(context);
 }
 
 void ui_renderBestElevenWindow(const WindowContext context) {
