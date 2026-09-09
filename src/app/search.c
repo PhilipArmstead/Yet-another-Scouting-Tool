@@ -16,15 +16,10 @@ uint32_t *search_findPlayers(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
 	uint32_t *playerIds = NULL;
-
-#ifdef PLAYER_BY_ID
-	for (uint32_t i = 0; i < (uint32_t)gameContext.playerCount; i++) {
-		vector_push(playerIds, i);
-	}
-#else
 	const FilterOptions options = gameContext.filterOptions;
 
 	for (uint32_t i = 0; i < gameContext.playerCount; ++i) {
+#ifndef PLAYER_BY_ID
 		const Player *player = &gameContext.players[i];
 
 		if (
@@ -100,10 +95,10 @@ uint32_t *search_findPlayers(void) {
 		) {
 			continue;
 		}
+#endif
 
 		vector_push(playerIds, i);
 	}
-#endif
 
 	sharedPointer_unref(gameContext.searchResults);
 	gameContext.searchResults = sharedPointer_new(playerIds);

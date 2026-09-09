@@ -93,7 +93,7 @@ uint64_t game_getKey(const ProcessContext *context, GameKeyStatus *outStatus) {
 	}
 	return nameAddress;
 #else
-	*outStatus = GAME_KEY_NOT_FOUND;
+	*outStatus = GAME_KEY_FOUND;
 	return 0x0123456789ABCDEF;
 #endif
 }
