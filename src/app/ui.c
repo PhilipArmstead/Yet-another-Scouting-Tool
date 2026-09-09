@@ -30,6 +30,12 @@ void ui_init(GtkApplication *app) {
 	gameContext.builder = context.builder;
 	gtk_window_set_application(GTK_WINDOW(context.window), GTK_APPLICATION(app));
 
+	// Write application version
+	const GtkLabel *appVersionLabel = GTK_LABEL(gtk_builder_get_object(context.builder, "label:application-version"));
+	char appVersionBuffer[64];
+	snprintf(appVersionBuffer, sizeof(appVersionBuffer), "%s %d.%d.%d", APP_NAME, APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
+	gtk_label_set_text(GTK_LABEL(appVersionLabel), appVersionBuffer);
+
 	#ifdef MOCKS_MODE
 	// In mock mode, we never have the process-connected callback run
 	cache_run();

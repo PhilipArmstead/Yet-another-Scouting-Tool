@@ -1,4 +1,4 @@
-Football Manager Player Rater
+Yet another Scouting Tool
 ===
 
 ## About this tool
@@ -147,9 +147,9 @@ cmake --build build --parallel
 cmake --build build --target clean
 
 # Run directly
-./build/FM-Player-Rater   # single-config generators
+./build/YaST   # single-config generators
 # or
-./build/Debug/FM-Player-Rater   # multi-config generators, Debug
+./build/Debug/YaST   # multi-config generators, Debug
 
 # Or use the custom run target
 cmake --build build --target run

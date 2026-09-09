@@ -464,7 +464,7 @@ static void writeDefaultOptions(const char *path) {
 
 	const Options *options = &gameContext.options;
 
-	fputs("# FM Player Rater options\n", file);
+	fputs("# Yet another Scouting Tool options\n", file);
 	fprintf(file, "dark-mode: %s\n", options->darkMode ? "true" : "false");
 
 	fputs("formations:\n", file);

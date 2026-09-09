@@ -8,7 +8,7 @@
 #include "platform/platform.h"
 
 
-#define LOG_FILE_PATH "fm-player-rater.log"
+#define LOG_FILE_PATH "yast.log"
 
 static FILE *logFile = NULL;
 

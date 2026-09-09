@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(FMPlayerRater VERSION 0.0.1 LANGUAGES C)
+project(YaST VERSION 24.0.105 LANGUAGES C)
 
 # Default build type for single-config generators only.
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -21,7 +21,7 @@ if (NOT GLIB_COMPILE_RESOURCES)
 	find_program(GLIB_COMPILE_RESOURCES glib-compile-resources REQUIRED)
 endif ()
 
-set(RESOURCE_PREFIX "/com/philarmstead/fmplayerrater")
+set(RESOURCE_PREFIX "/com/philarmstead/yast")
 set(GRESOURCE_XML "${CMAKE_CURRENT_BINARY_DIR}/resources.gresource.xml")
 set(GRESOURCE_C "${CMAKE_CURRENT_BINARY_DIR}/resources.c")
 
@@ -68,7 +68,7 @@ add_custom_command(
 	VERBATIM
 )
 
-add_executable(fm_player_rater
+add_executable(yast
 	${GRESOURCE_C}
 	src/main.c
 	src/app/callbacks.c
@@ -87,7 +87,6 @@ add_executable(fm_player_rater
 	src/app/helpers/formatter.c
 	src/app/helpers/game.c
 	src/app/helpers/vector-shared-pointer.c
-	src/app/helpers/vector-shared-pointer.h
 	src/app/ui/best-eleven.c
 	src/app/ui/player-info.c
 	src/core/logger.c
@@ -99,26 +98,26 @@ add_executable(fm_player_rater
 # Prevent a console/terminal window in Release builds.
 if (WIN32)
 	# Windows: link as a GUI subsystem app so no console is allocated.
-	target_link_options(fm_player_rater PRIVATE $<$<CONFIG:Release>:-mwindows>)
+	target_link_options(yast PRIVATE $<$<CONFIG:Release>:-mwindows>)
 elseif (APPLE)
 	# macOS: build a .app bundle in Release so launching does not open a Terminal.
-	set_target_properties(fm_player_rater PROPERTIES MACOSX_BUNDLE $<$<CONFIG:Release>:TRUE>)
+	set_target_properties(yast PROPERTIES MACOSX_BUNDLE $<$<CONFIG:Release>:TRUE>)
 endif ()
 
 # Allow including headers using absolute paths relative to the project `src/` directory,
 # e.g. #include "platform/platform.h"
-target_include_directories(fm_player_rater PRIVATE
+target_include_directories(yast PRIVATE
 	${PROJECT_SOURCE_DIR}/src
 )
 
-# Keep binary name with hyphens, but use a CMake-safe target name.
-set_target_properties(fm_player_rater PROPERTIES
-	OUTPUT_NAME "FM-Player-Rater"
+# Use the project name for the public executable while keeping a lowercase CMake target.
+set_target_properties(yast PROPERTIES
+	OUTPUT_NAME "${PROJECT_NAME}"
 )
 
-target_compile_features(fm_player_rater PRIVATE c_std_99)
+target_compile_features(yast PRIVATE c_std_99)
 
-target_compile_options(fm_player_rater PRIVATE
+target_compile_options(yast PRIVATE
 	$<$<C_COMPILER_ID:GNU,Clang,AppleClang>:
 	-Wall
 	-Wextra
@@ -135,15 +134,19 @@ target_compile_options(fm_player_rater PRIVATE
 	>
 )
 
-target_compile_definitions(fm_player_rater PRIVATE
+target_compile_definitions(yast PRIVATE
 	$<$<PLATFORM_ID:Windows>:ARCH_WIN>
 	$<$<PLATFORM_ID:Linux>:ARCH_LINUX>
 	$<$<PLATFORM_ID:Darwin>:ARCH_MACOS>
 	$<$<CONFIG:Debug>:DEBUG>
+	APP_NAME="${PROJECT_NAME}"
+	APP_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+	APP_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+	APP_VERSION_PATCH=${PROJECT_VERSION_PATCH}
 	GNU_SOURCE
 )
 
-target_link_libraries(fm_player_rater PRIVATE PkgConfig::GTK4)
+target_link_libraries(yast PRIVATE PkgConfig::GTK4)
 
 # Export runtime symbols on Linux so GtkBuilder can find G_MODULE_EXPORT callbacks
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -155,12 +158,12 @@ add_custom_target(info
 	COMMAND ${CMAKE_COMMAND} -E echo "Generator: ${CMAKE_GENERATOR}"
 	COMMAND ${CMAKE_COMMAND} -E echo "Config: $<CONFIG>"
 	COMMAND ${CMAKE_COMMAND} -E echo "Compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}"
-	COMMAND ${CMAKE_COMMAND} -E echo "Target: $<TARGET_FILE:fm_player_rater>"
+	COMMAND ${CMAKE_COMMAND} -E echo "Target: $<TARGET_FILE:yast>"
 )
 
 add_custom_target(run
-	COMMAND $<TARGET_FILE:fm_player_rater>
-	DEPENDS fm_player_rater
-	WORKING_DIRECTORY $<TARGET_FILE_DIR:fm_player_rater>
+	COMMAND $<TARGET_FILE:yast>
+	DEPENDS yast
+	WORKING_DIRECTORY $<TARGET_FILE_DIR:yast>
 	USES_TERMINAL
 )

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  FM Player Rater - GTK4 GtkBuilder UI definition.
+  Yet another Scouting Tool - GTK4 GtkBuilder UI definition.
   See: https://docs.gtk.org/gtk4/class.Builder.html
 -->
 <interface domain="player-info">
@@ -12,7 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 	<object class="GtkWindow" id="window:player-info">
 		<property name="default-height">800</property>
 		<property name="default-width">420</property>
-		<property name="title">FM Player Rater</property>
+		<property name="title">Yet another Scouting Tool</property>
 		<property name="css-classes">app-root</property>
 		<child>
 			<object class="GtkBox">

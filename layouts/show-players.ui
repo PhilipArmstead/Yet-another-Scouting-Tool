@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  FM Player Rater - GTK4 GtkBuilder UI definition.
+  Yet another Scouting Tool - GTK4 GtkBuilder UI definition.
   See: https://docs.gtk.org/gtk4/class.Builder.html
 -->
 <interface domain="show-players">
@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 	<!-- interface-authors Phil Armstead <philarmstead@mailbox.org> -->
 	<requires lib="gtk" version="4.0"/>
 	<object class="GtkWindow" id="window:show-players">
-		<property name="title">FM Player Rater</property>
+		<property name="title">Yet another Scouting Tool</property>
 		<property name="default-width">1255</property>
 		<property name="default-height">690</property>
 		<child>
@@ -481,6 +481,19 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							<object class="GtkLabel" id="label:application-status">
 								<property name="label"/>
 								<property name="halign">end</property>
+							</object>
+						</child>
+						<child>
+							<object class="GtkBox">
+								<property name="hexpand">true</property>
+							</object>
+						</child>
+						<child>
+							<object class="GtkLabel" id="label:application-version">
+								<property name="label"/>
+								<style>
+									<class name="date"/>
+								</style>
 							</object>
 						</child>
 					</object>
