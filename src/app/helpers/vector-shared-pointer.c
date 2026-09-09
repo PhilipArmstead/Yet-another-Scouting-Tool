@@ -5,7 +5,7 @@
 #include "app/helpers/vector.h"
 
 
-SharedPointer *sharedPointer_new(void* data) {
+SharedPointer *sharedPointer_new(void *data) {
 	SharedPointer *self = malloc(sizeof(SharedPointer));
 	if (self == NULL) {
 		return NULL;

@@ -76,7 +76,7 @@ void cache_clear(void) {
 static void cacheNations(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + NATION_LIST_PTR_BASE, 8, bytes);
 	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_PTR_BASE_OFFSET, 8, bytes);
@@ -118,13 +118,13 @@ static void cacheNations(void) {
 			(uint8_t*)gameContext.nations[i].code
 		);
 	}
-	#else
+#else
 	const uint8_t nationCount = 251;
 	gameContext.nationCount = nationCount;
 	gameContext.nations = calloc(nationCount, sizeof(Nation));
 	gameContext.nations[189] = PLAYER_BY_ID_NATION_1;
 	gameContext.nations[170] = PLAYER_BY_ID_NATION_2;
-	#endif
+#endif
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Cached %d nations in %zu microseconds", nationCount, timeEnd - timeStart);
@@ -133,7 +133,7 @@ static void cacheNations(void) {
 static void cacheClubs(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + CLUB_LIST_PTR_BASE, 4, bytes);
 	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + CLUB_LIST_PTR_BASE_OFFSET, 4, bytes);
@@ -179,12 +179,12 @@ static void cacheClubs(void) {
 	}
 
 	gameContext.clubCount -= missed;
-	#else
+#else
 	const uint32_t clubCount = 36289;
 	gameContext.clubCount = clubCount;
 	gameContext.clubs = malloc(clubCount * sizeof(Club));
 	gameContext.clubs[1125] = PLAYER_BY_ID_CLUB;
-	#endif
+#endif
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Cached %d clubs in %zu microseconds", gameContext.clubCount, timeEnd - timeStart);
@@ -194,7 +194,7 @@ static void cachePlayers(const uint8_t workerIndex) {
 	const int64_t timeStart = platform_getMicroseconds();
 	uint64_t cached = 0;
 
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	const uint64_t start = gameContext.playerCount * workerIndex / PLAYERS_THREAD_COUNT;
 	const uint64_t end = gameContext.playerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 
@@ -217,7 +217,7 @@ static void cachePlayers(const uint8_t workerIndex) {
 		gameContext.players[i] = player;
 		++cached;
 	}
-	#else
+#else
 	const Player playerVini = PLAYER_VINI;
 	const Player playerJeff = PLAYER_JEFF;
 	const uint64_t start = (gameContext.playerCount * workerIndex) / THREAD_COUNT;
@@ -225,7 +225,7 @@ static void cachePlayers(const uint8_t workerIndex) {
 	for (uint64_t i = start; i < end; i++) {
 		memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
 	}
-	#endif
+#endif
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG(
@@ -241,16 +241,16 @@ void cache_run(void) {
 	}
 
 	// Prepare player array for multithreaded writing
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
 	const uint64_t playerStart = hexBytesToInt(bytes, 8);
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE + 0x08, 8, bytes);
 	const uint64_t playerEnd = hexBytesToInt(bytes, 8);
 	const uint64_t playerCount = (playerEnd - playerStart) / 8;
-	#else
+#else
 	const uint64_t playerCount = 900;
-	#endif
+#endif
 
 	gameContext.playerCount = playerCount;
 	// calloc so that slots the workers skip stay zeroed (uid == 0) and are

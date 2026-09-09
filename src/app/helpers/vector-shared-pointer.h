@@ -6,6 +6,6 @@
 #include "app/types.h"
 
 
-SharedPointer *sharedPointer_new(void* data);
+SharedPointer *sharedPointer_new(void *data);
 void sharedPointer_ref(SharedPointer *self);
 void sharedPointer_unref(SharedPointer *self);

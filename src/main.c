@@ -60,15 +60,15 @@ static void activate(GtkApplication *app) {
 static gboolean update(gpointer userData) {
 	(void)userData;
 
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	if (processContext.handle != NULL) {
 		updateWhileConnected();
 	} else {
 		updateWhileDisconnected();
 	}
-	#else
+#else
 	updateWhileConnected();
-	#endif
+#endif
 	return G_SOURCE_CONTINUE;
 }
 

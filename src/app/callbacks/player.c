@@ -13,12 +13,12 @@ extern ProcessContext processContext;
 static void showPlayerById(uint32_t uniqueId);
 
 G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void) {
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	if (processContext.handle == NULL) {
 		LOG_ERROR("Process handle is NULL, cannot read current player");
 		return;
 	}
-	#endif
+#endif
 
 	const uint32_t uniqueId = getCurrentPersonUniqueId(&processContext);
 	showPlayerById(uniqueId);
@@ -32,11 +32,11 @@ static void showPlayerById(uint32_t uniqueId) {
 
 	LOG_INFO("Searching for Player Unique ID: %u", uniqueId);
 
-	#ifdef PLAYER_BY_ID
+#ifdef PLAYER_BY_ID
 	const Player player = PLAYER_BY_ID;
-	#else
+#else
 	const Player player = getPlayerById(&processContext, uniqueId);
-	#endif
+#endif
 
 	if (player.personAddress == 0) {
 		LOG_ERROR("Player with Unique ID %u not found", uniqueId);

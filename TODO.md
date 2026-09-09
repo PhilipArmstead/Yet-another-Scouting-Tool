@@ -10,6 +10,7 @@ TODO
 	- Add condition
 	- Add happiness
 - To player search
+	- ⭐ Modify Club Search to search player names also
 	- ⭐ Search for nationality
 	- Search for asking/guide price/wage
 	- ⭐ Pull players from in-game shortlist

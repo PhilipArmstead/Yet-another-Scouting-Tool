@@ -11,7 +11,7 @@
 
 extern GameContext gameContext;
 
-static void runThreadedSearch(SearchContext * context);
+static void runThreadedSearch(SearchContext *context);
 
 void callbacks_OnClubNameChange(GtkEditable *editable, SearchDatalist *dataList) {
 	gameContext.filterOptions.filterMask &= ~(uint32_t)FILTER_HAS_CLUB;
@@ -155,7 +155,7 @@ static void *threadFunction(void *arg) {
 #endif
 
 static void runThreadedSearch(SearchContext *context) {
-	#ifdef ARCH_WIN
+#ifdef ARCH_WIN
 	if (CreateThread(
 		NULL,
 		0,
@@ -167,7 +167,7 @@ static void runThreadedSearch(SearchContext *context) {
 		LOG_ERROR("Failed to create thread.");
 		free(context);
 	}
-	#else
+#else
 	pthread_t thread;
 	if (pthread_create(&thread, NULL, threadFunction, context) != 0) {
 		LOG_ERROR("Failed to create club-search thread");
@@ -175,5 +175,5 @@ static void runThreadedSearch(SearchContext *context) {
 	} else {
 		pthread_detach(thread);
 	}
-	#endif
+#endif
 }

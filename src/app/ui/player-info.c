@@ -84,7 +84,7 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	char widgetId[64];
 	GtkLabel *label;
 	GtkWidget *widget;
-	#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {															\
+#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {																\
 		snprintf(buffer, 8, "%d", convertTo20Scale(player->attributes[attributeIndex]));		\
 		snprintf(widgetId, 64, "label:%s", id);																							\
 		label = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId)));		\

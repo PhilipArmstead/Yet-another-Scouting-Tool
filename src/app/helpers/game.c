@@ -33,18 +33,18 @@ DateTime game_parseDateTime(uint8_t dateTimeBytes[4]) {
 
 // Assumes valid ProcessContext
 DateTime game_getDateTime(const ProcessContext *context) {
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	uint8_t bytes[4];
 	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
 	return game_parseDateTime(bytes);
-	#else
-	return (DateTime) { .days = 210, .year = 2026, .time = 28 };
-	#endif
+#else
+	return (DateTime){.days = 210, .year = 2026, .time = 28};
+#endif
 }
 
 // Assumes valid ProcessContext
 void game_getVersion(const ProcessContext *context, char *versionBuffer, const uint8_t bufferSize) {
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	uint8_t bytes[4];
 	void *handle = context->handle;
 	readFromMemory(handle, context->moduleBaseAddress + GAME_VERSION_PTR_BASE, 4, bytes);
@@ -56,9 +56,9 @@ void game_getVersion(const ProcessContext *context, char *versionBuffer, const u
 		(uint8_t*)versionBuffer
 	);
 	versionBuffer[bufferSize - 1] = '\0';
-	#else
+#else
 	strncpy(versionBuffer, "24.4.2+2081827 (m.e v24.2.0.0)", bufferSize - 1);
-	#endif
+#endif
 }
 
 // This serves two purposes:

@@ -3,13 +3,13 @@
   Yet another Scouting Tool - GTK4 GtkBuilder UI definition.
   See: https://docs.gtk.org/gtk4/class.Builder.html
 -->
-<interface domain="show-players">
-	<!-- interface-name show-players.ui -->
+<interface domain="player-search">
+	<!-- interface-name player-search.ui -->
 	<!-- interface-copyright SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 SPDX-License-Identifier: GPL-3.0-or-later -->
 	<!-- interface-authors Phil Armstead <philarmstead@mailbox.org> -->
 	<requires lib="gtk" version="4.0"/>
-	<object class="GtkWindow" id="window:show-players">
+	<object class="GtkWindow" id="window:player-search">
 		<property name="title">Yet another Scouting Tool</property>
 		<property name="default-width">1255</property>
 		<property name="default-height">690</property>
@@ -116,171 +116,21 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 								<property name="spacing">6</property>
 								<property name="css-classes">sidebar</property>
 								<child>
+									<object class="GtkLabel">
+										<property name="label">FILTERS</property>
+										<property name="halign">start</property>
+										<property name="hexpand">false</property>
+										<style>
+											<class name="section-title"/>
+										</style>
+									</object>
+								</child>
+
+								<child>
 									<object class="GtkBox" id="box:club-search-container"/>
 								</child>
 								<child>
-									<object class="GtkButton" id="accordion-button:positions">
-										<property name="css-classes">button--plain</property>
-										<signal name="clicked" handler="callbacks_onShowPositionAccordionToggle"/>
-										<child>
-											<object class="GtkBox">
-												<property name="css-classes">sidebar-section-header</property>
-												<property name="spacing">6</property>
-												<child>
-													<object class="GtkLabel">
-														<property name="label">POSITION</property>
-														<property name="halign">start</property>
-														<property name="hexpand">false</property>
-														<style>
-															<class name="section-title"/>
-														</style>
-													</object>
-												</child>
-												<child>
-													<object class="GtkLabel" id="accordion-label:positions">
-														<property name="label">▶</property>
-														<style>
-															<class name="section-chevron"/>
-														</style>
-													</object>
-												</child>
-											</object>
-										</child>
-									</object>
-								</child>
-								<child>
-									<object class="GtkBox" id="filter-body:positions">
-										<property name="orientation">vertical</property>
-										<property name="spacing">6</property>
-										<property name="css-classes">quality-body</property>
-										<property name="visible">false</property>
-										<child>
-											<object class="GtkFlowBox">
-												<property name="orientation">horizontal</property>
-												<property name="selection-mode">none</property>
-												<property name="homogeneous">false</property>
-												<property name="column-spacing">4</property>
-												<property name="row-spacing">4</property>
-												<property name="min-children-per-line">1</property>
-												<property name="max-children-per-line">3</property>
-												<style>
-													<class name="quality-row"/>
-												</style>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:gk">
-														<property name="label">GK</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dl">
-														<property name="label">DL</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dc">
-														<property name="label">DC</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dr">
-														<property name="label">DR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:wbl">
-														<property name="label">WBL</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dm">
-														<property name="label">DM</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:wbr">
-														<property name="label">WBR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:ml">
-														<property name="label">ML</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:mc">
-														<property name="label">MC</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:mr">
-														<property name="label">MR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:aml">
-														<property name="label">AML</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:amc">
-														<property name="label">AMC</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:amr">
-														<property name="label">AMR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:st">
-														<property name="label">ST</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkButton">
-														<property name="label">Update</property>
-														<signal name="clicked" handler="callbacks_onFilterRun"/>
-														<style>
-															<class name="clear-filters-btn"/>
-														</style>
-													</object>
-												</child>
-											</object>
-										</child>
-									</object>
-								</child>
-								<child>
-									<object class="GtkButton" id="accordion-button:quality-and-age">
-										<property name="css-classes">button--plain</property>
-										<signal name="clicked" handler="callbacks_onShowQualityAccordionToggle"/>
-										<child>
-											<object class="GtkBox">
-												<property name="css-classes">sidebar-section-header</property>
-												<property name="spacing">6</property>
-												<child>
-													<object class="GtkLabel">
-														<property name="label">QUALITY &amp; AGE</property>
-														<property name="halign">start</property>
-														<property name="hexpand">false</property>
-														<style>
-															<class name="section-title"/>
-														</style>
-													</object>
-												</child>
-												<child>
-													<object class="GtkLabel" id="accordion-label:quality-and-age">
-														<property name="label">▼</property>
-														<style>
-															<class name="section-chevron"/>
-														</style>
-													</object>
-												</child>
-											</object>
-										</child>
-									</object>
-								</child>
-								<child>
-									<object class="GtkBox" id="filter-body:quality-and-age">
+									<object class="GtkBox">
 										<property name="orientation">vertical</property>
 										<property name="spacing">6</property>
 										<property name="css-classes">quality-body</property>
@@ -440,6 +290,116 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 											</object>
 										</child>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">POSITIONS</property>
+										<property name="halign">start</property>
+										<property name="hexpand">false</property>
+										<style>
+											<class name="section-title"/>
+										</style>
+									</object>
+								</child>
+								<child>
+									<object class="GtkBox">
+										<property name="orientation">vertical</property>
+										<property name="spacing">6</property>
+										<property name="css-classes">quality-body</property>
+										<child>
+											<object class="GtkFlowBox">
+												<property name="orientation">horizontal</property>
+												<property name="selection-mode">none</property>
+												<property name="homogeneous">false</property>
+												<property name="column-spacing">4</property>
+												<property name="row-spacing">4</property>
+												<property name="min-children-per-line">1</property>
+												<property name="max-children-per-line">3</property>
+												<style>
+													<class name="quality-row"/>
+												</style>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:gk">
+														<property name="label">GK</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dl">
+														<property name="label">DL</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dc">
+														<property name="label">DC</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dr">
+														<property name="label">DR</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:wbl">
+														<property name="label">WBL</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dm">
+														<property name="label">DM</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:wbr">
+														<property name="label">WBR</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:ml">
+														<property name="label">ML</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:mc">
+														<property name="label">MC</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:mr">
+														<property name="label">MR</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:aml">
+														<property name="label">AML</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:amc">
+														<property name="label">AMC</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:amr">
+														<property name="label">AMR</property>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:st">
+														<property name="label">ST</property>
+													</object>
+												</child>
+											</object>
+										</child>
+									</object>
+								</child>
+								<child>
+									<object class="GtkButton" id="button:apply-filters">
+										<property name="label">Apply filters</property>
+										<signal name="clicked" handler="callbacks_onFilterRun"/>
+										<style>
+											<class name="apply-filters-btn"/>
+										</style>
 									</object>
 								</child>
 								<child>

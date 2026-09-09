@@ -11,6 +11,7 @@
 
 // Fatal, error, warn, info, debug
 static const char *colourStrings[5] = {"30;41", "1;31", "1;33", "1;32", "100;30"};
+
 void platform_consoleWrite(const char *message, const LogLevel colour) {
 	printf("\033[%sm%s\033[0m", colourStrings[colour], message);
 }
@@ -27,11 +28,17 @@ void platform_consoleWriteError(const char *message, const LogLevel colour) {
 
 bool readFromMemory(void *handle, const uintptr_t address, size_t length, uint8_t *bytes) {
 	mach_vm_size_t out = 0;
-	const kern_return_t kr = mach_vm_read_overwrite((task_t)(uintptr_t)handle, address, length, (mach_vm_address_t)bytes, &out);
+	const kern_return_t kr = mach_vm_read_overwrite(
+		(task_t)(uintptr_t)handle,
+		address,
+		length,
+		(mach_vm_address_t)bytes,
+		&out
+	);
 	if (kr != KERN_SUCCESS || out != length) {
-	  memset(bytes, 0, length);
-	  platform_consoleWriteError("Failed to read memory\n", LogLevelError);
-	  return false;
+		memset(bytes, 0, length);
+		platform_consoleWriteError("Failed to read memory\n", LogLevelError);
+		return false;
 	}
 	return true;
 }
@@ -39,7 +46,13 @@ bool readFromMemory(void *handle, const uintptr_t address, size_t length, uint8_
 uint8_t readByte(void *handle, const uintptr_t address) {
 	mach_vm_size_t out = 0;
 	uint8_t byte = 0;
-	const kern_return_t kr = mach_vm_read_overwrite((task_t)(uintptr_t)handle, address, 1, (mach_vm_address_t)&byte, &out);
+	const kern_return_t kr = mach_vm_read_overwrite(
+		(task_t)(uintptr_t)handle,
+		address,
+		1,
+		(mach_vm_address_t)&byte,
+		&out
+	);
 	if (kr != KERN_SUCCESS || out != 1) {
 		platform_consoleWriteError("Failed to read byte\n", LogLevelError);
 	}
@@ -72,7 +85,13 @@ static uintptr_t findModuleBase(const task_t task, const int32_t pid) {
 		mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
 
 		const kern_return_t kr = mach_vm_region_recurse(
-			task, &address, &size, &depth, (vm_region_recurse_info_t)&info, &count);
+			task,
+			&address,
+			&size,
+			&depth,
+			(vm_region_recurse_info_t)&info,
+			&count
+		);
 		if (kr != KERN_SUCCESS) {
 			break;
 		}
@@ -127,7 +146,7 @@ void platform_openProcess(ProcessContext *context) {
 
 		const uintptr_t baseAddr = findModuleBase(task, pid);
 		if (baseAddr != 0) {
-			context->handle = (void *)(uintptr_t)task;
+			context->handle = (void*)(uintptr_t)task;
 			context->pid = (uint32_t)pid;
 			context->moduleBaseAddress = baseAddr;
 			break;

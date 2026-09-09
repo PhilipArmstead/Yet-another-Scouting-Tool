@@ -30,7 +30,7 @@ static float getRatingPerPosition(const Player *player, PositionGrouped position
 
 // Assumes valid ProcessContext
 uint32_t getCurrentPersonUniqueId(const ProcessContext *processContext) {
-	#ifndef PLAYER_BY_ID
+#ifndef PLAYER_BY_ID
 	uint8_t bytes[4];
 	void *handle = processContext->handle;
 	readFromMemory(handle, processContext->moduleBaseAddress + CURRENT_SCREEN_PLAYER_ID_PTR_BASE, 4, bytes);
@@ -43,10 +43,10 @@ uint32_t getCurrentPersonUniqueId(const ProcessContext *processContext) {
 	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_7, 4, bytes);
 	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_8, 4, bytes);
 	return (uint32_t)hexBytesToInt(bytes, 4);
-	#else
+#else
 	const Player player = PLAYER_BY_ID;
 	return player.uid;
-	#endif
+#endif
 }
 
 // Assumes valid ProcessContext
@@ -63,16 +63,16 @@ Player getPlayerById(const ProcessContext *processContext, const uint32_t unique
 
 static uint64_t getPlayerAddressFromPersonAddress(void *handle, const uint64_t personAddress) {
 	const int64_t offset = isPersonAlsoStaff(handle, personAddress)
-		? STAFF_OFFSET_FROM_PERSON
-		: PLAYER_OFFSET_FROM_PERSON;
+													? STAFF_OFFSET_FROM_PERSON
+													: PLAYER_OFFSET_FROM_PERSON;
 
 	return personAddress + (uint64_t)offset;
 }
 
 uint64_t getPersonAddressFromPlayerAddress(void *handle, const uint64_t playerAddress) {
 	const int64_t offset = isPlayerAlsoStaff(handle, playerAddress)
-		? STAFF_OFFSET_FROM_PERSON
-		: PLAYER_OFFSET_FROM_PERSON;
+													? STAFF_OFFSET_FROM_PERSON
+													: PLAYER_OFFSET_FROM_PERSON;
 
 	return playerAddress - (uint64_t)offset;
 }
@@ -83,7 +83,7 @@ Player getPlayer(
 	const uint64_t personAddress,
 	uint64_t playerAddress
 ) {
-	#ifndef PLAYER_BY_ID
+#ifndef PLAYER_BY_ID
 	if (!skipIsValidCheck && !isPlayerValid(handle, personAddress)) {
 		return (Player){0};
 	}
@@ -219,9 +219,9 @@ Player getPlayer(
 	} else {
 		player.isHotProspect = false;
 	}
-	#else
+#else
 	const Player player = PLAYER_BY_ID;
-	#endif
+#endif
 
 	return player;
 }
@@ -240,7 +240,7 @@ static bool isPersonAlsoStaff(void *handle, const uint64_t personAddress) {
 }
 
 static bool isPlayerValid(void *handle, const uint64_t personAddress) {
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	const uint64_t playerAddress = personAddress + (uint64_t)PLAYER_OFFSET_FROM_PERSON;
 	for (uint8_t i = 0; i < 5; ++i) {
 		const uint8_t attribute = readByte(handle, playerAddress + PLAYER_OFFSET_HIDDEN_ATTRIBUTES + i);
@@ -250,20 +250,20 @@ static bool isPlayerValid(void *handle, const uint64_t personAddress) {
 	}
 
 	return isPersonValid(handle, personAddress);
-	#else
+#else
 	return true;
-	#endif
+#endif
 }
 
 static bool isPersonValid(void *handle, const uint64_t personAddress) {
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	for (uint8_t i = 0; i < 8; ++i) {
 		const uint8_t attribute = readByte(handle, personAddress + PERSON_OFFSET_PERSONALITY + i);
 		if (!attribute || attribute > 20) {
 			return false;
 		}
 	}
-	#endif
+#endif
 
 	return true;
 }
@@ -452,7 +452,7 @@ static void getSortedPositionRatings(Player *player) {
 }
 
 static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint32_t uid) {
-	#ifndef PLAYER_BY_ID
+#ifndef PLAYER_BY_ID
 	// Iterate over all players to find one with the matching UID
 	uint8_t bytes[8];
 	readFromMemory(processContext->handle, processContext->moduleBaseAddress + PLAYER_COUNT_PTR_BASE, 4, bytes);
@@ -483,7 +483,7 @@ static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, ui
 	}
 
 	return 0;
-	#else
+#else
 	return 0x5E18008;
-	#endif
+#endif
 }

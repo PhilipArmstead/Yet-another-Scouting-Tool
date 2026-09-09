@@ -27,20 +27,28 @@ void ui_init(GtkApplication *app) {
 	loadStylesheet("styles.css");
 
 	// Show main window
-	const WindowContext context = openWindow("show-players", "window:show-players", WINDOW_PLAYER_SEARCH);
+	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH);
 	gameContext.builder = context.builder;
 	gtk_window_set_application(GTK_WINDOW(context.window), GTK_APPLICATION(app));
 
 	// Write application version
 	const GtkLabel *appVersionLabel = GTK_LABEL(gtk_builder_get_object(context.builder, "label:application-version"));
 	char appVersionBuffer[64];
-	snprintf(appVersionBuffer, sizeof(appVersionBuffer), "%s %d.%d.%d", APP_NAME, APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH);
+	snprintf(
+		appVersionBuffer,
+		sizeof(appVersionBuffer),
+		"%s %d.%d.%d",
+		APP_NAME,
+		APP_VERSION_MAJOR,
+		APP_VERSION_MINOR,
+		APP_VERSION_PATCH
+	);
 	gtk_label_set_text(GTK_LABEL(appVersionLabel), appVersionBuffer);
 
-	#ifdef MOCKS_MODE
+#ifdef MOCKS_MODE
 	// In mock mode, we never have the process-connected callback run
 	cache_run();
-	#endif
+#endif
 
 	// Create datalist box
 	SearchDatalist *dataList = g_new0(SearchDatalist, 1);
@@ -95,16 +103,6 @@ void ui_init(GtkApplication *app) {
 	check->positionAMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amc"));
 	check->positionAMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amr"));
 	check->positionST = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:st"));
-
-	// Set cursor pointer on filter accordions
-	gtk_widget_set_cursor_from_name(
-		GTK_WIDGET(gtk_builder_get_object(b, "accordion-button:positions")),
-		"pointer"
-	);
-	gtk_widget_set_cursor_from_name(
-		GTK_WIDGET(gtk_builder_get_object(b, "accordion-button:quality-and-age")),
-		"pointer"
-	);
 }
 
 void ui_update(void) {
@@ -115,12 +113,12 @@ void ui_update(void) {
 void ui_updateInGameDate(void) {
 	GtkLabel *dateLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:date")));
 
-	#ifndef MOCKS_MODE
+#ifndef MOCKS_MODE
 	if (processContext.handle == NULL || !gameContext.gameKey || gameContext.currentDate.year == 1900) {
 		gtk_label_set_text(dateLabel, "");
 		return;
 	}
-	#endif
+#endif
 
 	DayMonthYearTime d = date_prettify(gameContext.currentDate);
 	char buffer[64] = {0};

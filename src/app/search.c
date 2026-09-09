@@ -17,11 +17,11 @@ uint32_t *search_findPlayers(void) {
 
 	uint32_t *playerIds = NULL;
 
-	#ifdef PLAYER_BY_ID
+#ifdef PLAYER_BY_ID
 	for (uint32_t i = 0; i < (uint32_t)gameContext.playerCount; i++) {
 		vector_push(playerIds, i);
 	}
-	#else
+#else
 	const FilterOptions options = gameContext.filterOptions;
 
 	for (uint32_t i = 0; i < gameContext.playerCount; ++i) {
@@ -68,9 +68,9 @@ uint32_t *search_findPlayers(void) {
 				(options.positions & POSITION_MASK_WBL && player->positions[POSITION_CODE_WBL] >=
 					MINIMUM_POSITIONAL_PROFICIENCY) ||
 				(options.positions & POSITION_MASK_DM && player->positions[POSITION_CODE_DM] >=
-				MINIMUM_POSITIONAL_PROFICIENCY) ||
-			(options.positions & POSITION_MASK_WBR && player->positions[POSITION_CODE_WBR] >=
-				MINIMUM_POSITIONAL_PROFICIENCY) ||
+					MINIMUM_POSITIONAL_PROFICIENCY) ||
+				(options.positions & POSITION_MASK_WBR && player->positions[POSITION_CODE_WBR] >=
+					MINIMUM_POSITIONAL_PROFICIENCY) ||
 				(options.positions & POSITION_MASK_ML && player->positions[POSITION_CODE_ML] >=
 					MINIMUM_POSITIONAL_PROFICIENCY) ||
 				(options.positions & POSITION_MASK_MC && player->positions[POSITION_CODE_MC] >=
@@ -103,7 +103,7 @@ uint32_t *search_findPlayers(void) {
 
 		vector_push(playerIds, i);
 	}
-	#endif
+#endif
 
 	sharedPointer_unref(gameContext.searchResults);
 	gameContext.searchResults = sharedPointer_new(playerIds);
