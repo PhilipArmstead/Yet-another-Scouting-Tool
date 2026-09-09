@@ -143,7 +143,7 @@ static void runSearch(SearchContext *context) {
 }
 
 #ifdef ARCH_WIN
-static DWORD WINAPI threadFunction(const LPVOID arg) {
+static DWORD WINAPI threadFunction(LPVOID arg) {
 	runSearch(arg);
 	return 0;
 }

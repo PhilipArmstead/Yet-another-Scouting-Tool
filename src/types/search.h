@@ -4,7 +4,7 @@
 #pragma once
 
 #define CLUB_SEARCH_LIMIT 30
-#define CLUB_SEARCH_NAME_LENGTH 128
+#define CLUB_SEARCH_NAME_LENGTH 40
 
 typedef struct {
 	GtkSearchEntry *entry;

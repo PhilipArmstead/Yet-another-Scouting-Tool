@@ -15,7 +15,6 @@ TODO
 	- Search for asking/guide price/wage
 	- ⭐ Pull players from in-game shortlist
 - Best Eleven
-	- Show age
 	- ⭐ Show condition
 	- ⭐ Show injuries (and filter on it)
 - Club search

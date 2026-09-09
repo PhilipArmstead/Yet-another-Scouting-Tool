@@ -424,6 +424,7 @@ headerbar .title {
 .best-eleven-root .position {
 	color: var(--colour-primary-darker);
 	font-weight: bold;
+	min-width: 34px;
 }
 
 .best-eleven-root .name {

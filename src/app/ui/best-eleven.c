@@ -89,7 +89,7 @@ void ui_renderBestElevenWindow(const WindowContext context) {
 	GtkStringList *formationList = GTK_STRING_LIST(gtk_builder_get_object(context.builder, "string-list:formation"));
 	while (gtk_string_list_get_string(formationList, 0) != NULL)
 		gtk_string_list_remove(formationList, 0);
-	for (uint8_t i = 0; i < vector_length(gameContext.options.formations); ++i)
+	for (uint64_t i = 0; i < vector_length(gameContext.options.formations); ++i)
 		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
 }
 
@@ -139,12 +139,13 @@ static void renderBestElevenTable(const WindowContext context) {
 		GtkGrid *grid = GTK_GRID(widgetGrid);
 		gtk_grid_set_column_spacing(grid, 12);
 
-
 		GtkWidget *widgetLabelPosition = gtk_label_new(positionCodeNames[formation.positions[i]]);
 		gtk_label_set_yalign(GTK_LABEL(widgetLabelPosition), GTK_ALIGN_CENTER);
 		gtk_widget_add_css_class(widgetLabelPosition, "position");
 
+		GtkWidget *widgetNationalityBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 		GtkWidget *widgetLabelPlayer = gtk_label_new("");
+		GtkWidget *widgetLabelAge = gtk_label_new("");
 		GtkWidget *widgetLabelRating = gtk_label_new("");
 
 		const Player *player = rows[i].player;
@@ -152,6 +153,7 @@ static void renderBestElevenTable(const WindowContext context) {
 			gtk_widget_set_hexpand(widgetLabelPlayer, true);
 			gtk_label_set_xalign(GTK_LABEL(widgetLabelPlayer), 0);
 			gtk_label_set_yalign(GTK_LABEL(widgetLabelPlayer), GTK_ALIGN_CENTER);
+			gtk_widget_set_hexpand(widgetLabelPlayer, true);
 			gtk_widget_add_css_class(widgetLabelPlayer, "name");
 
 			if (player->commonName[0] == '\0') {
@@ -162,18 +164,37 @@ static void renderBestElevenTable(const WindowContext context) {
 				gtk_label_set_text(GTK_LABEL(widgetLabelPlayer), player->commonName);
 			}
 
+			char ageBuffer[8];
+			snprintf(ageBuffer, sizeof(ageBuffer), "%d yrs", player->age);
+			gtk_label_set_text(GTK_LABEL(widgetLabelAge), ageBuffer);
+
 			char ratingBuffer[44];
 			formatter_formatRating(player->ratings[0].value, ratingBuffer);
 			gtk_label_set_markup(GTK_LABEL(widgetLabelRating), ratingBuffer);
 			gtk_label_set_xalign(GTK_LABEL(widgetLabelRating), 1.f);
+
+			char pathToFlag[256] = {0};
+			const Nation nation = gameContext.nations[player->nationality[0]];
+			snprintf(
+				pathToFlag,
+				sizeof(pathToFlag),
+				RESOURCE_BASE "/assets/flags/%s.png",
+				nation.code
+			);
+			GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
+			gtk_box_append(GTK_BOX(widgetNationalityBox), flagImage);
+			gtk_widget_set_tooltip_text(flagImage, nation.name);
 		}
 
-		gtk_grid_attach(grid, widgetLabelPosition, 1, i, 1, 1);
-		gtk_grid_attach(grid, widgetLabelPlayer, 2, i, 1, 1);
-		gtk_grid_attach(grid, widgetLabelRating, 3, i, 1, 1);
+		uint8_t c = 1;
+		gtk_grid_attach(grid, widgetLabelPosition, c++, i, 1, 1);
+		gtk_grid_attach(grid, widgetNationalityBox, c++, i, 1, 1);
+		gtk_grid_attach(grid, widgetLabelPlayer, c++, i, 1, 1);
+		gtk_grid_attach(grid, widgetLabelAge, c++, i, 1, 1);
+		gtk_grid_attach(grid, widgetLabelRating, c++, i, 1, 1);
 		gtk_list_box_row_set_child(row, widgetGrid);
 
-		// TODO: show age/condition, if we're going to filter on them
+		// TODO: show condition, if we're going to filter on them
 	}
 }
 
