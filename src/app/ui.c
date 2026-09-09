@@ -3,6 +3,7 @@
 
 #include "ui.h"
 #include "app/callbacks.h"
+#include "app/cache.h"
 #include "app/config.h"
 #include "app/search-handler.h"
 #include "app/helpers/date.h"
@@ -31,7 +32,7 @@ void ui_init(GtkApplication *app) {
 
 	#ifdef MOCKS_MODE
 	// In mock mode, we never have the process-connected callback run
-	runMultiThreadedCache();
+	cache_run();
 	#endif
 
 	// Create datalist box

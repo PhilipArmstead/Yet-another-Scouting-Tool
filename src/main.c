@@ -5,6 +5,7 @@
 
 #include "app/cache.h"
 #include "app/callbacks.h"
+#include "app/config.h"
 #include "app/maths.h"
 #include "app/options.h"
 #include "app/player-table.h"

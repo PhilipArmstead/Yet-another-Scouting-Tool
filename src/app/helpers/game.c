@@ -38,7 +38,7 @@ DateTime game_getDateTime(const ProcessContext *context) {
 	readFromMemory(context->handle, context->moduleBaseAddress + CURRENT_DATETIME_PTR_BASE, 4, bytes);
 	return game_parseDateTime(bytes);
 	#else
-	return (DayMonthYear) { .days = 210, .year = 2026, time = 28 };
+	return (DateTime) { .days = 210, .year = 2026, .time = 28 };
 	#endif
 }
 
@@ -67,6 +67,7 @@ void game_getVersion(const ProcessContext *context, char *versionBuffer, const u
 // I have arbitrarily decided that the memory address of the string value of the name of the first Nation is the key.
 // Assumes valid ProcessContext
 uint64_t game_getKey(const ProcessContext *context, GameKeyStatus *outStatus) {
+#ifndef MOCKS_MODE
 	uint8_t bytes[8];
 	readFromMemory(context->handle, context->moduleBaseAddress + NATION_LIST_PTR_BASE, 8, bytes);
 	const uint64_t nationPointerBase = hexBytesToInt(bytes, 8);
@@ -91,4 +92,8 @@ uint64_t game_getKey(const ProcessContext *context, GameKeyStatus *outStatus) {
 		*outStatus = GAME_KEY_NULL;
 	}
 	return nameAddress;
+#else
+	*outStatus = GAME_KEY_NOT_FOUND;
+	return 0x0123456789ABCDEF;
+#endif
 }

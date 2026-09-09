@@ -13,13 +13,15 @@
 
 typedef HANDLE thread_t;
 typedef HANDLE event_t;
-#elifdef ARCH_LINUX
+#endif
+#ifdef ARCH_LINUX
 #include <pthread.h>
 #include <semaphore.h>
 
 typedef pthread_t thread_t;
 typedef sem_t event_t;
-#else
+#endif
+#ifdef ARCH_MACOS
 #include <pthread.h>
 #include <semaphore.h>
 
