@@ -9,7 +9,10 @@ compare players and weigh up future purchases.
 This has only been tested with
 the [Steam version of Football Manager 24](https://store.steampowered.com/app/2252570/Football_Manager_2024/), v24.4.2.
 
-> **Supported platforms:** Linux and Windows only.
+> **Officially supported platforms:** Linux and Windows (MSYS2/MinGW-w64).
+>
+> macOS builds may be possible for local development, but macOS is not an
+> officially supported runtime platform.
 
 ### Features
 
@@ -32,12 +35,13 @@ the [Steam version of Football Manager 24](https://store.steampowered.com/app/22
 
 ## Dependencies
 
-### Common Requirements (All Platforms)
+### Common Build Requirements
 
-- **C Compiler**: GCC 9+ or Clang 10+ (Linux), or MinGW-w64 GCC (Windows), with C99 support
-- **Build System**: CMake 3.20+
-- **Package Manager**: pkg-config (for GTK4 detection)
-- **GUI Framework**: GTK4 development libraries
+- **C compiler**: A C99-capable GCC or Clang compiler. MinGW-w64 GCC is used on Windows.
+- **Build system**: CMake 3.20 or newer
+- **Package metadata**: `pkg-config` (provided by `pkgconf` on macOS and Arch Linux) so CMake can find `gtk4` and `gio-2.0`
+- **GUI framework**: GTK4 development libraries
+- **GLib tools**: `glib-compile-resources`, normally included with the GLib development package
 
 ### Linux
 
@@ -46,18 +50,15 @@ the [Steam version of Football Manager 24](https://store.steampowered.com/app/22
 ```bash
 sudo apt-get install \
   build-essential \
-  pkg-config \
   cmake \
+  pkg-config \
   libgtk-4-dev \
-  libglib2.0-dev
+  libglib2.0-dev \
+  sysvinit-utils
 ```
 
-**Packages**:
-
-- `build-essential` - GCC compiler, make, libc development files
-- `pkg-config` - Package configuration helper
-- `libgtk-4-dev` - GTK4 development headers and libraries
-- `libglib2.0-dev` - GLib development headers (GTK4 dependency)
+`sysvinit-utils` provides `pidof`, which the Linux process backend uses to locate
+the Football Manager process.
 
 #### Red Hat/CentOS/Fedora
 
@@ -65,139 +66,225 @@ sudo apt-get install \
 sudo dnf install \
   gcc \
   cmake \
-  pkg-config \
+  pkgconf-pkg-config \
   gtk4-devel \
-  glib2-devel
+  glib2-devel \
+  procps-ng
 ```
-
-**Packages**:
-
-- `gcc` - GNU C Compiler
-- `make` - Build automation tool
-- `pkg-config` - Package configuration helper
-- `gtk4-devel` - GTK4 development headers and libraries
-- `glib2-devel` - GLib development headers (GTK4 dependency)
 
 #### Arch Linux
 
 ```bash
-sudo pacman -S \
+sudo pacman -S --needed \
   base-devel \
-  pkg-config \
   cmake \
-  gtk4
+  pkgconf \
+  gtk4 \
+  procps-ng
 ```
 
-**Packages**:
+If `pidof` is not available, install the process-utilities package for your
+distribution. The exact package name may differ between distributions.
 
-- `base-devel` - Core development tools (GCC, make, libc)
-- `pkg-config` - Package configuration helper
-- `gtk4` - GTK4 libraries and headers
+### macOS (Unofficial Local Builds Only)
+
+macOS is not an officially supported runtime platform. These instructions are
+provided only for contributors who want to experiment with local builds.
+Install the Xcode Command Line Tools for Apple Clang, then install the build
+dependencies with [Homebrew](https://brew.sh/):
+
+```bash
+xcode-select --install
+brew install cmake pkgconf gtk4
+```
+
+The Homebrew `pkgconf` formula provides the `pkg-config` command. On Apple
+Silicon, Homebrew normally uses `/opt/homebrew`; on Intel Macs it normally uses
+`/usr/local`. Make sure the relevant Homebrew `bin` directory is on `PATH`
+before configuring CMake.
 
 ### Windows
 
 #### MSYS2/MinGW64 (Recommended)
 
 1. Download and install [MSYS2](https://www.msys2.org/)
-2. Open MinGW64 terminal and run:
+2. Open the **MinGW64** terminal and run:
 
 ```bash
-pacman -S \
+pacman -S --needed \
   mingw-w64-x86_64-toolchain \
   mingw-w64-x86_64-cmake \
-  mingw-w64-x86_64-pkg-config \
+  mingw-w64-x86_64-pkgconf \
   mingw-w64-x86_64-gtk4
 ```
 
-**Packages**:
-
-- `mingw-w64-x86_64-toolchain` - GCC compiler and build tools
-- `mingw-w64-x86_64-cmake` - CMake build system
-- `mingw-w64-x86_64-pkg-config` - Package configuration helper
-- `mingw-w64-x86_64-gtk4` - GTK4 libraries and headers for Windows 64-bit
-
-**Alternative: MinGW-w64**
-
-- Standalone MinGW-w64 distribution with pkg-config and GTK4 support
-
-**Note**: The build files include Windows-specific platform detection (`-DARCH_WIN` flag).
+Use the same MinGW64 environment for CMake, the compiler, `pkg-config`, and the
+GTK4 libraries. Do not mix MSYS, MinGW64, and native Windows package
+environments. Other MinGW-w64 distributions can work if they provide matching
+GTK4, GLib, and `pkg-config` installations.
 
 ## Building the Project
 
-### On Any Platform (after dependencies are installed)
+Run these commands from the repository root after installing the dependencies.
+
+### Single-config generators
 
 ```bash
 # Configure (Release is the default for single-config generators)
 cmake -S . -B build
 
 # Build
-cmake --build build
-
-# Build Debug on single-config generators (Unix Makefiles, Ninja)
-cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
-cmake --build build-debug
-
-# Build Debug on multi-config generators (Visual Studio)
-cmake --build build --config Debug
-
-# Build with multiple cores
 cmake --build build --parallel
+
+# Build Debug
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug --parallel
 
 # Clean build artifacts
 cmake --build build --target clean
+```
 
-# Run directly
-./build/YaST   # single-config generators
-# or
-./build/Debug/YaST   # multi-config generators, Debug
+### Multi-config generators
 
-# Or use the custom run target
+```bash
+# Configure once
+cmake -S . -B build
+
+# Build Debug
+cmake --build build --config Debug --parallel
+
+# Clean Debug build artifacts
+cmake --build build --config Debug --target clean
+```
+
+### Run and inspect the build
+
+The executable filename is derived from CMake's `PROJECT_NAME`. Prefer the
+custom `run` target because it resolves the correct path for single-config
+builds, multi-config builds, and application bundles produced by unofficial
+macOS builds:
+
+```bash
+# Single-config generators
 cmake --build build --target run
-# (multi-config)
+
+# Multi-config generators
 cmake --build build --config Debug --target run
 
-# Show build info (via CMake custom target)
+# Show compiler and target information
 cmake --build build --target info
 ```
 
 ## Runtime Requirements
 
-- **GTK4 Runtime Libraries** (usually included with development packages)
-- **X11 or Wayland** (Linux display server)
-- **GLib2 Runtime** (included with GTK4)
-
-### X11 on Linux (if not already running Wayland)
-
-Most modern distributions include X11. For headless systems or when needed:
-
-- `libx11-6` (Debian/Ubuntu)
-- `libx11` (Fedora/RHEL)
-- `libx11` (Arch)
+- GTK4 and GLib runtime libraries must be available to the application. The
+  development packages normally install these automatically. If distributing
+  a Windows build outside MSYS2, distribute matching GTK4/GLib DLLs and their
+  dependencies.
+- A graphical desktop session is required on the officially supported
+  platforms: X11 or Wayland on Linux, or a Windows desktop session on Windows.
+  Unofficial macOS builds require the macOS window server.
+- Football Manager 24 must be running with the target save loaded. The current
+  platform backends look for a process/module associated with `fm.exe`.
+- The application must have permission to inspect and modify the Football
+  Manager process. Linux systems may restrict `/proc/<pid>/mem` or ptrace
+  access; Windows may require the appropriate process rights. Unofficial macOS
+  builds may require additional process-access or debugging permissions
+  depending on system security settings.
+- On Linux, the `pidof` command must be available because the process-discovery
+  backend uses it.
 
 ## Notes
 
-- CMake selects the compiler from your environment/toolchain. Override with `CC` or `-DCMAKE_C_COMPILER=...` when
-  needed.
-- Platform-specific flags are set automatically during build:
-	- Linux: `-DARCH_LINUX`
-	- Windows: `-DARCH_WIN`
-- On Windows, ensure you're using the **MinGW64 shell** (not CMD.exe or PowerShell)
-- GTK4 requires a modern C library and platform-specific graphics libraries
+- CMake selects the compiler from your environment or toolchain. Override it
+  with `CC` or `-DCMAKE_C_COMPILER=...` when needed.
+- `PROJECT_NAME` in `CMakeLists.txt` drives the application name passed to the
+  code and the executable output name. `PROJECT_VERSION` drives the version
+  shown in the footer.
+- Platform-specific compile definitions are set automatically:
+  `ARCH_LINUX` or `ARCH_WIN` for officially supported platforms. The code also
+  defines `ARCH_MACOS` for unofficial local macOS builds.
+- CMake compiles the UI layouts, CSS, icons, and flags into a generated
+  GResource during the build. The generated files live in the build directory
+  and should not be edited manually.
+- On Windows, use a correctly configured MSYS2 MinGW64 environment for the
+  whole build. The requirement is the matching toolchain and package paths,
+  not a particular terminal application.
+- GTK4 also requires the platform's normal graphics and font libraries. These
+  are installed as transitive dependencies by the packages above.
 
 ## Troubleshooting
 
 **"pkg-config not found"**
 
-- Install pkg-config package for your platform (see above)
+- Install the platform package listed above (`pkg-config`, `pkgconf`, or
+  `mingw-w64-x86_64-pkgconf`) and ensure its directory is on `PATH`.
+- Verify the command is available:
+
+  ```bash
+  pkg-config --version
+  ```
 
 **"gtk/gtk.h: No such file or directory"**
 
-- Install GTK4 development headers (`libgtk-4-dev` or equivalent)
+- Install the GTK4 development package for your platform.
+- Check that CMake's package environment can see GTK4:
+
+  ```bash
+  pkg-config --modversion gtk4
+  pkg-config --cflags --libs gtk4
+  ```
+- For unofficial macOS builds, make sure Homebrew's `pkgconf` and `gtk4`
+  prefixes are on `PATH`/`PKG_CONFIG_PATH`. On Windows, run these commands
+  from the matching MSYS2 MinGW64 environment.
 
 **"ld.exe: cannot find -lgtk-4" (Windows)**
 
-- Ensure you're using the MinGW64 shell with GTK4 pacman package installed
+- Use the MinGW64 environment consistently and install
+  `mingw-w64-x86_64-gtk4` and `mingw-w64-x86_64-pkgconf`.
+- Do not mix libraries discovered by MSYS2 with a different compiler or
+  architecture.
+
+**CMake reports an imported target contains a non-existent include or library path**
+
+- A package manager upgrade may leave the CMake cache pointing at an older
+  dependency directory. With CMake 3.24 or newer, reconfigure with a fresh
+  cache:
+
+  ```bash
+  cmake --fresh -S . -B build
+  ```
+
+- If the problem persists, remove only the affected build directory and
+  configure it again. Do not reuse a cache after changing Homebrew prefixes or
+  switching MSYS2 environments.
+
+**"`glib-compile-resources` not found"**
+
+- Install the GLib development package and verify that the command is on
+  `PATH`.
+- Verify that `gio-2.0` is visible to `pkg-config`:
+
+  ```bash
+  pkg-config --modversion gio-2.0
+  ```
+
+**"Football Manager process not found" or memory access is denied**
+
+- Start Football Manager 24 and load the save before starting the application.
+- Confirm that the process/module is exposed under the expected `fm.exe` name.
+- Check the platform-specific process permissions described in Runtime
+  Requirements.
+
+**The application cannot start because no display is available**
+
+- Run it from an active Linux X11/Wayland or Windows desktop session. An
+  unofficial macOS build requires a macOS desktop session. A headless shell
+  alone is not sufficient.
 
 **Build fails with compiler errors**
 
-- Ensure your C compiler supports C99 standard (GCC 9+, Clang 10+)
+- Confirm that the selected compiler supports C99 and that CMake is using the
+  intended compiler/toolchain.
+- After changing compilers or package environments, configure a fresh build
+  directory rather than reusing the previous cache.
