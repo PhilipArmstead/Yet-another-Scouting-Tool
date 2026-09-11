@@ -511,6 +511,13 @@ static void bindNationalitiesValue(const GtkSignalListItemFactory *factory, GtkL
 	}
 }
 
+static gboolean restoreScroll(gpointer data) {
+	GtkAdjustment *adj = data;
+	const double max = gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj);
+	gtk_adjustment_set_value(adj, CLAMP(context.savedScrollValue, 0, max));
+	return G_SOURCE_REMOVE;
+}
+
 // One-shot correction: the sort makes GTK scroll the focused row into view, and
 // that happens on an indeterminate later frame — so instead of guessing when,
 // we react. The first time the scroll value changes after a sort, we snap it
@@ -524,10 +531,7 @@ static void onScrollGuard(GtkAdjustment *adjustment, gpointer data) {
 		context.scrollGuardId = 0;
 	}
 
-	const double upper = gtk_adjustment_get_upper(adjustment);
-	const double pageSize = gtk_adjustment_get_page_size(adjustment);
-	const double maxValue = upper - pageSize;
-	gtk_adjustment_set_value(adjustment, CLAMP(context.savedScrollValue, 0, maxValue));
+	g_idle_add_full(GDK_PRIORITY_REDRAW - 1, restoreScroll, adjustment, NULL);
 }
 
 // Runs when the user clicks a column header to change the sort. This fires
