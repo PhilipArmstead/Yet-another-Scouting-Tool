@@ -33,6 +33,7 @@ static void search_player_row_finalize(GObject *object) {
 
 enum {
 	PROP_PLAYER = 1,
+	PROP_SURNAME,
 	PROP_AGE,
 	PROP_CA,
 	PROP_PA,
@@ -78,6 +79,8 @@ static void search_player_row_get_property(GObject *object, const guint property
 	const SearchPlayerRow *self = SEARCH_PLAYER_ROW(object);
 	if (propertyId == PROP_PLAYER) {
 		g_value_set_pointer(value, self->player);
+	} else if (propertyId == PROP_SURNAME) {
+		g_value_set_string(value, self->player->surname);
 	} else if (propertyId == PROP_AGE) {
 		g_value_set_uint(value, self->player->age);
 	} else if (propertyId == PROP_CA) {
@@ -110,6 +113,13 @@ static void search_player_row_class_init(SearchPlayerRowClass *klass) {
 		"Player",
 		"Player data",
 		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY
+	);
+	properties[PROP_SURNAME] = g_param_spec_string(
+		"surname",
+		"Surname",
+		"Player surname",
+		NULL,
+		G_PARAM_READABLE
 	);
 	properties[PROP_AGE] = g_param_spec_uint(
 		"age",
@@ -588,6 +598,11 @@ static GtkColumnViewColumn *createColumn(const char *title, const uint8_t column
 }
 
 void playerTable_init(void) {
+	GtkSorter *nameSorter = GTK_SORTER(
+		gtk_string_sorter_new(
+			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "surname")
+		)
+	);
 	GtkSorter *ageSorter = GTK_SORTER(
 		gtk_numeric_sorter_new(
 			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "age")
@@ -620,7 +635,7 @@ void playerTable_init(void) {
 	GtkColumnViewColumn *ratingColumn = createColumn("Rating", COLUMN_RATING, ratingSorter);
 
 	gtk_column_view_append_column(table, createColumn("", COLUMN_NATIONALITIES, NULL));
-	gtk_column_view_append_column(table, createColumn("Name", COLUMN_NAME, NULL));
+	gtk_column_view_append_column(table, createColumn("Name", COLUMN_NAME, nameSorter));
 	gtk_column_view_append_column(table, createColumn("Age", COLUMN_AGE, ageSorter));
 	gtk_column_view_append_column(table, createColumn("Positions", COLUMN_POSITIONS, NULL));
 	gtk_column_view_append_column(table, createColumn("CA", COLUMN_CA, caSorter));
