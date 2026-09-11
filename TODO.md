@@ -12,6 +12,7 @@ TODO
 - To player search
 	- ⭐ Modify Club Search to search player names also
 	- ⭐ Search for nationality
+	- ⭐ Fix "Show current player"
 	- Search for asking/guide price/wage
 	- ⭐ Pull players from in-game shortlist
 - Best Eleven
@@ -21,5 +22,4 @@ TODO
 
 ## Maybe TODO
 
-- Open player info from clicking row
 - Hot reload when config file is modified

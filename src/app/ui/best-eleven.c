@@ -31,6 +31,7 @@ static void assignFormation(
 );
 static void renderBestElevenTable(WindowContext context);
 static void onFormationSelected(GObject *object, GParamSpec *pspec, gpointer userData);
+static void onPlayerNameClicked(GtkGestureClick *gesture, int clickCount, double x, double y, Player *player);
 static void onFilterChange(GObject *object, gpointer userData);
 
 void ui_createBestElevenWindow(void) {
@@ -205,6 +206,10 @@ static void renderBestElevenTable(const WindowContext context) {
 
 			++playerIncludedCount;
 			ratingTotal += player->ratings[0].value;
+
+			GtkGesture *gesture = gtk_gesture_click_new();
+			gtk_widget_add_controller(widgetLabelPlayer, GTK_EVENT_CONTROLLER(gesture));
+			g_signal_connect(gesture, "pressed", G_CALLBACK(onPlayerNameClicked), (gpointer)player);
 		}
 
 		uint8_t c = 1;
@@ -556,4 +561,15 @@ static void assignFormation(
 	free(matrix);
 	free(candidates);
 	free(chosen);
+}
+
+static void onPlayerNameClicked(GtkGestureClick *gesture, int clickCount, double x, double y, Player *player) {
+	if (player != NULL && clickCount == 2) {
+		ui_createPlayerInfoWindow(player);
+	}
+
+	(void)gesture;
+	(void)clickCount;
+	(void)x;
+	(void)y;
 }
