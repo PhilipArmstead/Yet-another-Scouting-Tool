@@ -5,6 +5,7 @@
 #include "app/player.h"
 #include "app/ui.h"
 #include "app/helpers/formatter.h"
+#include "app/helpers/icons.h"
 #include "app/helpers/vector.h"
 
 
@@ -114,6 +115,25 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		gtk_label_set_label(caLabel, ability);
 		snprintf(ability, 4, "%d", player->pa);
 		gtk_label_set_label(paLabel, ability);
+	}
+
+	// Footedness
+	{
+		GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
+		GtkWidget *child;
+		while ((child = gtk_widget_get_first_child(GTK_WIDGET(footednessBox))) != NULL) {
+			gtk_box_remove(footednessBox, child);
+		}
+
+		char footBuffer[16] = {0};
+		GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
+		snprintf(footBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
+		gtk_widget_set_tooltip_text(leftShoe, footBuffer);
+		gtk_box_append(footednessBox, leftShoe);
+		GtkWidget *rightShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_RIG] * 1.2), false);
+		snprintf(footBuffer, 16, "Right foot: %d", player->attributes[ATTR_RIG] / 5);
+		gtk_widget_set_tooltip_text(rightShoe, footBuffer);
+		gtk_box_append(footednessBox, rightShoe);
 	}
 
 	setPercentage(context.builder, "label:condition", (int16_t)player->condition);

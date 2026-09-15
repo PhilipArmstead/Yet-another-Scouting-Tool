@@ -145,6 +145,10 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												<property name="css-classes">current-ability</property>
 											</object>
 										</child>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">0</property>
+										</layout>
 									</object>
 								</child>
 								<child>
@@ -164,6 +168,36 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												<property name="css-classes">potential-ability</property>
 											</object>
 										</child>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkBox">
+										<property name="orientation">1</property>
+										<property name="spacing">4</property>
+										<child>
+											<object class="GtkLabel">
+												<property name="label">Footedness</property>
+												<property name="css-classes">caption-heading
+													dim-label
+												</property>
+												<property name="width-chars">10</property>
+											</object>
+										</child>
+										<child>
+											<object class="GtkBox" id="box:footedness">
+												<property name="orientation">0</property>
+												<property name="spacing">4</property>
+												<property name="halign">3</property>
+											</object>
+										</child>
+										<layout>
+											<property name="column">2</property>
+											<property name="row">0</property>
+										</layout>
 									</object>
 								</child>
 							</object>

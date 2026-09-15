@@ -9,6 +9,13 @@ button {
 	background: initial;
 }
 
+/* GTK shares one tooltip popup per display and, on macOS, maps it at the surface's existing size
+   before the new text has been measured, so a longer tooltip inherits the previous one's width and
+   crops. A floor keeps every tooltip the same width, making the carried-over size the correct one. */
+tooltip label {
+	min-width: 110px;
+}
+
 .button--plain {
 	background: inherit;
 	border: none;
