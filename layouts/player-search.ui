@@ -339,85 +339,267 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 										<property name="spacing">6</property>
 										<property name="css-classes">quality-body</property>
 										<child>
-											<object class="GtkFlowBox">
-												<property name="orientation">horizontal</property>
-												<property name="selection-mode">none</property>
-												<property name="homogeneous">false</property>
+											<object class="GtkGrid">
+												<property name="halign">center</property>
+												<property name="column-homogeneous">true</property>
+												<property name="row-homogeneous">true</property>
 												<property name="column-spacing">4</property>
 												<property name="row-spacing">4</property>
-												<property name="min-children-per-line">1</property>
-												<property name="max-children-per-line">3</property>
 												<style>
-													<class name="quality-row"/>
+													<class name="position-pitch"/>
 												</style>
 												<child>
-													<object class="GtkCheckButton" id="checkbox:position:gk">
-														<property name="label">GK</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dl">
-														<property name="label">DL</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dc">
-														<property name="label">DC</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dr">
-														<property name="label">DR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:wbl">
-														<property name="label">WBL</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:dm">
-														<property name="label">DM</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:wbr">
-														<property name="label">WBR</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:ml">
-														<property name="label">ML</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:mc">
-														<property name="label">MC</property>
-													</object>
-												</child>
-												<child>
-													<object class="GtkCheckButton" id="checkbox:position:mr">
-														<property name="label">MR</property>
+													<object class="GtkCheckButton" id="checkbox:position:st">
+														<property name="valign">center</property>
+														<property name="margin-top">8</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">ST</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">0</property>
+														</layout>
 													</object>
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:aml">
-														<property name="label">AML</property>
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">AML</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">0</property>
+															<property name="row">1</property>
+														</layout>
 													</object>
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amc">
-														<property name="label">AMC</property>
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">AMC</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">1</property>
+														</layout>
 													</object>
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amr">
-														<property name="label">AMR</property>
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">AMR</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">2</property>
+															<property name="row">1</property>
+														</layout>
 													</object>
 												</child>
 												<child>
-													<object class="GtkCheckButton" id="checkbox:position:st">
-														<property name="label">ST</property>
+													<object class="GtkCheckButton" id="checkbox:position:ml">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">ML</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">0</property>
+															<property name="row">2</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:mc">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">MC</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">2</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:mr">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">MR</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">2</property>
+															<property name="row">2</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:wbl">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">WBL</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">0</property>
+															<property name="row">3</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dm">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">DM</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">3</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:wbr">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">WBR</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">2</property>
+															<property name="row">3</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dl">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">DL</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">0</property>
+															<property name="row">4</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dc">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">DC</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">4</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:dr">
+														<property name="valign">center</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">DR</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">2</property>
+															<property name="row">4</property>
+														</layout>
+													</object>
+												</child>
+												<child>
+													<object class="GtkCheckButton" id="checkbox:position:gk">
+														<property name="valign">center</property>
+														<property name="margin-bottom">8</property>
+														<property name="child">
+															<object class="GtkLabel">
+																<property name="label">GK</property>
+																<property name="hexpand">true</property>
+															</object>
+														</property>
+														<style>
+															<class name="position-toggle"/>
+														</style>
+														<layout>
+															<property name="column">1</property>
+															<property name="row">5</property>
+														</layout>
 													</object>
 												</child>
 											</object>
