@@ -7,6 +7,7 @@
 #include "app/config.h"
 #include "app/search-handler.h"
 #include "app/helpers/date.h"
+#include "app/helpers/formatter.h"
 #include "app/helpers/vector.h"
 #include "platform/platform.h"
 
@@ -20,11 +21,24 @@ extern GameContext gameContext;
 
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
-static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer);
-static void loadStylesheet(const char *fileName);
+static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer);
+static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button);
+static void loadStylesheet(const char *fileName, guint priority);
 
 void ui_init(GtkApplication *app) {
-	loadStylesheet("styles.css");
+	loadStylesheet("styles.css", GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	loadStylesheet(
+		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
+	);
+
+	// Keep GTK's own widget internals (scrollbars, text carets, etc.) in step with our palette
+	g_object_set(
+		gtk_settings_get_default(),
+		"gtk-application-prefer-dark-theme",
+		(gboolean)gameContext.options.darkMode,
+		NULL
+	);
 
 	// Show main window
 	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH);
@@ -49,31 +63,6 @@ void ui_init(GtkApplication *app) {
 	// In mock mode, we never have the process-connected callback run
 	cache_run();
 #endif
-
-	// Create datalist box
-	SearchDatalist *dataList = g_new0(SearchDatalist, 1);
-
-	dataList->entry = GTK_SEARCH_ENTRY(gtk_search_entry_new());
-	dataList->popover = GTK_POPOVER(gtk_popover_new());
-	dataList->listBox = GTK_LIST_BOX(gtk_list_box_new());
-
-	gtk_search_entry_set_placeholder_text(dataList->entry, "Search club");
-	gtk_widget_add_css_class(GTK_WIDGET(dataList->entry), "sidebar-search");
-
-	gtk_popover_set_child(dataList->popover, GTK_WIDGET(dataList->listBox));
-	gtk_widget_set_parent(GTK_WIDGET(dataList->popover), GTK_WIDGET(dataList->entry));
-
-	gtk_popover_set_pointing_to(dataList->popover, &(GdkRectangle){.x = 102, .y = 27, .width = 1, .height = 1});
-	gtk_popover_set_position(dataList->popover, GTK_POS_BOTTOM);
-
-	gtk_popover_set_autohide(dataList->popover, FALSE);
-	gtk_widget_set_can_focus(GTK_WIDGET(dataList->popover), FALSE);
-	gtk_widget_set_can_focus(GTK_WIDGET(dataList->listBox), FALSE);
-	gtk_list_box_set_selection_mode(dataList->listBox, GTK_SELECTION_NONE);
-
-	GtkBox *container = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:club-search-container"));
-	gtk_box_append(container, GTK_WIDGET(dataList->entry));
-	gameContext.dataList = dataList;
 
 	// Cache field buffers
 	GtkBuilder *b = gameContext.builder;
@@ -103,6 +92,8 @@ void ui_init(GtkApplication *app) {
 	check->positionAMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amc"));
 	check->positionAMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amr"));
 	check->positionST = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:st"));
+
+	ui_presentWindow(context);
 }
 
 void ui_update(void) {
@@ -161,11 +152,18 @@ WindowContext openWindow(const char *layoutName, const char *windowName, const W
 	g_signal_connect(closeController, "key-pressed", G_CALLBACK(callbacks_onWindowKeypress), context.window);
 	gtk_widget_add_controller(context.window, GTK_EVENT_CONTROLLER(closeController));
 
-	gtk_window_present(GTK_WINDOW(context.window));
-
 	vector_push(gameContext.windows, context);
 
 	return context;
+}
+
+/**
+ * Presenting sizes the window to the content it has at that moment, and GTK will grow a realised
+ * window but never shrink it. Callers therefore populate first and present last, otherwise widgets
+ * they go on to hide leave the window permanently taller than it needs to be.
+ */
+void ui_presentWindow(const WindowContext context) {
+	gtk_window_present(GTK_WINDOW(context.window));
 }
 
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
@@ -201,20 +199,23 @@ typedef struct {
 	GtkWidget *closeButton;
 } FilterTag;
 
-static FilterTag createFilterTag(const char *text) {
-	GtkWidget *label = gtk_label_new(text);
-	gtk_widget_add_css_class(label, "chip-text");
-
-	GtkWidget *close = gtk_label_new("✕");
-	gtk_widget_add_css_class(close, "chip-x");
-	GtkWidget *closeButton = gtk_button_new();
-	gtk_widget_add_css_class(closeButton, "chip-button");
-	gtk_widget_set_parent(close, closeButton);
-
+static FilterTag createFilterTag(const char *text, const bool isClosable) {
 	GtkWidget *box = gtk_box_new(0, 4);
 	gtk_widget_add_css_class(box, "chip");
+
+	GtkWidget *label = gtk_label_new(text);
+	gtk_widget_add_css_class(label, "chip-text");
 	gtk_box_append(GTK_BOX(box), label);
-	gtk_box_append(GTK_BOX(box), closeButton);
+
+	GtkWidget *closeButton = NULL;
+	if (isClosable) {
+		GtkWidget *close = gtk_label_new("✕");
+		gtk_widget_add_css_class(close, "chip-x");
+		closeButton = gtk_button_new();
+		gtk_widget_add_css_class(closeButton, "chip-button");
+		gtk_widget_set_parent(close, closeButton);
+		gtk_box_append(GTK_BOX(box), closeButton);
+	}
 
 	GtkBox *parent = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:filter-tags"));
 	gtk_box_append(parent, box);
@@ -223,14 +224,33 @@ static FilterTag createFilterTag(const char *text) {
 }
 
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer) {
-	const FilterTag tag = createFilterTag(text);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onFilterTagClick), buffer);
+	const FilterTag tag = createFilterTag(text, buffer != NULL);
+	if (buffer != NULL) {
+		g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onFilterTagClick), buffer);
+	}
 }
 
-void ui_createClubFilterTag(const char *text, GtkEditable *buffer) {
-	const FilterTag tag = createFilterTag(text);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onClubFilterTagClick), buffer);
+void ui_createClubFilterTag(const char *name, GtkEditable *buffer) {
+	char textBuffer[CLUB_SHORT_NAME_LENGTH + 7] = {0};
+	snprintf(textBuffer, sizeof(textBuffer), "Club: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
 	gtk_widget_set_name(tag.label, "tag:club-name");
+}
+
+void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer) {
+	char textBuffer[MAX_NATION_STRING_LENGTH + 15];
+	snprintf(textBuffer, sizeof(textBuffer), "Nationality: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
+	gtk_widget_set_name(tag.label, "tag:nationality");
+}
+
+void ui_createPositionFilterTag(const char *name, GtkCheckButton *button) {
+	char textBuffer[16] = {0};
+	snprintf(textBuffer, sizeof(textBuffer), "Pos: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onPositionFilterTagClick), button);
 }
 
 void ui_clearFilterTags(void) {
@@ -259,7 +279,7 @@ static void onTagClick(GtkWidget *self) {
 	}
 }
 
-static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
+static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
 	gtk_editable_set_text(buffer, "");
 	onTagClick(self);
 }
@@ -269,8 +289,17 @@ static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
 	onTagClick(self);
 }
 
+/*
+ * Unsetting the button emits "toggled", which re-runs the search and rebuilds every tag —
+ * including this one — so `self` must not be touched afterwards.
+ */
+static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button) {
+	(void)self;
+	gtk_check_button_set_active(button, FALSE);
+}
 
-static void loadStylesheet(const char *fileName) {
+
+static void loadStylesheet(const char *fileName, const guint priority) {
 	char pathToStylesheet[256] = {0};
 	GtkCssProvider *provider = gtk_css_provider_new();
 
@@ -279,7 +308,7 @@ static void loadStylesheet(const char *fileName) {
 	gtk_style_context_add_provider_for_display(
 		gdk_display_get_default(),
 		GTK_STYLE_PROVIDER(provider),
-		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+		priority
 	);
 	g_object_unref(provider);
 }

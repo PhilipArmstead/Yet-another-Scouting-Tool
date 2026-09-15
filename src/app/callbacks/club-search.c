@@ -13,6 +13,23 @@ extern GameContext gameContext;
 
 static void runThreadedSearch(SearchContext *context);
 
+void clubSearch_init(void) {
+	GtkBuilder *builder = gameContext.builder;
+	SearchDatalist *dataList = g_new0(SearchDatalist, 1);
+
+	dataList->entry = GTK_SEARCH_ENTRY(gtk_builder_get_object(builder, "entry:club"));
+	dataList->popover = GTK_POPOVER(gtk_builder_get_object(builder, "popover:club-search"));
+	dataList->listBox = GTK_LIST_BOX(gtk_builder_get_object(builder, "listbox:club-search"));
+
+	gtk_widget_set_parent(GTK_WIDGET(dataList->popover), GTK_WIDGET(dataList->entry));
+	gtk_popover_set_pointing_to(dataList->popover, &(GdkRectangle){.x = 102, .y = 27, .width = 1, .height = 1});
+
+	gameContext.clubDatalist = dataList;
+
+	g_signal_connect(dataList->entry, "changed", G_CALLBACK(callbacks_OnClubNameChange), dataList);
+	g_signal_connect(dataList->listBox, "row-activated", G_CALLBACK(callbacks_onClubNameSelected), dataList);
+}
+
 void callbacks_OnClubNameChange(GtkEditable *editable, SearchDatalist *dataList) {
 	gameContext.filterOptions.filterMask &= ~(uint32_t)FILTER_HAS_CLUB;
 
@@ -65,9 +82,6 @@ void callbacks_onClubNameSelected(
 
 	gameContext.filterOptions.filterMask |= FILTER_HAS_CLUB;
 	gameContext.filterOptions.clubIndex = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(child), "index"));
-	char buffer[48] = {0};
-	snprintf(buffer, 48, "Club: %s", gameContext.clubs[gameContext.filterOptions.clubIndex].shortName);
-	ui_createClubFilterTag(buffer, GTK_EDITABLE(dataList->entry));
 
 	// NOTE: this is the same as the on-enter handler
 	searchHandler_doSearch(true);

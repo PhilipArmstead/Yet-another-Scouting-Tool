@@ -16,8 +16,7 @@ static inline bool valueFitsOneByte(int64_t value) {
 
 void searchHandler_cacheFilters(void) {
 	FilterOptions *options = &gameContext.filterOptions;
-	const uint32_t hasClub = options->filterMask & FILTER_HAS_CLUB;
-	options->filterMask = hasClub;
+	options->filterMask &= FILTER_HAS_CLUB | FILTER_HAS_NATIONALITY;
 
 	const gchar *minAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.minAge);
 	const gchar *maxAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxAge);
@@ -58,6 +57,10 @@ void searchHandler_cacheFilters(void) {
 		| (isPositionAMC ? POSITION_MASK_AMC : 0)
 		| (isPositionAMR ? POSITION_MASK_AMR : 0)
 		| (isPositionST ? POSITION_MASK_ST : 0);
+
+	if (options->positions) {
+		options->filterMask |= FILTER_HAS_POSITION;
+	}
 
 	int64_t value;
 
@@ -131,5 +134,24 @@ void searchHandler_clearFilters(void) {
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxPA, "", 1);
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.minRating, "", 1);
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxRating, "", 1);
-	gtk_editable_set_text(GTK_EDITABLE(gameContext.dataList->entry), "");
+	gtk_editable_set_text(GTK_EDITABLE(gameContext.clubDatalist->entry), "");
+	gtk_editable_set_text(GTK_EDITABLE(gameContext.nationalityDatalist->entry), "");
+
+	const CheckBox *checks = &gameContext.checkboxes;
+	gtk_check_button_set_active(checks->positionGK, FALSE);
+	gtk_check_button_set_active(checks->positionDL, FALSE);
+	gtk_check_button_set_active(checks->positionDC, FALSE);
+	gtk_check_button_set_active(checks->positionDR, FALSE);
+	gtk_check_button_set_active(checks->positionWBL, FALSE);
+	gtk_check_button_set_active(checks->positionDM, FALSE);
+	gtk_check_button_set_active(checks->positionWBR, FALSE);
+	gtk_check_button_set_active(checks->positionML, FALSE);
+	gtk_check_button_set_active(checks->positionMC, FALSE);
+	gtk_check_button_set_active(checks->positionMR, FALSE);
+	gtk_check_button_set_active(checks->positionAML, FALSE);
+	gtk_check_button_set_active(checks->positionAMC, FALSE);
+	gtk_check_button_set_active(checks->positionAMR, FALSE);
+	gtk_check_button_set_active(checks->positionST, FALSE);
+
+	gameContext.filterOptions.positions = 0;
 }

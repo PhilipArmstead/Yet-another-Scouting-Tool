@@ -33,6 +33,8 @@
 #define FILTER_HAS_MAX_WORLD_REPUTATION (1 << 14)
 #define FILTER_HAS_MIN_AGE (1 << 15)
 #define FILTER_HAS_MAX_AGE (1 << 16)
+#define FILTER_HAS_NATIONALITY (1 << 17)
+#define FILTER_HAS_POSITION (1 << 18)
 
 #define POSITION_MASK_GK (1 << 0)
 #define POSITION_MASK_DL (1 << 1)
@@ -63,6 +65,7 @@ typedef struct {
 	uint8_t maxCA;
 	uint8_t minPA;
 	uint8_t maxPA;
+	uint8_t nationalityIndex;
 } FilterOptions;
 
 typedef struct {
@@ -102,7 +105,8 @@ typedef struct {
 	FilterOptions filterOptions;
 	char gameVersion[GAME_STATUS_STRING_BUFFER_SIZE];
 	Options options;
-	SearchDatalist *dataList;
+	SearchDatalist *clubDatalist;
+	SearchDatalist *nationalityDatalist;
 	SharedPointer *searchResults;
 	DateTime currentDate;
 	GtkBuilder *builder;

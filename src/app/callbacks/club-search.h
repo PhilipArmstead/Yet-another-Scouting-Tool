@@ -8,6 +8,7 @@
 #include "app/types.h"
 
 
+void clubSearch_init(void);
 void callbacks_OnClubNameChange(GtkEditable *editable, SearchDatalist *dataList);
 void callbacks_onClubNameSelected(
 	const GtkListBox *box,

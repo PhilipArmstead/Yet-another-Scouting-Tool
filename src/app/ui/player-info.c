@@ -4,17 +4,25 @@
 #include "app/maths.h"
 #include "app/player.h"
 #include "app/ui.h"
+#include "app/helpers/formatter.h"
+#include "app/helpers/icons.h"
 #include "app/helpers/vector.h"
 
 
 extern GameContext gameContext;
 
+static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints) {
+	char buffer[44];
+	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), basisPoints < 0, buffer);
+	gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(builder, id)), buffer);
+}
+
 void ui_createPlayerInfoWindow(const Player *player) {
 	WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO);
-	gtk_window_set_default_size(GTK_WINDOW(context.window), 420, 900);
 	context.data = (void*)player;
 
 	ui_renderPlayerInfoWindow(context);
+	ui_presentWindow(context);
 }
 
 void ui_renderPlayerInfoWindow(WindowContext context) {
@@ -108,6 +116,29 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		snprintf(ability, 4, "%d", player->pa);
 		gtk_label_set_label(paLabel, ability);
 	}
+
+	// Footedness
+	{
+		GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
+		GtkWidget *child;
+		while ((child = gtk_widget_get_first_child(GTK_WIDGET(footednessBox))) != NULL) {
+			gtk_box_remove(footednessBox, child);
+		}
+
+		char footBuffer[16] = {0};
+		GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
+		snprintf(footBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
+		gtk_widget_set_tooltip_text(leftShoe, footBuffer);
+		gtk_box_append(footednessBox, leftShoe);
+		GtkWidget *rightShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_RIG] * 1.2), false);
+		snprintf(footBuffer, 16, "Right foot: %d", player->attributes[ATTR_RIG] / 5);
+		gtk_widget_set_tooltip_text(rightShoe, footBuffer);
+		gtk_box_append(footednessBox, rightShoe);
+	}
+
+	setPercentage(context.builder, "label:condition", (int16_t)player->condition);
+	setPercentage(context.builder, "label:sharpness", (int16_t)player->sharpness);
+	setPercentage(context.builder, "label:fatigue", player->fatigue);
 
 	// Attributes
 	GtkWidget *boxGoalkeeper = GTK_WIDGET(gtk_builder_get_object(context.builder, "box:attribute:goalkeeper"));

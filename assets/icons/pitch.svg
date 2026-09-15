@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360">
+	<defs>
+		<clipPath id="a">
+			<rect width="240" height="360" rx="10"/>
+		</clipPath>
+	</defs>
+	<g clip-path="url(#a)">
+		<path fill="#009150" d="M0 0h240v360H0z"/>
+		<path
+			fill="#17a45c"
+			d="M0 30h240v30H0zm0 60h240v30H0zm0 60h240v30H0zm0 60h240v30H0zm0 60h240v30H0zm0 60h240v30H0z"
+		/>
+		<g fill="none" stroke="#ccc" stroke-width="4">
+			<path d="M20 20h200v320H20zm0 160h200"/>
+			<circle cx="120" cy="180" r="34"/>
+			<path d="M72 20v48h96V20M72 340v-48h96v48"/>
+		</g>
+	</g>
+</svg>

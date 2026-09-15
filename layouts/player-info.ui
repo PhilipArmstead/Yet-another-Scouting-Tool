@@ -10,7 +10,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 	<!-- interface-authors Phil Armstead <philarmstead@mailbox.org> -->
 	<requires lib="gtk" version="4.0"/>
 	<object class="GtkWindow" id="window:player-info">
-		<property name="default-height">800</property>
 		<property name="default-width">420</property>
 		<property name="title">Yet another Scouting Tool</property>
 		<property name="css-classes">app-root</property>
@@ -54,13 +53,37 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 									</object>
 								</child>
 								<child>
-									<object class="GtkLabel" id="label:club-name">
-										<property name="label"/>
-										<style>
-											<class name="heading"/>
-										</style>
+									<object class="GtkBox">
 										<property name="halign">1</property>
-										<property name="xalign">0</property>
+										<property name="spacing">8</property>
+										<child>
+											<object class="GtkLabel" id="label:club-name">
+												<property name="label"/>
+												<style>
+													<class name="heading"/>
+												</style>
+												<property name="halign">1</property>
+												<property name="xalign">0</property>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel">
+												<property name="label">•</property>
+												<style>
+													<class name="meta-separator"/>
+												</style>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel" id="label:age">
+												<property name="label"/>
+												<style>
+													<class name="player-age"/>
+												</style>
+												<property name="halign">1</property>
+												<property name="xalign">0</property>
+											</object>
+										</child>
 									</object>
 								</child>
 							</object>
@@ -71,16 +94,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 								<property name="valign">1</property>
 								<property name="halign">2</property>
 								<property name="spacing">4</property>
-								<child>
-									<object class="GtkLabel" id="label:age">
-										<property name="label"/>
-										<style>
-											<class name="dim-label"/>
-										</style>
-										<property name="halign">2</property>
-										<property name="xalign">1</property>
-									</object>
-								</child>
 								<child>
 									<object id="widget:is-fast-learner" class="GtkBox">
 										<property name="halign">2</property>
@@ -132,6 +145,10 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												<property name="css-classes">current-ability</property>
 											</object>
 										</child>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">0</property>
+										</layout>
 									</object>
 								</child>
 								<child>
@@ -151,6 +168,108 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												<property name="css-classes">potential-ability</property>
 											</object>
 										</child>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkBox">
+										<property name="orientation">1</property>
+										<property name="spacing">4</property>
+										<child>
+											<object class="GtkLabel">
+												<property name="label">Footedness</property>
+												<property name="css-classes">caption-heading
+													dim-label
+												</property>
+												<property name="width-chars">10</property>
+											</object>
+										</child>
+										<child>
+											<object class="GtkBox" id="box:footedness">
+												<property name="orientation">0</property>
+												<property name="spacing">4</property>
+												<property name="halign">3</property>
+											</object>
+										</child>
+										<layout>
+											<property name="column">2</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+							</object>
+						</child>
+						<child>
+							<object class="GtkGrid">
+								<property name="valign">2</property>
+								<property name="column-spacing">8</property>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Condition:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:condition">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Sharpness:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">1</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:sharpness">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">1</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Fatigue:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">2</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:fatigue">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">2</property>
+										</layout>
 									</object>
 								</child>
 							</object>
@@ -1364,103 +1483,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 									<object class="GtkBox" id="box:top-roles">
 										<property name="orientation">1</property>
 										<property name="spacing">8</property>
-									</object>
-								</child>
-							</object>
-						</child>
-					</object>
-				</child>
-				<child>
-					<object class="GtkBox">
-						<property name="orientation">0</property>
-						<property name="homogeneous">true</property>
-						<property name="css-classes">panel</property>
-						<child>
-							<object class="GtkBox">
-								<property name="orientation">1</property>
-								<property name="spacing">4</property>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">VALUE</property>
-										<property name="css-classes">caption-heading
-											dim-label
-										</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">€12.1M</property>
-										<property name="css-classes">title-3
-											accent-yellow
-										</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-							</object>
-						</child>
-						<child>
-							<object class="GtkBox">
-								<property name="orientation">1</property>
-								<property name="spacing">4</property>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">ASKING PRICE</property>
-										<property name="css-classes">caption-heading
-											dim-label
-										</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">€13.3M–€18.0M</property>
-										<property name="css-classes">title-4</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-							</object>
-						</child>
-						<child>
-							<object class="GtkBox">
-								<property name="orientation">1</property>
-								<property name="spacing">4</property>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">WAGE</property>
-										<property name="css-classes">caption-heading
-											dim-label
-										</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">€1K</property>
-										<property name="css-classes">title-4</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-							</object>
-						</child>
-						<child>
-							<object class="GtkBox">
-								<property name="orientation">1</property>
-								<property name="spacing">4</property>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">CONTRACT</property>
-										<property name="css-classes">caption-heading
-											dim-label
-										</property>
-										<property name="halign">1</property>
-									</object>
-								</child>
-								<child>
-									<object class="GtkLabel">
-										<property name="label">31-12-2029</property>
-										<property name="css-classes">title-4</property>
-										<property name="halign">1</property>
 									</object>
 								</child>
 							</object>
