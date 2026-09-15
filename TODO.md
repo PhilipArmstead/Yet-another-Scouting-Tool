@@ -5,7 +5,7 @@ TODO
 - To player-info
 	- Add footedness
 	- Add height/weight
-	- Add contract details
+	- ⭐ Add contract details
 	- Add condition
 	- Add happiness
 - To player search
