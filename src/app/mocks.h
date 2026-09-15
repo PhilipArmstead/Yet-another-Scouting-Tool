@@ -50,8 +50,8 @@
 	.annualWage = 35000000, \
 	.clubIndex = 1125, \
 	.sharpness = 10000, \
-	.fatigue = 0, \
-	.condition = 5000, \
+	.fatigue = -7000, \
+	.condition = 3000, \
 	.homeReputation = 10000, \
 	.currentReputation = 10000, \
 	.worldReputation = 10000, \

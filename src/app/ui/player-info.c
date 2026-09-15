@@ -4,10 +4,17 @@
 #include "app/maths.h"
 #include "app/player.h"
 #include "app/ui.h"
+#include "app/helpers/formatter.h"
 #include "app/helpers/vector.h"
 
 
 extern GameContext gameContext;
+
+static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints) {
+	char buffer[44];
+	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), basisPoints < 0, buffer);
+	gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(builder, id)), buffer);
+}
 
 void ui_createPlayerInfoWindow(const Player *player) {
 	WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO);
@@ -108,6 +115,10 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		snprintf(ability, 4, "%d", player->pa);
 		gtk_label_set_label(paLabel, ability);
 	}
+
+	setPercentage(context.builder, "label:condition", (int16_t)player->condition);
+	setPercentage(context.builder, "label:sharpness", (int16_t)player->sharpness);
+	setPercentage(context.builder, "label:fatigue", player->fatigue);
 
 	// Attributes
 	GtkWidget *boxGoalkeeper = GTK_WIDGET(gtk_builder_get_object(context.builder, "box:attribute:goalkeeper"));

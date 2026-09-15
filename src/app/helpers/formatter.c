@@ -125,3 +125,22 @@ void formatter_formatRating(const float rating, char *outString) {
 void formatter_formatRatingPlain(const float rating, char *outString) {
 	snprintf(outString, 16, "%.2f%%", rating);
 }
+
+/**
+ * Colourises a plain 0-100 percentage. Unlike ratings these are whole numbers, so they print without
+ * decimals.
+ * @param percentage
+ * @param inverted - for metrics like fatigue, where 0 is the healthy end of the scale
+ * @param outString - should be at least 40 bytes
+ */
+void formatter_formatPercentage(const float percentage, const bool inverted, char *outString) {
+	const float clamped = percentage < 0.f ? 0.f : (percentage < 100.f ? percentage : 100.f);
+	const uint8_t index = (uint8_t)(clamped * 1.2f);
+	snprintf(
+		outString,
+		40,
+		"<span foreground=\"%s\">%.0f%%</span>",
+		qualityRampHex[inverted ? 120 - index : index],
+		clamped
+	);
+}

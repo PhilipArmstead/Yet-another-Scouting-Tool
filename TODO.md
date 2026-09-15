@@ -6,7 +6,6 @@ TODO
 	- Add footedness
 	- Add height/weight
 	- ⭐ Add contract details
-	- Add condition
 	- Add happiness
 - To player search
 	- ⭐ Modify Club Search to search player names also

@@ -168,6 +168,78 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 								</child>
 							</object>
 						</child>
+						<child>
+							<object class="GtkGrid">
+								<property name="valign">2</property>
+								<property name="column-spacing">8</property>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Condition:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:condition">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">0</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Sharpness:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">1</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:sharpness">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">1</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel">
+										<property name="label">Fatigue:</property>
+										<property name="xalign">1</property>
+										<property name="css-classes">dim-label</property>
+										<layout>
+											<property name="column">0</property>
+											<property name="row">2</property>
+										</layout>
+									</object>
+								</child>
+								<child>
+									<object class="GtkLabel" id="label:fatigue">
+										<property name="xalign">1</property>
+										<property name="width-chars">4</property>
+										<property name="css-classes">caption-heading</property>
+										<layout>
+											<property name="column">1</property>
+											<property name="row">2</property>
+										</layout>
+									</object>
+								</child>
+							</object>
+						</child>
 					</object>
 				</child>
 				<child>
