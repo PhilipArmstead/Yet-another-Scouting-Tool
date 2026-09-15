@@ -23,3 +23,8 @@ TODO
 ## Maybe TODO
 
 - Hot reload when config file is modified
+
+## Bugs
+
+- List players, advance time, refresh cache, double-click player. A crash occurs because clubIndex is garbage.
+- Searching for clubs while the cache rebuilds causes a crash. (Fix with swapbuffer)
