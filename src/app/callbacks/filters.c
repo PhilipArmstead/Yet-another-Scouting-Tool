@@ -101,4 +101,8 @@ void callbacks_updateFilterTags(void) {
 	if (options.filterMask & FILTER_HAS_CLUB) {
 		ui_createClubFilterTag(gameContext.clubs[options.clubIndex].shortName, GTK_EDITABLE(gameContext.dataList->entry));
 	}
+
+	if (!options.filterMask) {
+		ui_createFilterTag("Showing: all", NULL);
+	}
 }

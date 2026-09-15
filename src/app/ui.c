@@ -223,20 +223,23 @@ typedef struct {
 	GtkWidget *closeButton;
 } FilterTag;
 
-static FilterTag createFilterTag(const char *text) {
-	GtkWidget *label = gtk_label_new(text);
-	gtk_widget_add_css_class(label, "chip-text");
-
-	GtkWidget *close = gtk_label_new("✕");
-	gtk_widget_add_css_class(close, "chip-x");
-	GtkWidget *closeButton = gtk_button_new();
-	gtk_widget_add_css_class(closeButton, "chip-button");
-	gtk_widget_set_parent(close, closeButton);
-
+static FilterTag createFilterTag(const char *text, const bool isClosable) {
 	GtkWidget *box = gtk_box_new(0, 4);
 	gtk_widget_add_css_class(box, "chip");
+
+	GtkWidget *label = gtk_label_new(text);
+	gtk_widget_add_css_class(label, "chip-text");
 	gtk_box_append(GTK_BOX(box), label);
-	gtk_box_append(GTK_BOX(box), closeButton);
+
+	GtkWidget *closeButton = NULL;
+	if (isClosable) {
+		GtkWidget *close = gtk_label_new("✕");
+		gtk_widget_add_css_class(close, "chip-x");
+		closeButton = gtk_button_new();
+		gtk_widget_add_css_class(closeButton, "chip-button");
+		gtk_widget_set_parent(close, closeButton);
+		gtk_box_append(GTK_BOX(box), closeButton);
+	}
 
 	GtkBox *parent = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:filter-tags"));
 	gtk_box_append(parent, box);
@@ -245,12 +248,14 @@ static FilterTag createFilterTag(const char *text) {
 }
 
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer) {
-	const FilterTag tag = createFilterTag(text);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onFilterTagClick), buffer);
+	const FilterTag tag = createFilterTag(text, buffer != NULL);
+	if (buffer != NULL) {
+		g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onFilterTagClick), buffer);
+	}
 }
 
 void ui_createClubFilterTag(const char *text, GtkEditable *buffer) {
-	const FilterTag tag = createFilterTag(text);
+	const FilterTag tag = createFilterTag(text, true);
 	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onClubFilterTagClick), buffer);
 	gtk_widget_set_name(tag.label, "tag:club-name");
 }
