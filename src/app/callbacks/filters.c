@@ -5,15 +5,40 @@
 #include "app/player-table.h"
 #include "app/search-handler.h"
 #include "app/ui.h"
+#include "app/helpers/vector.h"
+#include "core/logger.h"
 
 
 extern GameContext gameContext;
 
+// Set while we mutate filter widgets ourselves, so their change signals do not re-run a search
+static bool filtersAreResetting = false;
+
 G_MODULE_EXPORT void callbacks_onFiltersClear(void) {
+	filtersAreResetting = true;
 	searchHandler_clearFilters();
+	filtersAreResetting = false;
 
 	ui_clearFilterTags();
 	playerTable_clear();
+}
+
+G_MODULE_EXPORT void callbacks_onPositionToggled(GtkCheckButton *button, gpointer data) {
+	(void)button;
+	(void)data;
+
+	if (filtersAreResetting) {
+		return;
+	}
+
+	searchHandler_cacheFilters();
+	if (gameContext.filterOptions.filterMask) {
+		searchHandler_doSearch(false);
+	} else {
+		playerTable_clear();
+	}
+
+	callbacks_updateFilterTags();
 }
 
 G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
@@ -99,7 +124,10 @@ void callbacks_updateFilterTags(void) {
 		gtk_entry_buffer_set_text(fb.maxRating, "", 1);
 	}
 	if (options.filterMask & FILTER_HAS_CLUB) {
-		ui_createClubFilterTag(gameContext.clubs[options.clubIndex].shortName, GTK_EDITABLE(gameContext.clubDatalist->entry));
+		ui_createClubFilterTag(
+			gameContext.clubs[options.clubIndex].shortName,
+			GTK_EDITABLE(gameContext.clubDatalist->entry)
+		);
 	}
 	if (options.filterMask & FILTER_HAS_NATIONALITY) {
 		ui_createNationalityFilterTag(
@@ -108,7 +136,37 @@ void callbacks_updateFilterTags(void) {
 		);
 	}
 
-	if (!options.filterMask) {
+	if (options.filterMask & FILTER_HAS_POSITION) {
+		// Indices line up with the POSITION_MASK_* bit positions
+		static const char *const names[] = {
+			"GK", "DL", "DC", "DR", "WBL", "DM", "WBR", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST",
+		};
+		const CheckBox *checks = &gameContext.checkboxes;
+		GtkCheckButton *const buttons[] = {
+			checks->positionGK,
+			checks->positionDL,
+			checks->positionDC,
+			checks->positionDR,
+			checks->positionWBL,
+			checks->positionDM,
+			checks->positionWBR,
+			checks->positionML,
+			checks->positionMC,
+			checks->positionMR,
+			checks->positionAML,
+			checks->positionAMC,
+			checks->positionAMR,
+			checks->positionST,
+		};
+
+		for (uint8_t i = 0; i < G_N_ELEMENTS(names); ++i) {
+			if (options.positions & (1u << i)) {
+				ui_createPositionFilterTag(names[i], buttons[i]);
+			}
+		}
+	}
+
+	if (!options.filterMask && gameContext.searchResults != NULL && vector_length(gameContext.searchResults->data) > 0) {
 		ui_createFilterTag("Showing: all", NULL);
 	}
 }

@@ -22,6 +22,7 @@ extern GameContext gameContext;
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
 static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer);
+static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button);
 static void loadStylesheet(const char *fileName, guint priority);
 
 void ui_init(GtkApplication *app) {
@@ -245,6 +246,13 @@ void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer) {
 	gtk_widget_set_name(tag.label, "tag:nationality");
 }
 
+void ui_createPositionFilterTag(const char *name, GtkCheckButton *button) {
+	char textBuffer[16] = {0};
+	snprintf(textBuffer, sizeof(textBuffer), "Pos: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onPositionFilterTagClick), button);
+}
+
 void ui_clearFilterTags(void) {
 	GtkBox *filterTags = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:filter-tags"));
 	GtkWidget *child;
@@ -279,6 +287,15 @@ static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
 	gtk_entry_buffer_set_text(buffer, "", 1);
 	onTagClick(self);
+}
+
+/*
+ * Unsetting the button emits "toggled", which re-runs the search and rebuilds every tag —
+ * including this one — so `self` must not be touched afterwards.
+ */
+static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button) {
+	(void)self;
+	gtk_check_button_set_active(button, FALSE);
 }
 
 

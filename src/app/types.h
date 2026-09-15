@@ -34,6 +34,7 @@
 #define FILTER_HAS_MIN_AGE (1 << 15)
 #define FILTER_HAS_MAX_AGE (1 << 16)
 #define FILTER_HAS_NATIONALITY (1 << 17)
+#define FILTER_HAS_POSITION (1 << 18)
 
 #define POSITION_MASK_GK (1 << 0)
 #define POSITION_MASK_DL (1 << 1)

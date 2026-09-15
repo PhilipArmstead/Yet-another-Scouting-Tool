@@ -103,31 +103,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 				</child>
 				<child>
 					<object class="GtkBox">
-						<property name="css-classes">filterbar</property>
-						<property name="spacing">8</property>
-						<child>
-							<object class="GtkLabel" id="label:results-count">
-								<style>
-									<class name="results-count"/>
-								</style>
-							</object>
-						</child>
-						<child>
-							<object class="GtkBox" id="box:filter-tags"/>
-						</child>
-						<child>
-							<object class="GtkButton" id="button:clear-all">
-								<property name="label">clear all</property>
-								<signal name="clicked" handler="callbacks_onFiltersClear"/>
-								<style>
-									<class name="link-btn"/>
-								</style>
-							</object>
-						</child>
-					</object>
-				</child>
-				<child>
-					<object class="GtkBox">
 						<property name="orientation">horizontal</property>
 						<property name="vexpand">true</property>
 						<property name="css-classes">body</property>
@@ -350,6 +325,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</style>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:st">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="margin-top">8</property>
 														<property name="child">
@@ -369,6 +345,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:aml">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -387,6 +364,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amc">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -405,6 +383,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amr">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -423,6 +402,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:ml">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -441,6 +421,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:mc">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -459,6 +440,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:mr">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -477,6 +459,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:wbl">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -495,6 +478,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dm">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -513,6 +497,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:wbr">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -531,6 +516,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dl">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -549,6 +535,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dc">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -567,6 +554,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dr">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -585,6 +573,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:gk">
+														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="margin-bottom">8</property>
 														<property name="child">
@@ -607,15 +596,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 									</object>
 								</child>
 								<child>
-									<object class="GtkButton" id="button:apply-filters">
-										<property name="label">Apply filters</property>
-										<signal name="clicked" handler="callbacks_onFilterRun"/>
-										<style>
-											<class name="btn-primary"/>
-										</style>
-									</object>
-								</child>
-								<child>
 									<object class="GtkButton" id="button:clear-filters">
 										<property name="label">Clear filters</property>
 										<signal name="clicked" handler="callbacks_onFiltersClear"/>
@@ -627,16 +607,46 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							</object>
 						</child>
 						<child>
-							<object class="GtkScrolledWindow">
-								<property name="hexpand">true</property>
-								<property name="vexpand">true</property>
-								<property name="hscrollbar-policy">automatic</property>
-								<property name="vscrollbar-policy">automatic</property>
-								<property name="css-classes">table-scroll</property>
+							<object class="GtkBox">
+								<property name="orientation">vertical</property>
 								<child>
-									<object class="GtkColumnView" id="table:player-list">
-										<property name="css-classes">table</property>
-										<property name="enable-rubberband">true</property>
+									<object class="GtkBox">
+										<property name="css-classes">filterbar</property>
+										<property name="spacing">8</property>
+										<child>
+											<object class="GtkLabel" id="label:results-count">
+												<style>
+													<class name="results-count"/>
+												</style>
+											</object>
+										</child>
+										<child>
+											<object class="GtkBox" id="box:filter-tags"/>
+										</child>
+										<child>
+											<object class="GtkButton" id="button:clear-all">
+												<property name="label">clear all</property>
+												<signal name="clicked" handler="callbacks_onFiltersClear"/>
+												<style>
+													<class name="link-btn"/>
+												</style>
+											</object>
+										</child>
+									</object>
+								</child>
+								<child>
+									<object class="GtkScrolledWindow">
+										<property name="hexpand">true</property>
+										<property name="vexpand">true</property>
+										<property name="hscrollbar-policy">automatic</property>
+										<property name="vscrollbar-policy">automatic</property>
+										<property name="css-classes">table-scroll</property>
+										<child>
+											<object class="GtkColumnView" id="table:player-list">
+												<property name="css-classes">table</property>
+												<property name="enable-rubberband">true</property>
+											</object>
+										</child>
 									</object>
 								</child>
 							</object>
