@@ -3,6 +3,7 @@
 
 #pragma once
 
+#define NATIONALITY_SEARCH_LIMIT 30
 #define CLUB_SEARCH_LIMIT 30
 #define CLUB_SEARCH_NAME_LENGTH 40
 

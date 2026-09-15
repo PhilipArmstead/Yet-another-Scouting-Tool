@@ -49,6 +49,17 @@ uint32_t *search_findPlayers(void) {
 			continue;
 		}
 
+		// Unused nationality slots hold 0xFF, which can never equal a valid index
+		if (
+			options.filterMask & FILTER_HAS_NATIONALITY &&
+			player->nationality[0] != options.nationalityIndex &&
+			player->nationality[1] != options.nationalityIndex &&
+			player->nationality[2] != options.nationalityIndex &&
+			player->nationality[3] != options.nationalityIndex
+		) {
+			continue;
+		}
+
 		if (options.positions > 0) {
 			bool hasPosition = false;
 			if (

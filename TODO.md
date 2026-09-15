@@ -7,7 +7,6 @@ TODO
 	- 🚩 Add contract details
 	- Add happiness
 - To player search
-	- 🚩 Search for nationality
 	- 🚩 Fix "Show current player"
 	- ⭐ Search player names
 	- ⭐ Pull players from in-game shortlist

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(YaST VERSION 24.0.118 LANGUAGES C)
+project(YaST VERSION 24.0.119 LANGUAGES C)
 
 # Default build type for single-config generators only.
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -82,6 +82,7 @@ add_executable(yast
         src/app/callbacks/best-eleven.c
         src/app/callbacks/club-search.c
         src/app/callbacks/filters.c
+        src/app/callbacks/nationality-search.c
         src/app/callbacks/player.c
         src/app/helpers/date.c
         src/app/helpers/formatter.c

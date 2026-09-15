@@ -6,6 +6,7 @@
 #include "app/player-table.h"
 #include "app/callbacks/club-search.h"
 #include "app/callbacks/filters.h"
+#include "app/callbacks/nationality-search.h"
 #include "core/logger.h"
 
 
@@ -23,9 +24,8 @@ void callbacks_init(void) {
 	gtk_widget_add_controller(sidebar, GTK_EVENT_CONTROLLER(controllerKey));
 
 	// Attach datalist callbacks
-	SearchDatalist *dataList = gameContext.dataList;
-	g_signal_connect(dataList->entry, "changed", G_CALLBACK(callbacks_OnClubNameChange), dataList);
-	g_signal_connect(dataList->listBox, "row-activated", G_CALLBACK(callbacks_onClubNameSelected), dataList);
+	clubSearch_init();
+	nationalitySearch_init();
 }
 
 gboolean callbacks_onWindowKeypress(

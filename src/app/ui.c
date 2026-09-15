@@ -21,7 +21,7 @@ extern GameContext gameContext;
 
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
-static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer);
+static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer);
 static void loadStylesheet(const char *fileName, guint priority);
 
 void ui_init(GtkApplication *app) {
@@ -62,31 +62,6 @@ void ui_init(GtkApplication *app) {
 	// In mock mode, we never have the process-connected callback run
 	cache_run();
 #endif
-
-	// Create datalist box
-	SearchDatalist *dataList = g_new0(SearchDatalist, 1);
-
-	dataList->entry = GTK_SEARCH_ENTRY(gtk_search_entry_new());
-	dataList->popover = GTK_POPOVER(gtk_popover_new());
-	dataList->listBox = GTK_LIST_BOX(gtk_list_box_new());
-
-	gtk_search_entry_set_placeholder_text(dataList->entry, "Search club");
-	gtk_widget_add_css_class(GTK_WIDGET(dataList->entry), "sidebar-search");
-
-	gtk_popover_set_child(dataList->popover, GTK_WIDGET(dataList->listBox));
-	gtk_widget_set_parent(GTK_WIDGET(dataList->popover), GTK_WIDGET(dataList->entry));
-
-	gtk_popover_set_pointing_to(dataList->popover, &(GdkRectangle){.x = 102, .y = 27, .width = 1, .height = 1});
-	gtk_popover_set_position(dataList->popover, GTK_POS_BOTTOM);
-
-	gtk_popover_set_autohide(dataList->popover, FALSE);
-	gtk_widget_set_can_focus(GTK_WIDGET(dataList->popover), FALSE);
-	gtk_widget_set_can_focus(GTK_WIDGET(dataList->listBox), FALSE);
-	gtk_list_box_set_selection_mode(dataList->listBox, GTK_SELECTION_NONE);
-
-	GtkBox *container = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:club-search-container"));
-	gtk_box_append(container, GTK_WIDGET(dataList->entry));
-	gameContext.dataList = dataList;
 
 	// Cache field buffers
 	GtkBuilder *b = gameContext.builder;
@@ -254,10 +229,20 @@ void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer) {
 	}
 }
 
-void ui_createClubFilterTag(const char *text, GtkEditable *buffer) {
-	const FilterTag tag = createFilterTag(text, true);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onClubFilterTagClick), buffer);
+void ui_createClubFilterTag(const char *name, GtkEditable *buffer) {
+	char textBuffer[CLUB_SHORT_NAME_LENGTH + 7] = {0};
+	snprintf(textBuffer, sizeof(textBuffer), "Club: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
 	gtk_widget_set_name(tag.label, "tag:club-name");
+}
+
+void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer) {
+	char textBuffer[MAX_NATION_STRING_LENGTH + 15];
+	snprintf(textBuffer, sizeof(textBuffer), "Nationality: %s", name);
+	const FilterTag tag = createFilterTag(textBuffer, true);
+	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
+	gtk_widget_set_name(tag.label, "tag:nationality");
 }
 
 void ui_clearFilterTags(void) {
@@ -286,7 +271,7 @@ static void onTagClick(GtkWidget *self) {
 	}
 }
 
-static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
+static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
 	gtk_editable_set_text(buffer, "");
 	onTagClick(self);
 }

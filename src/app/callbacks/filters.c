@@ -99,7 +99,13 @@ void callbacks_updateFilterTags(void) {
 		gtk_entry_buffer_set_text(fb.maxRating, "", 1);
 	}
 	if (options.filterMask & FILTER_HAS_CLUB) {
-		ui_createClubFilterTag(gameContext.clubs[options.clubIndex].shortName, GTK_EDITABLE(gameContext.dataList->entry));
+		ui_createClubFilterTag(gameContext.clubs[options.clubIndex].shortName, GTK_EDITABLE(gameContext.clubDatalist->entry));
+	}
+	if (options.filterMask & FILTER_HAS_NATIONALITY) {
+		ui_createNationalityFilterTag(
+			gameContext.nations[options.nationalityIndex].name,
+			GTK_EDITABLE(gameContext.nationalityDatalist->entry)
+		);
 	}
 
 	if (!options.filterMask) {

@@ -16,8 +16,7 @@ static inline bool valueFitsOneByte(int64_t value) {
 
 void searchHandler_cacheFilters(void) {
 	FilterOptions *options = &gameContext.filterOptions;
-	const uint32_t hasClub = options->filterMask & FILTER_HAS_CLUB;
-	options->filterMask = hasClub;
+	options->filterMask &= FILTER_HAS_CLUB | FILTER_HAS_NATIONALITY;
 
 	const gchar *minAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.minAge);
 	const gchar *maxAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxAge);
@@ -131,5 +130,6 @@ void searchHandler_clearFilters(void) {
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxPA, "", 1);
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.minRating, "", 1);
 	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxRating, "", 1);
-	gtk_editable_set_text(GTK_EDITABLE(gameContext.dataList->entry), "");
+	gtk_editable_set_text(GTK_EDITABLE(gameContext.clubDatalist->entry), "");
+	gtk_editable_set_text(GTK_EDITABLE(gameContext.nationalityDatalist->entry), "");
 }

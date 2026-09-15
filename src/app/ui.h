@@ -14,7 +14,8 @@ void ui_updateGameVersion(void);
 void ui_updateInGameDate(void);
 void ui_clearFilterTags(void);
 void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
-void ui_createClubFilterTag(const char *text, GtkEditable *buffer);
+void ui_createClubFilterTag(const char *name, GtkEditable *buffer);
+void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer);
 
 WindowContext openWindow(const char *layoutName, const char *windowName, WindowType type);
 void ui_presentWindow(WindowContext context);
