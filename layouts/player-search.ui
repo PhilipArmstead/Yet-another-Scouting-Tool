@@ -398,7 +398,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 										<property name="label">Apply filters</property>
 										<signal name="clicked" handler="callbacks_onFilterRun"/>
 										<style>
-											<class name="apply-filters-btn"/>
+											<class name="btn-primary"/>
 										</style>
 									</object>
 								</child>
@@ -407,7 +407,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 										<property name="label">Clear filters</property>
 										<signal name="clicked" handler="callbacks_onFiltersClear"/>
 										<style>
-											<class name="clear-filters-btn"/>
+											<class name="btn-secondary"/>
 										</style>
 									</object>
 								</child>

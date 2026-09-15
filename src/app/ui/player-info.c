@@ -11,10 +11,10 @@ extern GameContext gameContext;
 
 void ui_createPlayerInfoWindow(const Player *player) {
 	WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO);
-	gtk_window_set_default_size(GTK_WINDOW(context.window), 420, 900);
 	context.data = (void*)player;
 
 	ui_renderPlayerInfoWindow(context);
+	ui_presentWindow(context);
 }
 
 void ui_renderPlayerInfoWindow(WindowContext context) {

@@ -1,19 +1,3 @@
-/** Common */
-.app-root {
-	--background-colour-primary: #0f1216;
-	--border-colour-primary: #232a31;
-	--background-colour-primary-light: #10141a;
-	--background-colour-primary-lighter: #1a2028;
-	--border-colour-primary-lighter: #2a3542;
-	--colour-link: #4a90e2;
-	--colour-primary: #c2c9d0;
-	--colour-primary-dark: #9aa4ad;
-	--colour-primary-darker: #7f8a93;
-	--border-radius-l: 12px;
-	--border-radius-m: 8px;
-	--border-radius-s: 4px;
-}
-
 .app-root {
 	background-color: var(--background-colour-primary);
 	color: var(--colour-primary);
@@ -56,7 +40,7 @@ dropdown row {
 
 
 dropdown > popover listview > row label {
-	color: #ccc;
+	color: var(--colour-primary);
 }
 
 dropdown > popover row:hover, dropdown > popover row:hover * {
@@ -64,7 +48,7 @@ dropdown > popover row:hover, dropdown > popover row:hover * {
 }
 
 headerbar {
-	background: #0b0e11;
+	background: var(--background-colour-header);
 	color: var(--colour-primary);
 	min-height: 30px;
 }
@@ -88,7 +72,7 @@ headerbar .title {
 
 /** Player search */
 .topbar {
-	background-color: #14181d;
+	background-color: var(--background-colour-topbar);
 	border-bottom: 1px solid var(--border-colour-primary);
 	padding: 6px 10px;
 }
@@ -103,12 +87,12 @@ headerbar .title {
 }
 
 .nav-tab:hover {
-	color: #fff;
+	color: var(--colour-emphasis);
 }
 
 .nav-tab-active {
-	background-color: #2f6fed;
-	color: #fff;
+	background-color: var(--background-colour-accent);
+	color: var(--colour-on-accent);
 }
 
 .version, .date {
@@ -127,7 +111,7 @@ headerbar .title {
 }
 
 .chip {
-	background-color: #1c2530;
+	background-color: var(--background-colour-chip);
 	border: 1px solid var(--border-colour-primary-lighter);
 	border-radius: var(--border-radius-l);
 	margin-right: 4px;
@@ -135,7 +119,7 @@ headerbar .title {
 }
 
 .chip-text {
-	color: #c9d1d9;
+	color: var(--colour-primary);
 }
 
 .chip-x {
@@ -163,38 +147,49 @@ headerbar .title {
 }
 
 .sidebar-heading {
-	color: #6f7a83;
+	color: var(--colour-heading);
 	font-size: 10px;
 	font-weight: bold;
 	margin-top: 8px;
 }
 
-.save-filter-btn,
-.attr-filter-btn,
-.clear-filters-btn {
-	background-color: var(--background-colour-primary-lighter);
-	border: 1px solid var(--border-colour-primary-lighter);
+/**
+ * Call-to-action buttons. `.btn-primary` is the single affirmative action in a view;
+ * `.btn-secondary` is everything alongside it, and must read as clearly subordinate.
+ */
+.btn-primary {
+	background-color: var(--background-colour-accent);
+	border: 1px solid var(--background-colour-accent);
 	border-radius: var(--border-radius-s);
-	color: #c9d1d9;
+	color: var(--colour-on-accent);
+	font-weight: bold;
 	padding: 5px 8px;
 }
 
-.attr-filter-btn {
-	background-color: #182a3d;
-	border-color: #24455f;
+.btn-primary:hover {
+	background-color: var(--background-colour-accent-hover);
+	border-color: var(--background-colour-accent-hover);
 }
 
-.clear-filters-btn {
-	background-color: #182233;
+.btn-secondary {
+	background-color: var(--background-colour-button-secondary);
+	border: 1px solid var(--border-colour-primary-lighter);
+	border-radius: var(--border-radius-s);
+	color: var(--colour-primary);
+	padding: 5px 8px;
+}
+
+.btn-secondary:hover {
+	background-color: var(--background-colour-button-secondary-hover);
 }
 
 .sidebar-section-header {
-	border-bottom: 1px solid #1c232b;
+	border-bottom: 1px solid var(--border-colour-subtle);
 	padding: 8px 2px;
 }
 
 .section-title {
-	color: #cdd5dd;
+	color: var(--colour-primary);
 	font-size: 11px;
 	font-weight: bold;
 }
@@ -218,7 +213,7 @@ headerbar .title {
 }
 
 .quality-dash {
-	color: #57606a;
+	color: var(--colour-muted);
 }
 
 .quality-entry {
@@ -262,21 +257,21 @@ headerbar .title {
 }
 
 .table row {
-	border-bottom: 1px solid #171d24;
+	border-bottom: 1px solid var(--border-colour-row);
 	color: var(--colour-primary);
 }
 
 .table row:nth-child(even) {
-	background-color: #12171d;
+	background-color: var(--background-colour-row-alternate);
 }
 
 .table row:hover {
-	background-color: #595959;
+	background-color: var(--background-colour-row-hover);
 }
 
 .table row:selected {
 	background-color: var(--colour-link);
-	color: #fff;
+	color: var(--colour-on-accent);
 }
 
 .sidebar-search {
@@ -284,35 +279,35 @@ headerbar .title {
 }
 
 .popover > * {
-	background-color: #f8f9fa;
+	background-color: var(--background-colour-popover);
 	padding: 6px 0;
 }
 
 /** Player info */
 .card {
-	background-color: #1b2430;
+	background-color: var(--background-colour-card);
 	padding: 24px;
 }
 
 .card-border {
-	border: 2px solid #d9a441;
-	outline: 4px solid alpha(#d9a441, 0.35);
+	border: 2px solid var(--colour-accent-gold);
+	outline: 4px solid var(--colour-accent-gold-soft);
 	outline-offset: -8px;
 }
 
 .panel {
-	background-color: alpha(#000, 0.25);
+	background-color: var(--background-colour-panel);
 	border-radius: var(--border-radius-m);
 	padding: 14px 18px;
 }
 
 .title-1 {
-	color: #f2f2f2;
+	color: var(--colour-title);
 	font-weight: 900;
 }
 
 .section-heading {
-	color: #8fa0b3;
+	color: var(--colour-section-heading);
 	letter-spacing: 1px;
 }
 
@@ -322,18 +317,18 @@ headerbar .title {
 }
 
 .accent-rule {
-	background-color: #d9a441;
+	background-color: var(--colour-accent-gold);
 	margin-bottom: 4px;
 	min-height: 2px;
 }
 
 .accent-yellow {
-	color: #f0b23c;
+	color: var(--colour-accent-yellow);
 	font-weight: 800;
 }
 
 .accent-orange {
-	color: #e08a2c;
+	color: var(--colour-accent-orange);
 	font-weight: 800;
 }
 
@@ -342,7 +337,7 @@ headerbar .title {
 }
 
 .attr-row {
-	color: #d7dde5;
+	color: var(--colour-attribute);
 	padding: 3px 4px;
 }
 
@@ -351,19 +346,19 @@ headerbar .title {
 }
 
 .pill-fast-learner {
-	background-color: #2b3a5c;
-	border: 1px solid #3182ce;
+	background-color: var(--background-colour-pill-learner);
+	border: 1px solid var(--border-colour-pill-learner);
 	border-radius: 999px;
-	color: #90cdf4;
+	color: var(--colour-pill-learner);
 	font-weight: 600;
 	padding: 3px 8px;
 }
 
 .pill-hot-prospect {
-	background-color: #3d2112;
-	border: 1px solid #dd6b20;
+	background-color: var(--background-colour-pill-prospect);
+	border: 1px solid var(--border-colour-pill-prospect);
 	border-radius: 999px;
-	color: #fbd38d;
+	color: var(--colour-pill-prospect);
 	font-weight: 600;
 	padding: 3px 8px;
 }
@@ -374,11 +369,11 @@ headerbar .title {
 }
 
 .current-ability {
-	color: #66b5e5;
+	color: var(--colour-current-ability);
 }
 
 .potential-ability {
-	color: #66cb93;
+	color: var(--colour-potential-ability);
 }
 
 .role-bar, .role-bar progress {
@@ -391,16 +386,19 @@ headerbar .title {
 	border-radius: 0;
 }
 
+/* GTK's default theme dims `.dim-label` to 55% opacity, which is illegible over a pale
+   background. Our palette already encodes the intended emphasis, so opt out of it. */
 .dim-label {
-	color: #8fa0b3;
+	color: var(--colour-section-heading);
+	opacity: 1;
 }
 
 .attribute-row--high {
-	background: rgb(51, 64, 9);
+	background: var(--background-colour-attribute-high);
 }
 
 .attribute-row--mid {
-	background: rgb(68, 57, 17);
+	background: var(--background-colour-attribute-mid);
 }
 
 .role-value {
@@ -409,6 +407,16 @@ headerbar .title {
 
 .nationality {
 	margin-top: 8px;
+}
+
+.player-age {
+	color: var(--colour-primary);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.meta-separator {
+	color: var(--colour-primary-darker);
 }
 
 /** Best XI */
@@ -428,7 +436,7 @@ headerbar .title {
 }
 
 .best-eleven-root .name {
-	color: #fff;
+	color: var(--colour-emphasis);
 	font-size: 1.2rem;
 }
 

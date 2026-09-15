@@ -9,6 +9,8 @@
 #include <string.h>
 
 
+extern GameContext gameContext;
+
 /**
  * Add thousands separators to string-representations of integers.
  * Ensure the string is writable and there are enough spaces in
@@ -63,13 +65,63 @@ void formatter_printCurrency(char *outString) {
 }
 
 /**
+ * Ratings and conditions are both quantised onto a 0-120 hue ramp before being colourised, so the
+ * whole ramp is built once here instead of recomputing the hue maths for every row we render.
+ *
+ * On a light background the raw ramp is unreadable (pure hues sit at maximum brightness, so a top
+ * rating renders as #00ff00 on white), hence the luminance cap. 0.1833 is the highest relative
+ * luminance that still clears WCAG AA contrast of 4.5:1 against white. Dark mode keeps the raw
+ * ramp, where full brightness is exactly what we want.
+ */
+#define QUALITY_RAMP_STEPS 121
+#define QUALITY_RAMP_MAX_LUMINANCE_ON_LIGHT 0.1833f
+
+static RGB qualityRamp[QUALITY_RAMP_STEPS];
+static char qualityRampHex[QUALITY_RAMP_STEPS][8];
+
+void formatter_init(void) {
+	const bool capLuminanceForLightBackground = !gameContext.options.darkMode;
+
+	for (uint16_t i = 0; i < QUALITY_RAMP_STEPS; ++i) {
+		const RGB hue = hueToRgb((float)i);
+		const RGB rgb = capLuminanceForLightBackground ? capLuminance(hue, QUALITY_RAMP_MAX_LUMINANCE_ON_LIGHT) : hue;
+
+		qualityRamp[i] = rgb;
+		snprintf(
+			qualityRampHex[i],
+			sizeof(qualityRampHex[i]),
+			"#%02x%02x%02x",
+			(uint8_t)roundf(rgb.r * 255.f),
+			(uint8_t)roundf(rgb.g * 255.f),
+			(uint8_t)roundf(rgb.b * 255.f)
+		);
+	}
+}
+
+/**
+ * Returns the ramp colour for a value already quantised to 0-120.
+ */
+RGB formatter_qualityColour(const uint8_t value) {
+	return qualityRamp[value];
+}
+
+/**
  * Returns a string containing your rating, colourised on a scale of 1-120
  * @param rating
  * @param outString - should be at least 44 bytes
  */
 void formatter_formatRating(const float rating, char *outString) {
 	const uint8_t value = (uint8_t)((rating < MAX_RATING_VALUE ? rating / MAX_RATING_VALUE : 1.f) * 120);
-	char colour[9];
-	hueToHex(value, colour);
-	snprintf(outString, 44, "<span foreground=\"%s\">%.2f%%</span>", colour, rating);
+	snprintf(outString, 44, "<span foreground=\"%s\">%.2f%%</span>", qualityRampHex[value], rating);
+}
+
+/**
+ * Same value, no colour. Pango attributes beat CSS, so a coloured rating would ignore the selected
+ * row's foreground and leave dark green sitting on the dark blue selection fill. Callers switch to
+ * this while the row is selected and let the stylesheet pick the colour.
+ * @param rating
+ * @param outString - should be at least 16 bytes
+ */
+void formatter_formatRatingPlain(const float rating, char *outString) {
+	snprintf(outString, 16, "%.2f%%", rating);
 }

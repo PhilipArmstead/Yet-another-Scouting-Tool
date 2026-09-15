@@ -215,6 +215,43 @@ static void setupBox(const GtkSignalListItemFactory *factory, GtkListItem *item,
 	bindClickHandler(box, item);
 }
 
+/**
+ * The colourised rating is Pango markup, and text attributes take precedence over CSS, so a
+ * selected row cannot recolour it. Render it plain whenever the row is selected instead.
+ */
+static void applyRating(GtkLabel *label, const float rating, const bool selected) {
+	char buffer[44];
+
+	if (selected) {
+		formatter_formatRatingPlain(rating, buffer);
+		gtk_label_set_text(label, buffer);
+	} else {
+		formatter_formatRating(rating, buffer);
+		gtk_label_set_markup(label, buffer);
+	}
+}
+
+static void onRatingSelectionChanged(GtkListItem *item, GParamSpec *pspec, gpointer data) {
+	(void)pspec;
+	(void)data;
+
+	GtkWidget *label = gtk_list_item_get_child(item);
+	const SearchPlayerRow *row = gtk_list_item_get_item(item);
+
+	if (label != NULL && row != NULL && row->player != NULL) {
+		applyRating(GTK_LABEL(label), row->player->ratings[0].value, gtk_list_item_get_selected(item));
+	}
+}
+
+/**
+ * Connected at setup rather than bind so the handler lives exactly as long as the recycled list
+ * item, with no per-bind connect/disconnect churn.
+ */
+static void setupRatingLabel(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
+	setupTextLabel(factory, item, data);
+	g_signal_connect(item, "notify::selected", G_CALLBACK(onRatingSelectionChanged), NULL);
+}
+
 static void printNumeric(GtkWidget *label, const int64_t value) {
 	gchar buffer[32];
 	g_snprintf(buffer, sizeof(buffer), "%zu", value);
@@ -423,12 +460,9 @@ static void bindCellValue(const GtkSignalListItemFactory *factory, GtkListItem *
 		case COLUMN_CA_PA_DELTA:
 			printNumeric(label, player->pa - player->ca);
 			break;
-		case COLUMN_RATING: {
-			char buffer[44];
-			formatter_formatRating(player->ratings[0].value, buffer);
-			gtk_label_set_markup(GTK_LABEL(label), buffer);
+		case COLUMN_RATING:
+			applyRating(GTK_LABEL(label), player->ratings[0].value, gtk_list_item_get_selected(item));
 			break;
-		}
 		case COLUMN_VALUE:
 			printCurrency(label, player->guideValue);
 			break;
@@ -583,7 +617,12 @@ static GtkColumnViewColumn *createColumn(const char *title, const uint8_t column
 		g_signal_connect(factory, "setup", G_CALLBACK(setupBox), NULL);
 		g_signal_connect(factory, "bind", G_CALLBACK(bindStatusValue), NULL);
 	} else {
-		g_signal_connect(factory, "setup", G_CALLBACK(setupTextLabel), NULL);
+		g_signal_connect(
+			factory,
+			"setup",
+			G_CALLBACK(columnType == COLUMN_RATING ? setupRatingLabel : setupTextLabel),
+			NULL
+		);
 		g_signal_connect(factory, "bind", G_CALLBACK(bindCellValue), (void *)(uint64_t)columnType);
 	}
 

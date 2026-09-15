@@ -10,6 +10,7 @@
 #include "app/options.h"
 #include "app/player-table.h"
 #include "app/ui.h"
+#include "app/helpers/formatter.h"
 #include "app/helpers/game.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
@@ -49,6 +50,7 @@ static void activate(GtkApplication *app) {
 	vector_reserve(gameContext.windows, 10);
 
 	options_init();
+	formatter_init();
 	ui_init(app);
 	callbacks_init();
 	playerTable_init();

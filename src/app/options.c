@@ -330,7 +330,7 @@ static void applyOption(const char *key, const char *value) {
 static void setDefaults(void) {
 	Options *options = &gameContext.options;
 	memset(options, 0, sizeof(*options));
-	options->darkMode = true;
+	options->darkMode = false;
 
 	vector_push(
 		options->formations,

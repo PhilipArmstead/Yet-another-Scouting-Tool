@@ -7,6 +7,7 @@
 #include "app/config.h"
 #include "app/search-handler.h"
 #include "app/helpers/date.h"
+#include "app/helpers/formatter.h"
 #include "app/helpers/vector.h"
 #include "platform/platform.h"
 
@@ -21,10 +22,22 @@ extern GameContext gameContext;
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
 static void onClubFilterTagClick(GtkWidget *self, GtkEditable *buffer);
-static void loadStylesheet(const char *fileName);
+static void loadStylesheet(const char *fileName, guint priority);
 
 void ui_init(GtkApplication *app) {
-	loadStylesheet("styles.css");
+	loadStylesheet("styles.css", GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	loadStylesheet(
+		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
+	);
+
+	// Keep GTK's own widget internals (scrollbars, text carets, etc.) in step with our palette
+	g_object_set(
+		gtk_settings_get_default(),
+		"gtk-application-prefer-dark-theme",
+		(gboolean)gameContext.options.darkMode,
+		NULL
+	);
 
 	// Show main window
 	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH);
@@ -103,6 +116,8 @@ void ui_init(GtkApplication *app) {
 	check->positionAMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amc"));
 	check->positionAMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amr"));
 	check->positionST = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:st"));
+
+	ui_presentWindow(context);
 }
 
 void ui_update(void) {
@@ -161,11 +176,18 @@ WindowContext openWindow(const char *layoutName, const char *windowName, const W
 	g_signal_connect(closeController, "key-pressed", G_CALLBACK(callbacks_onWindowKeypress), context.window);
 	gtk_widget_add_controller(context.window, GTK_EVENT_CONTROLLER(closeController));
 
-	gtk_window_present(GTK_WINDOW(context.window));
-
 	vector_push(gameContext.windows, context);
 
 	return context;
+}
+
+/**
+ * Presenting sizes the window to the content it has at that moment, and GTK will grow a realised
+ * window but never shrink it. Callers therefore populate first and present last, otherwise widgets
+ * they go on to hide leave the window permanently taller than it needs to be.
+ */
+void ui_presentWindow(const WindowContext context) {
+	gtk_window_present(GTK_WINDOW(context.window));
 }
 
 static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
@@ -270,7 +292,7 @@ static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
 }
 
 
-static void loadStylesheet(const char *fileName) {
+static void loadStylesheet(const char *fileName, const guint priority) {
 	char pathToStylesheet[256] = {0};
 	GtkCssProvider *provider = gtk_css_provider_new();
 
@@ -279,7 +301,7 @@ static void loadStylesheet(const char *fileName) {
 	gtk_style_context_add_provider_for_display(
 		gdk_display_get_default(),
 		GTK_STYLE_PROVIDER(provider),
-		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+		priority
 	);
 	g_object_unref(provider);
 }

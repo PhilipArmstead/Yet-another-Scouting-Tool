@@ -1,0 +1,47 @@
+/** Light mode palette. Loaded on top of styles.css when `dark-mode: false` */
+window {
+	--colour-accent-gold: #b8860b;
+	--colour-accent-gold-soft: alpha(#b8860b, 0.35);
+	--colour-accent-orange: #a85c14;
+	--colour-accent-yellow: #b06f00;
+	--colour-attribute: #24292f;
+	--background-colour-accent: #1a5ad9;
+	--background-colour-accent-hover: #164bb5;
+	--background-colour-attribute-high: rgb(214, 235, 168);
+	--background-colour-attribute-mid: rgb(248, 233, 175);
+	--background-colour-button-secondary: #eef1f5;
+	--background-colour-button-secondary-hover: #e1e6ec;
+	--background-colour-card: #ffffff;
+	--background-colour-chip: #eaeef2;
+	--background-colour-header: #eaeef2;
+	--background-colour-panel: alpha(#000, 0.05);
+	--background-colour-pill-learner: #ddebfb;
+	--border-colour-pill-learner: #3182ce;
+	--background-colour-pill-prospect: #fdeee1;
+	--border-colour-pill-prospect: #dd6b20;
+	--background-colour-popover: #ffffff;
+	--background-colour-primary: #ffffff;
+	--border-colour-primary: #d0d7de;
+	--background-colour-primary-light: #f6f8fa;
+	--background-colour-primary-lighter: #eef1f5;
+	--border-colour-primary-lighter: #c2cbd4;
+	--border-colour-row: #e7ebef;
+	--background-colour-row-alternate: #f6f8fa;
+	--background-colour-row-hover: #dde3ea;
+	--border-colour-subtle: #e4e8ec;
+	--background-colour-topbar: #f6f8fa;
+	--colour-current-ability: #1a6fa8;
+	--colour-emphasis: #000;
+	--colour-heading: #6a737d;
+	--colour-link: #0969da;
+	--colour-muted: #8b949e;
+	--colour-on-accent: #fff;
+	--colour-pill-learner: #1a4971;
+	--colour-pill-prospect: #8a4b16;
+	--colour-potential-ability: #1a7f4b;
+	--colour-primary: #24292f;
+	--colour-primary-dark: #4b535b;
+	--colour-primary-darker: #6a737d;
+	--colour-section-heading: #57606a;
+	--colour-title: #1b1f24;
+}

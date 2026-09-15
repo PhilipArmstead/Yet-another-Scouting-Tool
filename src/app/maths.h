@@ -59,14 +59,32 @@ static inline RGB hueToRgb(float hue) {
 	return rgb;
 }
 
-static inline void hueToHex(const float hue, char hex[8]) {
-	const RGB rgb = hueToRgb(hue);
-	snprintf(
-		hex,
-		8,
-		"#%02x%02x%02x",
-		(uint8_t)roundf(rgb.r * 255.f),
-		(uint8_t)roundf(rgb.g * 255.f),
-		(uint8_t)roundf(rgb.b * 255.f)
-	);
+static inline float srgbToLinear(const float channel) {
+	return channel <= 0.04045f ? channel / 12.92f : powf((channel + 0.055f) / 1.055f, 2.4f);
+}
+
+static inline float linearToSrgb(const float channel) {
+	return channel <= 0.0031308f ? channel * 12.92f : 1.055f * powf(channel, 1.f / 2.4f) - 0.055f;
+}
+
+/**
+ * Darkens `rgb` just enough for its WCAG relative luminance to reach `maxLuminance`, leaving hue
+ * untouched. The scaling is done in linear light, where luminance is linear in each channel, so a
+ * single multiply lands exactly on the target rather than needing to iterate.
+ */
+static inline RGB capLuminance(const RGB rgb, const float maxLuminance) {
+	const float r = srgbToLinear(rgb.r);
+	const float g = srgbToLinear(rgb.g);
+	const float b = srgbToLinear(rgb.b);
+	const float luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+	if (luminance <= maxLuminance) {
+		return rgb;
+	}
+
+	const float scale = maxLuminance / luminance;
+	return (RGB){
+		.r = linearToSrgb(r * scale),
+		.g = linearToSrgb(g * scale),
+		.b = linearToSrgb(b * scale),
+	};
 }

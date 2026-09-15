@@ -2,7 +2,6 @@ TODO
 ===
 
 - Port `platform_openProcess` to Linux
-- Implement light mode
 - To player-info
 	- Add footedness
 	- Add height/weight

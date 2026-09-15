@@ -47,7 +47,6 @@ static GskPath *heartPath;
 
 void ui_createBestElevenWindow(void) {
 	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI);
-	gtk_window_set_default_size(GTK_WINDOW(context.window), 420, 900);
 
 	SharedPointer *snapshot = gameContext.searchResults;
 	sharedPointer_ref(snapshot);
@@ -107,6 +106,7 @@ void ui_createBestElevenWindow(void) {
 	);
 
 	ui_renderBestElevenWindow(context);
+	ui_presentWindow(context);
 }
 
 void ui_renderBestElevenWindow(const WindowContext context) {
@@ -627,10 +627,8 @@ static void drawHeart(GtkDrawingArea *area, cairo_t *cr, const int width, const 
 	cairo_scale(cr, scale, scale);
 	const uint64_t condition = (uint64_t)data;
 	const float fCondition = (float)condition;
-	LOG_INFO("Condition %.2f", fCondition);
 	const uint8_t value = (uint8_t)((fCondition < MAX_CONDITION ? fCondition / MAX_CONDITION : 1.f) * 120);
-	LOG_INFO("Value %d; condition: %.2f", value, fCondition);
-	const RGB rgb = hueToRgb(value);
+	const RGB rgb = formatter_qualityColour(value);
 	const GdkRGBA colour = {
 		.red = rgb.r,
 		.green = rgb.g,

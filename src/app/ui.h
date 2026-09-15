@@ -17,6 +17,7 @@ void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
 void ui_createClubFilterTag(const char *text, GtkEditable *buffer);
 
 WindowContext openWindow(const char *layoutName, const char *windowName, WindowType type);
+void ui_presentWindow(WindowContext context);
 void ui_createPlayerInfoWindow(const Player *player);
 void ui_renderPlayerInfoWindow(WindowContext context);
 void ui_createBestElevenWindow(void);
