@@ -4,6 +4,7 @@
 #include "app/ui.h"
 #include "app/maths.h"
 #include "app/helpers/formatter.h"
+#include "app/helpers/icons.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
@@ -40,10 +41,6 @@ static void onPlayerNameClicked(
 	const Player *player
 );
 static void onFilterChange(GObject *object, gpointer userData);
-static void drawHeart(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer data);
-static GskPath *heartPath;
-
-#define HEART_D "M7 3c-1.535 0-3.078.5-4.25 1.7-2.343 2.4-2.279 6.1 0 8.5L12 23l9.25-9.8c2.279-2.4 2.343-6.1 0-8.5-2.343-2.3-6.157-2.3-8.5 0l-.75.8-.75-.8C10.078 3.5 8.536 3 7 3"
 
 void ui_createBestElevenWindow(void) {
 	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI);
@@ -156,10 +153,6 @@ static void renderBestElevenTable(const WindowContext context) {
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Found best XI for %d players in %zu microseconds", playerCount, timeEnd - timeStart);
 
-	if (!heartPath) {
-		heartPath = gsk_path_parse(HEART_D);
-	}
-
 	uint8_t playerIncludedCount = 0;
 	float ratingTotal = 0;
 	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
@@ -228,14 +221,7 @@ static void renderBestElevenTable(const WindowContext context) {
 				snprintf(buffer, 128, "Injured: %s", player->injury.name);
 				gtk_widget_set_tooltip_text(label, buffer);
 			} else {
-				widgetHeart = gtk_drawing_area_new();
-				gtk_widget_set_size_request(widgetHeart, 16, 16);
-				gtk_drawing_area_set_draw_func(
-					GTK_DRAWING_AREA(widgetHeart),
-					drawHeart,
-					GUINT_TO_POINTER(player->condition),
-					NULL
-				);
+				widgetHeart = icons_heartNew(icons_heartQuantise(player->condition, HEART_MAX_VALUE));
 			}
 
 
@@ -616,26 +602,4 @@ static void onPlayerNameClicked(
 	(void)clickCount;
 	(void)x;
 	(void)y;
-}
-
-#define MAX_CONDITION 10000.f
-
-static void drawHeart(GtkDrawingArea *area, cairo_t *cr, const int width, const int height, gpointer data) {
-	(void)area;
-
-	const double scale = (width < height ? width : height) / 24.0;
-	cairo_scale(cr, scale, scale);
-	const uint64_t condition = (uint64_t)data;
-	const float fCondition = (float)condition;
-	const uint8_t value = (uint8_t)((fCondition < MAX_CONDITION ? fCondition / MAX_CONDITION : 1.f) * 120);
-	const RGB rgb = formatter_qualityColour(value);
-	const GdkRGBA colour = {
-		.red = rgb.r,
-		.green = rgb.g,
-		.blue = rgb.b,
-		.alpha = 1.f,
-	};
-	gdk_cairo_set_source_rgba(cr, &colour);
-	gsk_path_to_cairo(heartPath, cr);
-	cairo_fill(cr);
 }

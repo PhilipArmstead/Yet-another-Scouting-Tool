@@ -12,6 +12,7 @@
 #include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/game.h"
+#include "app/helpers/icons.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
@@ -51,6 +52,7 @@ static void activate(GtkApplication *app) {
 
 	options_init();
 	formatter_init();
+	icons_init();
 	ui_init(app);
 	callbacks_init();
 	playerTable_init();
