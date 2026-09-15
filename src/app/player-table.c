@@ -468,7 +468,7 @@ static void bindStatusValue(const GtkSignalListItemFactory *factory, GtkListItem
 		return;
 	}
 
-	if (row->player->injury.name != NULL) {
+	if (row->player->injury.duration > 0) {
 		GtkWidget *label = gtk_label_new("🚑");
 		gtk_box_append(GTK_BOX(box), label);
 		char buffer[128] = {0};

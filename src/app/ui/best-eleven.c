@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "app/ui.h"
+#include "app/maths.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
@@ -31,8 +32,18 @@ static void assignFormation(
 );
 static void renderBestElevenTable(WindowContext context);
 static void onFormationSelected(GObject *object, GParamSpec *pspec, gpointer userData);
-static void onPlayerNameClicked(GtkGestureClick *gesture, int clickCount, double x, double y, Player *player);
+static void onPlayerNameClicked(
+	const GtkGestureClick *gesture,
+	int clickCount,
+	double x,
+	double y,
+	const Player *player
+);
 static void onFilterChange(GObject *object, gpointer userData);
+static void drawHeart(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer data);
+static GskPath *heartPath;
+
+#define HEART_D "M7 3c-1.535 0-3.078.5-4.25 1.7-2.343 2.4-2.279 6.1 0 8.5L12 23l9.25-9.8c2.279-2.4 2.343-6.1 0-8.5-2.343-2.3-6.157-2.3-8.5 0l-.75.8-.75-.8C10.078 3.5 8.536 3 7 3"
 
 void ui_createBestElevenWindow(void) {
 	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI);
@@ -145,6 +156,10 @@ static void renderBestElevenTable(const WindowContext context) {
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Found best XI for %d players in %zu microseconds", playerCount, timeEnd - timeStart);
 
+	if (!heartPath) {
+		heartPath = gsk_path_parse(HEART_D);
+	}
+
 	uint8_t playerIncludedCount = 0;
 	float ratingTotal = 0;
 	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
@@ -165,6 +180,7 @@ static void renderBestElevenTable(const WindowContext context) {
 		GtkWidget *widgetNationalityBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 		GtkWidget *widgetLabelPlayer = gtk_label_new("");
 		GtkWidget *widgetLabelAge = gtk_label_new("");
+		GtkWidget *widgetHeart;
 		GtkWidget *widgetLabelRating = gtk_label_new("");
 
 		const Player *player = rows[i].player;
@@ -204,12 +220,33 @@ static void renderBestElevenTable(const WindowContext context) {
 			gtk_box_append(GTK_BOX(widgetNationalityBox), flagImage);
 			gtk_widget_set_tooltip_text(flagImage, nation.name);
 
+			if (player->injury.duration > 0) {
+				widgetHeart = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+				GtkWidget *label = gtk_label_new("🚑");
+				gtk_box_append(GTK_BOX(widgetHeart), label);
+				char buffer[128] = {0};
+				snprintf(buffer, 128, "Injured: %s", player->injury.name);
+				gtk_widget_set_tooltip_text(label, buffer);
+			} else {
+				widgetHeart = gtk_drawing_area_new();
+				gtk_widget_set_size_request(widgetHeart, 16, 16);
+				gtk_drawing_area_set_draw_func(
+					GTK_DRAWING_AREA(widgetHeart),
+					drawHeart,
+					GUINT_TO_POINTER(player->condition),
+					NULL
+				);
+			}
+
+
 			++playerIncludedCount;
 			ratingTotal += player->ratings[0].value;
 
 			GtkGesture *gesture = gtk_gesture_click_new();
 			gtk_widget_add_controller(widgetLabelPlayer, GTK_EVENT_CONTROLLER(gesture));
 			g_signal_connect(gesture, "pressed", G_CALLBACK(onPlayerNameClicked), (gpointer)player);
+		} else {
+			widgetHeart = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 		}
 
 		uint8_t c = 1;
@@ -217,6 +254,7 @@ static void renderBestElevenTable(const WindowContext context) {
 		gtk_grid_attach(grid, widgetNationalityBox, c++, i, 1, 1);
 		gtk_grid_attach(grid, widgetLabelPlayer, c++, i, 1, 1);
 		gtk_grid_attach(grid, widgetLabelAge, c++, i, 1, 1);
+		gtk_grid_attach(grid, widgetHeart, c++, i, 1, 1);
 		gtk_grid_attach(grid, widgetLabelRating, c++, i, 1, 1);
 		gtk_list_box_row_set_child(row, widgetGrid);
 
@@ -563,7 +601,13 @@ static void assignFormation(
 	free(chosen);
 }
 
-static void onPlayerNameClicked(GtkGestureClick *gesture, int clickCount, double x, double y, Player *player) {
+static void onPlayerNameClicked(
+	const GtkGestureClick *gesture,
+	const int clickCount,
+	const double x,
+	const double y,
+	const Player *player
+) {
 	if (player != NULL && clickCount == 2) {
 		ui_createPlayerInfoWindow(player);
 	}
@@ -572,4 +616,28 @@ static void onPlayerNameClicked(GtkGestureClick *gesture, int clickCount, double
 	(void)clickCount;
 	(void)x;
 	(void)y;
+}
+
+#define MAX_CONDITION 10000.f
+
+static void drawHeart(GtkDrawingArea *area, cairo_t *cr, const int width, const int height, gpointer data) {
+	(void)area;
+
+	const double scale = (width < height ? width : height) / 24.0;
+	cairo_scale(cr, scale, scale);
+	const uint64_t condition = (uint64_t)data;
+	const float fCondition = (float)condition;
+	LOG_INFO("Condition %.2f", fCondition);
+	const uint8_t value = (uint8_t)((fCondition < MAX_CONDITION ? fCondition / MAX_CONDITION : 1.f) * 120);
+	LOG_INFO("Value %d; condition: %.2f", value, fCondition);
+	const RGB rgb = hueToRgb(value);
+	const GdkRGBA colour = {
+		.red = rgb.r,
+		.green = rgb.g,
+		.blue = rgb.b,
+		.alpha = 1.f,
+	};
+	gdk_cairo_set_source_rgba(cr, &colour);
+	gsk_path_to_cairo(heartPath, cr);
+	cairo_fill(cr);
 }

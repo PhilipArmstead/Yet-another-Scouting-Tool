@@ -220,11 +220,16 @@ static void cachePlayers(const uint8_t workerIndex) {
 #else
 	const Player playerVini = PLAYER_VINI;
 	const Player playerJeff = PLAYER_JEFF;
+	const Player playerGk = PLAYER_GK;
 	const uint64_t start = gameContext.playerCount * workerIndex / PLAYERS_THREAD_COUNT;
 	const uint64_t end = gameContext.playerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 	for (uint64_t i = start; i < end; i++) {
 		++cached;
-		memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
+		if (i % 3 == 0) {
+			memcpy(&gameContext.players[i], &playerGk, sizeof(Player));
+		} else {
+			memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
+		}
 	}
 #endif
 

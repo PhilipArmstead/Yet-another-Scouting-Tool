@@ -15,8 +15,6 @@ TODO
 	- ⭐ Fix "Show current player"
 	- Search for asking/guide price/wage
 	- ⭐ Pull players from in-game shortlist
-- Best Eleven
-	- ⭐ Show condition
 - Club search
 	- ⭐ Show club data when searching by division / reputation / overall average rating
 
