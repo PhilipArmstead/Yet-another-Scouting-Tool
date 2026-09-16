@@ -42,6 +42,7 @@ int main(const int argc, char **argv) {
 	const int status = g_application_run(G_APPLICATION(app), argc, argv);
 	g_object_unref(app);
 
+	options_shutdown();
 	logger_shutdown();
 
 	return status;

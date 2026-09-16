@@ -3,6 +3,8 @@
 
 #include "options.h"
 #include "app/types.h"
+#include "app/ui.h"
+#include "app/helpers/file-watcher.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -16,6 +18,13 @@
 #define OPTIONS_LINE_BUFFER_SIZE 512
 
 extern GameContext gameContext;
+
+// Resolved once at startup and reused by the watcher; empty if it could not be resolved.
+static char optionsPath[OPTIONS_PATH_BUFFER_SIZE];
+static FileWatcher *optionsWatcher;
+
+static void parseOptionsFile(FILE *file);
+static void watchOptionsFile(void);
 
 typedef struct {
 	Formation current;
@@ -327,8 +336,18 @@ static void applyOption(const char *key, const char *value) {
 	LOG_WARN("Unrecognised option key '%s'", key);
 }
 
+static void freeWeights(void) {
+	Options *options = &gameContext.options;
+	for (uint64_t i = 0; i < vector_length(options->weights); ++i) {
+		vector_free(options->weights[i].weights);
+	}
+	vector_free(options->weights);
+}
+
 static void setDefaults(void) {
 	Options *options = &gameContext.options;
+	freeWeights();
+	vector_free(options->formations);
 	memset(options, 0, sizeof(*options));
 	options->darkMode = false;
 
@@ -512,16 +531,58 @@ void options_init(void) {
 		return;
 	}
 
-	char path[OPTIONS_PATH_BUFFER_SIZE];
-	snprintf(path, sizeof(path), "%s%s", directory, OPTIONS_FILE_NAME);
+	snprintf(optionsPath, sizeof(optionsPath), "%s%s", directory, OPTIONS_FILE_NAME);
 
-	FILE *file = fopen(path, "r");
+	FILE *file = fopen(optionsPath, "r");
 	if (!file) {
-		LOG_INFO("Options file '%s' not found; writing defaults", path);
-		writeDefaultOptions(path);
+		LOG_INFO("Options file '%s' not found; writing defaults", optionsPath);
+		writeDefaultOptions(optionsPath);
+		watchOptionsFile();
 		return;
 	}
 
+	parseOptionsFile(file);
+	fclose(file);
+
+	LOG_DEBUG("Loaded options from '%s'", optionsPath);
+
+	watchOptionsFile();
+}
+
+// Re-reads the options file from scratch, falling back to defaults for anything it no longer
+// defines, then repaints every open window so new formations and weights take effect immediately.
+static void reloadOptions(void *userData) {
+	(void)userData;
+
+	FILE *file = fopen(optionsPath, "r");
+	if (!file) {
+		LOG_WARN("Options file '%s' disappeared; keeping current options", optionsPath);
+		return;
+	}
+
+	setDefaults();
+	parseOptionsFile(file);
+	fclose(file);
+
+	LOG_INFO("Reloaded options from '%s'", optionsPath);
+
+	ui_refreshAllWindows();
+}
+
+static void watchOptionsFile(void) {
+	if (optionsWatcher) {
+		return;
+	}
+	optionsWatcher = fileWatcher_create(optionsPath, reloadOptions, NULL);
+}
+
+void options_shutdown(void) {
+	fileWatcher_destroy(optionsWatcher);
+	optionsWatcher = NULL;
+}
+
+// Parses an already-opened options file into `gameContext.options`, overriding the defaults.
+static void parseOptionsFile(FILE *file) {
 	FormationParser formationParser = {0};
 	RatingsParser ratingsParser = {0};
 	bool inFormations = false;
@@ -592,7 +653,7 @@ void options_init(void) {
 		}
 
 		if (!strcmp(key, "ratings")) {
-			vector_free(gameContext.options.weights);
+			freeWeights();
 			inRatings = true;
 			if (*value != '\0') {
 				LOG_WARN("Ignoring inline value for 'ratings'");
@@ -605,8 +666,4 @@ void options_init(void) {
 
 	formationParser_finalise(&formationParser);
 	ratingsParser_finalise(&ratingsParser);
-
-	fclose(file);
-
-	LOG_DEBUG("Loaded options from '%s'", path);
 }

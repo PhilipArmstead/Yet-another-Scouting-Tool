@@ -4,3 +4,4 @@
 #pragma once
 
 void options_init(void);
+void options_shutdown(void);
