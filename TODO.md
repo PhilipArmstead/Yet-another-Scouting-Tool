@@ -2,7 +2,6 @@ TODO
 ===
 
 - To player-info
-	- 🚩 Add height/weight
 	- 🚩 Add contract details
 	- Add happiness
 - To player search

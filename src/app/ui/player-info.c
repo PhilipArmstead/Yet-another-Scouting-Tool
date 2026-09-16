@@ -74,12 +74,19 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		gtk_label_set_text(commonNameLabel, player->commonName);
 	}
 
-	// Player age
+	// Player vitals
 	{
 		char buffer[8];
 		snprintf(buffer, 8, "%d yrs", player->age);
 		GtkLabel *ageLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:age")));
 		gtk_label_set_text(ageLabel, buffer);
+
+		snprintf(buffer, 8, "%d kg", player->weight);
+		GtkLabel *weightLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:weight")));
+		gtk_label_set_text(weightLabel, buffer);
+		snprintf(buffer, 8, "%d cm", player->height);
+		GtkLabel *heightLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:height")));
+		gtk_label_set_text(heightLabel, buffer);
 	}
 
 	// Player status

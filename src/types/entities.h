@@ -131,6 +131,8 @@ typedef struct {
 	uint8_t age;
 	uint8_t ca;
 	uint8_t pa;
+	uint8_t height;
+	uint8_t weight;
 	bool canDevelopQuickly;
 	bool isHotProspect;
 } Player;

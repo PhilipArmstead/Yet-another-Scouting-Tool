@@ -64,16 +64,16 @@ Player getPlayerById(const ProcessContext *processContext, const uint32_t unique
 
 static uint64_t getPlayerAddressFromPersonAddress(void *handle, const uint64_t personAddress) {
 	const int64_t offset = isPersonAlsoStaff(handle, personAddress)
-													? STAFF_OFFSET_FROM_PERSON
-													: PLAYER_OFFSET_FROM_PERSON;
+		? STAFF_OFFSET_FROM_PERSON
+		: PLAYER_OFFSET_FROM_PERSON;
 
 	return personAddress + (uint64_t)offset;
 }
 
 uint64_t getPersonAddressFromPlayerAddress(void *handle, const uint64_t playerAddress) {
 	const int64_t offset = isPlayerAlsoStaff(handle, playerAddress)
-													? STAFF_OFFSET_FROM_PERSON
-													: PLAYER_OFFSET_FROM_PERSON;
+		? STAFF_OFFSET_FROM_PERSON
+		: PLAYER_OFFSET_FROM_PERSON;
 
 	return playerAddress - (uint64_t)offset;
 }
@@ -122,6 +122,11 @@ Player getPlayer(
 	getPersonForename(handle, personAddress, player.forename);
 	getPersonSurname(handle, personAddress, player.surname);
 	getPersonCommonName(handle, personAddress, player.commonName);
+
+	readFromMemory(handle, playerAddress + PLAYER_OFFSET_WEIGHT, 2, bytes);
+	player.weight = (uint8_t)hexBytesToInt(bytes, 2);
+	readFromMemory(handle, playerAddress + PLAYER_OFFSET_HEIGHT, 2, bytes);
+	player.height = (uint8_t)hexBytesToInt(bytes, 2);
 
 	readFromMemory(handle, playerAddress + PLAYER_OFFSET_INJURY_POINTER, 8, bytes);
 	const uint64_t injuryAddress = hexBytesToInt(bytes, 8);

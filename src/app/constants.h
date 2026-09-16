@@ -142,6 +142,8 @@
 /** Player definition */
 // (0x00 from here is start, 0x08 from here is end)
 #define PLAYER_OFFSET_INJURY_POINTER 0xF8
+#define PLAYER_OFFSET_WEIGHT 0x14C
+#define PLAYER_OFFSET_HEIGHT 0x14E
 #define PLAYER_OFFSET_GUIDE_VALUE 0x1D0
 #define PLAYER_OFFSET_TRANSFER_VALUE 0x1D4
 #define PLAYER_OFFSET_SHARPNESS 0x1F4

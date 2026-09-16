@@ -55,7 +55,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 								<child>
 									<object class="GtkBox">
 										<property name="halign">1</property>
-										<property name="spacing">8</property>
+										<property name="spacing">6</property>
 										<child>
 											<object class="GtkLabel" id="label:club-name">
 												<property name="label"/>
@@ -78,7 +78,43 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 											<object class="GtkLabel" id="label:age">
 												<property name="label"/>
 												<style>
-													<class name="player-age"/>
+													<class name="player-vital"/>
+												</style>
+												<property name="halign">1</property>
+												<property name="xalign">0</property>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel">
+												<property name="label">•</property>
+												<style>
+													<class name="meta-separator"/>
+												</style>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel" id="label:height">
+												<property name="label"/>
+												<style>
+													<class name="player-vital"/>
+												</style>
+												<property name="halign">1</property>
+												<property name="xalign">0</property>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel">
+												<property name="label">•</property>
+												<style>
+													<class name="meta-separator"/>
+												</style>
+											</object>
+										</child>
+										<child>
+											<object class="GtkLabel" id="label:weight">
+												<property name="label"/>
+												<style>
+													<class name="player-vital"/>
 												</style>
 												<property name="halign">1</property>
 												<property name="xalign">0</property>
