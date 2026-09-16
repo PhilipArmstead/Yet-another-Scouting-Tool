@@ -93,10 +93,14 @@ typedef struct {
 	uint8_t time;
 } DayMonthYearTime;
 
+/**
+ * Injury names are read straight out of the game and repeat across thousands of players, so they
+ * are interned once and referenced by index. Index 0 is the empty string, i.e. "no name".
+ */
 typedef struct {
-	char *name;
 	DateTime date;
 	uint16_t duration;
+	uint16_t nameIndex;
 	uint8_t treatmentMask;
 } Injury;
 

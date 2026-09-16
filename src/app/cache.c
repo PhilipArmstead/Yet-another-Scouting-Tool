@@ -4,6 +4,7 @@
 #include "cache.h"
 #include "app/callbacks.h"
 #include "app/config.h"
+#include "app/injury-names.h"
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/player.h"
@@ -379,7 +380,8 @@ static void cachePlayers(const uint8_t workerIndex) {
 		++cached;
 	}
 #else
-	const Player playerVini = PLAYER_VINI;
+	Player playerVini = PLAYER_VINI;
+	playerVini.injury.nameIndex = injuryNames_intern(MOCK_INJURY_NAME, sizeof(MOCK_INJURY_NAME) - 1);
 	const Player playerJeff = PLAYER_JEFF;
 	const Player playerGk = PLAYER_GK;
 	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;

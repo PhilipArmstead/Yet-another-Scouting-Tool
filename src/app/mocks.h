@@ -88,9 +88,10 @@
 	.pa = 184, \
 	.canDevelopQuickly = false, \
 	.isHotProspect = true, \
-	.injury = {.name="broken hand", .duration = 5, .treatmentMask = 1, .date = (DateTime){.days=34, .year=2024, .time=15}}, \
+	.injury = {.duration = 5, .treatmentMask = 1, .date = (DateTime){.days=34, .year=2024, .time=15}}, \
 	})
 #define PLAYER_BY_ID PLAYER_VINI
+#define MOCK_INJURY_NAME "broken hand"
 
 #define PLAYER_BY_ID_CLUB (Club){.name = "Real Madrid Club de Fútbol", .shortName = "Real Madrid", .address = 1, .teamType = 19}
 #define PLAYER_BY_ID_NATION_1 (Nation){.code = "BRA", .name = "Brazil"}

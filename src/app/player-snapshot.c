@@ -10,19 +10,6 @@
 
 extern GameContext gameContext;
 
-// injury.name is the only field a Player owns, so it is the only one needing more than a memcpy.
-static void copyPlayer(Player *destination, const Player *source) {
-	char *name = source->injury.name != NULL ? strdup(source->injury.name) : NULL;
-	*destination = *source;
-	destination->injury.name = name;
-}
-
-static void overwritePlayer(Player *destination, const Player *source) {
-	char *previousName = destination->injury.name;
-	copyPlayer(destination, source);
-	free(previousName);
-}
-
 static PlayerSnapshot *allocateSnapshot(const uint32_t count) {
 	PlayerSnapshot *snapshot = malloc(sizeof(PlayerSnapshot));
 	if (snapshot == NULL) {
@@ -54,7 +41,7 @@ PlayerSnapshot *playerSnapshot_create(const uint32_t *playerIds, const uint64_t 
 			continue;
 		}
 
-		copyPlayer(&snapshot->players[snapshot->count++], &gameContext.players[playerIds[i]]);
+		snapshot->players[snapshot->count++] = gameContext.players[playerIds[i]];
 	}
 
 	return snapshot;
@@ -66,7 +53,7 @@ PlayerSnapshot *playerSnapshot_createOne(const Player *player) {
 		return NULL;
 	}
 
-	copyPlayer(&snapshot->players[0], player);
+	snapshot->players[0] = *player;
 	snapshot->count = 1;
 
 	return snapshot;
@@ -77,10 +64,6 @@ void playerSnapshot_free(void *snapshot) {
 	PlayerSnapshot *self = snapshot;
 	if (self == NULL) {
 		return;
-	}
-
-	for (uint32_t i = 0; i < self->count; ++i) {
-		free(self->players[i].injury.name);
 	}
 
 	free(self->players);
@@ -163,7 +146,7 @@ void playerSnapshot_refresh(PlayerSnapshot *snapshot, const PlayerLookup *lookup
 	for (uint32_t i = 0; i < snapshot->count; ++i) {
 		const Player *current = findPlayer(lookup, snapshot->players[i].uid);
 		if (current != NULL) {
-			overwritePlayer(&snapshot->players[i], current);
+			snapshot->players[i] = *current;
 		}
 	}
 }

@@ -3,6 +3,7 @@
 
 #include "player.h"
 #include "app/constants.h"
+#include "app/injury-names.h"
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/helpers/game.h"
@@ -141,9 +142,9 @@ Player getPlayer(
 			const uint64_t injuryNameAddress = hexBytesToInt(bytes, 8);
 			readFromMemory(handle, injuryNameAddress, 4, bytes);
 			const uint8_t length = (uint8_t)hexBytesToInt(bytes, 4);
-			player.injury.name = malloc(length + 1);
-			readFromMemory(handle, injuryNameAddress + 0x04, length, (uint8_t*)player.injury.name);
-			player.injury.name[length] = '\0';
+			char name[256];
+			readFromMemory(handle, injuryNameAddress + 0x04, length, (uint8_t*)name);
+			player.injury.nameIndex = injuryNames_intern(name, length);
 		}
 	}
 
@@ -220,6 +221,10 @@ Player getPlayer(
 		player.isHotProspect = false;
 	}
 #else
+	(void)handle;
+	(void)skipIsValidCheck;
+	(void)personAddress;
+	(void)playerAddress;
 	const Player player = PLAYER_BY_ID;
 #endif
 
@@ -251,6 +256,8 @@ static bool isPlayerValid(void *handle, const uint64_t personAddress) {
 
 	return isPersonValid(handle, personAddress);
 #else
+	(void)handle;
+	(void)personAddress;
 	return true;
 #endif
 }
@@ -263,6 +270,9 @@ static bool isPersonValid(void *handle, const uint64_t personAddress) {
 			return false;
 		}
 	}
+#else
+	(void)handle;
+	(void)personAddress;
 #endif
 
 	return true;

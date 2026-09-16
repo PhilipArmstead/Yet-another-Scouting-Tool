@@ -6,6 +6,7 @@
 #include "app/cache.h"
 #include "app/callbacks.h"
 #include "app/config.h"
+#include "app/injury-names.h"
 #include "app/maths.h"
 #include "app/options.h"
 #include "app/player-table.h"
@@ -43,6 +44,7 @@ int main(const int argc, char **argv) {
 	g_object_unref(app);
 
 	options_shutdown();
+	injuryNames_destroy();
 	logger_shutdown();
 
 	return status;

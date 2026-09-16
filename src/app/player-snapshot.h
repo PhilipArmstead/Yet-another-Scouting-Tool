@@ -12,6 +12,9 @@
  * dangle; instead it holds this, and the copies are re-matched to the new buffer by uid after every
  * publish. A player who is no longer in the cache keeps the last data we saw for them.
  *
+ * Player is a plain value — its injury name is an index into the interned table, which outlives
+ * every cache — so copying one is a straight assignment.
+ *
  * The array is allocated once and refreshed in place, so pointers into it stay valid for the life
  * of the window.
  */

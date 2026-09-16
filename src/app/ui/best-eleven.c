@@ -3,6 +3,7 @@
 
 #include "app/ui.h"
 #include "app/entities.h"
+#include "app/injury-names.h"
 #include "app/maths.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
@@ -19,8 +20,6 @@ typedef struct {
 	uint8_t maxAge;
 	bool excludeInjured;
 } BestElevenFilters;
-
-extern GameContext gameContext;
 
 #define INFEASIBLE_COST 1e9f
 
@@ -237,7 +236,7 @@ static void renderBestElevenTable(const WindowContext context) {
 				GtkWidget *label = gtk_label_new("🚑");
 				gtk_box_append(GTK_BOX(widgetHeart), label);
 				char buffer[128] = {0};
-				snprintf(buffer, 128, "Injured: %s", player->injury.name);
+				snprintf(buffer, 128, "Injured: %s", injuryNames_get(player->injury.nameIndex));
 				gtk_widget_set_tooltip_text(label, buffer);
 			} else {
 				widgetHeart = icons_heartNew(icons_heartQuantise(player->condition, HEART_MAX_VALUE));

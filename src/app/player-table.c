@@ -3,6 +3,7 @@
 
 #include "player-table.h"
 #include "app/entities.h"
+#include "app/injury-names.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
@@ -507,7 +508,7 @@ static void bindStatusValue(const GtkSignalListItemFactory *factory, GtkListItem
 		GtkWidget *label = gtk_label_new("🚑");
 		gtk_box_append(GTK_BOX(box), label);
 		char buffer[128] = {0};
-		snprintf(buffer, 128, "Injured: %s", row->player->injury.name);
+		snprintf(buffer, 128, "Injured: %s", injuryNames_get(row->player->injury.nameIndex));
 		gtk_widget_set_tooltip_text(label, buffer);
 	}
 
