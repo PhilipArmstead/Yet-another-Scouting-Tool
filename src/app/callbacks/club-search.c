@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "club-search.h"
+#include "app/cache.h"
+#include "app/entities.h"
 #include "app/search-handler.h"
 #include "app/ui.h"
 #include "app/callbacks/filters.h"
@@ -103,7 +105,13 @@ static gboolean updateUIWithResults(gpointer userData) {
 	// Add matching options using results from worker thread
 	for (uint64_t i = 0; i < context->count; i++) {
 		const uint64_t clubIndex = context->clubIndices[i];
-		GtkWidget *label = gtk_label_new(gameContext.clubs[clubIndex].shortName);
+		// The clubs may have been republished since the scan, so the indices are re-validated here.
+		const Club *club = entities_getClub((int64_t)clubIndex);
+		if (club == NULL) {
+			continue;
+		}
+
+		GtkWidget *label = gtk_label_new(club->shortName);
 		g_object_set_data(G_OBJECT(label), "index", GINT_TO_POINTER(clubIndex));
 		gtk_widget_set_halign(label, GTK_ALIGN_START);
 		gtk_list_box_append(dataList->listBox, label);
@@ -124,6 +132,10 @@ static gboolean updateUIWithResults(gpointer userData) {
 static void runSearch(SearchContext *context) {
 	const int64_t timeStart = platform_getMicroseconds();
 	const char *searchValue = context->searchValue;
+
+	// The main thread frees and republishes the clubs, and this thread is detached, so the whole
+	// scan is taken under the cache's lock rather than racing the swap.
+	cache_lockClubs();
 
 	// Add matching options
 	context->count = 0;
@@ -148,6 +160,8 @@ static void runSearch(SearchContext *context) {
 		}
 		context->clubIndices[j + 1] = clubIndex;
 	}
+
+	cache_unlockClubs();
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Searched %zu clubs in %zu microseconds", context->count, timeEnd - timeStart);

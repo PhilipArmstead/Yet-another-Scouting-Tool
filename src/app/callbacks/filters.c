@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "filters.h"
+#include "app/entities.h"
 #include "app/player-table.h"
 #include "app/search-handler.h"
 #include "app/ui.h"
@@ -124,16 +125,16 @@ void callbacks_updateFilterTags(void) {
 		gtk_entry_buffer_set_text(fb.maxRating, "", 1);
 	}
 	if (options.filterMask & FILTER_HAS_CLUB) {
-		ui_createClubFilterTag(
-			gameContext.clubs[options.clubIndex].shortName,
-			GTK_EDITABLE(gameContext.clubDatalist->entry)
-		);
+		const Club *club = entities_getClub(options.clubIndex);
+		if (club != NULL) {
+			ui_createClubFilterTag(club->shortName, GTK_EDITABLE(gameContext.clubDatalist->entry));
+		}
 	}
 	if (options.filterMask & FILTER_HAS_NATIONALITY) {
-		ui_createNationalityFilterTag(
-			gameContext.nations[options.nationalityIndex].name,
-			GTK_EDITABLE(gameContext.nationalityDatalist->entry)
-		);
+		const Nation *nation = entities_getNation(options.nationalityIndex);
+		if (nation != NULL) {
+			ui_createNationalityFilterTag(nation->name, GTK_EDITABLE(gameContext.nationalityDatalist->entry));
+		}
 	}
 
 	if (options.filterMask & FILTER_HAS_POSITION) {

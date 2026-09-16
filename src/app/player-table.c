@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "player-table.h"
+#include "app/entities.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
@@ -466,12 +467,12 @@ static void bindCellValue(const GtkSignalListItemFactory *factory, GtkListItem *
 		case COLUMN_VALUE:
 			printCurrency(label, player->guideValue);
 			break;
-		case COLUMN_CLUB:
-			if (row->player->clubIndex >= 0) {
-				gtk_label_set_text(GTK_LABEL(label), gameContext.clubs[row->player->clubIndex].shortName);
-				gtk_label_set_xalign(GTK_LABEL(label), 0);
-			}
+		case COLUMN_CLUB: {
+			const Club *club = entities_getClub(player->clubIndex);
+			gtk_label_set_text(GTK_LABEL(label), club != NULL ? club->shortName : "");
+			gtk_label_set_xalign(GTK_LABEL(label), 0);
 			break;
+		}
 		case COLUMN_REPUTATION_HOME:
 			printNumeric(label, player->homeReputation);
 			break;
@@ -540,17 +541,22 @@ static void bindNationalitiesValue(const GtkSignalListItemFactory *factory, GtkL
 
 	uint8_t nationalityIndex = 0;
 	while (nationalityIndex < 4 && row->player->nationality[nationalityIndex] != 0xFF) {
+		const Nation *nation = entities_getNation(row->player->nationality[nationalityIndex]);
+		if (nation == NULL) {
+			nationalityIndex++;
+			continue;
+		}
+
 		char pathToFlag[256] = {0};
-		const Nation nation = gameContext.nations[row->player->nationality[nationalityIndex]];
 		snprintf(
 			pathToFlag,
 			sizeof(pathToFlag),
 			RESOURCE_BASE "/assets/flags/%s.png",
-			nation.code
+			nation->code
 		);
 		GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
 		gtk_box_append(GTK_BOX(box), flagImage);
-		gtk_widget_set_tooltip_text(flagImage, nation.name);
+		gtk_widget_set_tooltip_text(flagImage, nation->name);
 		nationalityIndex++;
 	}
 }
@@ -727,6 +733,11 @@ void playerTable_populate(void) {
 
 	GListStore *store = g_list_store_new(SEARCH_TYPE_PLAYER_ROW);
 	for (size_t i = 0; i < playerCount; ++i) {
+		// Defensive: results taken before a cache swap can outrun the current buffer.
+		if (playerIds[i] >= gameContext.playerCount) {
+			continue;
+		}
+
 		const Player *player = &gameContext.players[playerIds[i]];
 		SearchPlayerRow *row = search_player_row_new((Player*)player);
 		g_list_store_append(store, row);

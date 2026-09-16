@@ -6,4 +6,4 @@
 #include "app/types.h"
 
 
-uint32_t *search_findPlayers(void);
+void search_findPlayers(void);

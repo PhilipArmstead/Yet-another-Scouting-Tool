@@ -7,6 +7,8 @@
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/player.h"
+#include "app/player-table.h"
+#include "app/search-handler.h"
 #include "app/helpers/formatter.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -32,6 +34,13 @@ static uint8_t completedPlayerThreads = 0;
  * Only ever touched on the main thread, and only while no workers are running.
  */
 static uint32_t cacheGeneration = 0;
+
+/**
+ * The club search runs on a detached thread that cannot be joined, so it can be halfway through
+ * gameContext.clubs when the main thread decides to free it. Every swap and free of that buffer is
+ * taken under this lock, and the search holds it for the length of its scan.
+ */
+static GMutex clubsLock;
 
 // Filled by the player workers and swapped into gameContext once the last of them finishes.
 static Player *stagingPlayers = NULL;
@@ -59,6 +68,32 @@ static void cachePlayers(uint8_t workerIndex);
 static void cacheClubs(uint32_t generation);
 static void cacheNations(uint32_t generation);
 
+void cache_lockClubs(void) {
+	g_mutex_lock(&clubsLock);
+}
+
+void cache_unlockClubs(void) {
+	g_mutex_unlock(&clubsLock);
+}
+
+/**
+ * The result table's rows point into the buffer we just replaced, so they are rebuilt here rather
+ * than left to dereference freed memory on the next redraw. Open windows own copies of their
+ * players and are refreshed separately, once the replacement buffer exists.
+ */
+static void invalidatePlayerTable(void) {
+	// The table is built after the first cache_clear(), so there may be nothing to invalidate yet.
+	if (gameContext.searchResults == NULL) {
+		return;
+	}
+
+	if (gameContext.playerCount > 0 && gameContext.filterOptions.filterMask != 0) {
+		searchHandler_doSearch(false);
+	} else {
+		playerTable_clear();
+	}
+}
+
 static gpointer threadFunction(gpointer arg) {
 	Worker *worker = arg;
 
@@ -84,6 +119,7 @@ static gboolean publishNations(gpointer userData) {
 		free(gameContext.nations);
 		gameContext.nations = publish->nations;
 		gameContext.nationCount = publish->count;
+		ui_rerenderPlayerWindows();
 	} else {
 		LOG_DEBUG("Discarding nations from an abandoned cache run");
 		free(publish->nations);
@@ -98,9 +134,12 @@ static gboolean publishClubs(gpointer userData) {
 	ClubsPublish *publish = userData;
 
 	if (publish->generation == cacheGeneration) {
+		cache_lockClubs();
 		free(gameContext.clubs);
 		gameContext.clubs = publish->clubs;
 		gameContext.clubCount = publish->count;
+		cache_unlockClubs();
+		ui_rerenderPlayerWindows();
 	} else {
 		LOG_DEBUG("Discarding clubs from an abandoned cache run");
 		free(publish->clubs);
@@ -129,10 +168,14 @@ void cache_clear(void) {
 	stagingPlayers = NULL;
 	stagingPlayerCount = 0;
 
+	const bool hadPlayers = gameContext.players != NULL;
+
 	if (gameContext.clubs != NULL) {
+		cache_lockClubs();
 		free(gameContext.clubs);
 		gameContext.clubs = NULL;
 		gameContext.clubCount = 0;
+		cache_unlockClubs();
 	}
 	if (gameContext.nations != NULL) {
 		free(gameContext.nations);
@@ -143,6 +186,12 @@ void cache_clear(void) {
 		free(gameContext.players);
 		gameContext.players = NULL;
 		gameContext.playerCount = 0;
+	}
+
+	// Called every tick while disconnected, so only pay for the rebuild when something was dropped.
+	// Open windows are left showing the players they already hold until a new cache arrives.
+	if (hadPlayers) {
+		invalidatePlayerTable();
 	}
 }
 
@@ -234,7 +283,9 @@ static void cacheClubs(const uint32_t generation) {
 	const uint64_t clubStart = hexBytesToInt(clubStartBuffer, 8);
 	const uint64_t clubEnd = hexBytesToInt(clubEndBuffer, 8);
 	const uint64_t clubCount = (clubEnd - clubStart) / CLUB_LIST_STRIDE;
-	Club *clubs = malloc(clubCount * sizeof(Club));
+	// calloc so clubs we fail to read stay blank instead of holding another club's name; the slot
+	// is kept either way because a player's clubIndex is a row ID, i.e. a position in this list.
+	Club *clubs = calloc(clubCount, sizeof(Club));
 	if (clubs == NULL) {
 		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
 		return;
@@ -251,15 +302,16 @@ static void cacheClubs(const uint32_t generation) {
 		uint8_t clubBuffer[8];
 		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
 		const uint64_t clubAddress = hexBytesToInt(clubBuffer, 8);
-		clubs[i - missed].address = clubAddress;
+		clubs[i].address = clubAddress;
 		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME, 8, bytes);
 		uint64_t namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		if (!namePointer || !readFromMemory(
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			CLUB_LONG_NAME_LENGTH,
-			(uint8_t*)clubs[i - missed].name
+			(uint8_t*)clubs[i].name
 		)) {
+			clubs[i].name[0] = '\0';
 			missed++;
 			continue;
 		}
@@ -270,14 +322,17 @@ static void cacheClubs(const uint32_t generation) {
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			CLUB_SHORT_NAME_LENGTH,
-			(uint8_t*)clubs[i - missed].shortName
+			(uint8_t*)clubs[i].shortName
 		);
 	}
 
-	const uint64_t cachedClubCount = clubCount - missed;
+	const uint64_t cachedClubCount = clubCount;
+	if (missed > 0) {
+		LOG_WARN("Could not read a name for %llu of %llu clubs", (unsigned long long)missed, (unsigned long long)clubCount);
+	}
 #else
 	const uint32_t clubCount = 36289;
-	Club *clubs = malloc(clubCount * sizeof(Club));
+	Club *clubs = calloc(clubCount, sizeof(Club));
 	if (clubs == NULL) {
 		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
 		return;
@@ -419,6 +474,9 @@ static gboolean onPlayerThreadComplete(gpointer userData) {
 	char bufferStatus[32];
 	snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);
 	ui_setCurrentStatus(bufferStatus);
+
+	invalidatePlayerTable();
+	ui_rebindPlayerWindows();
 
 	return G_SOURCE_REMOVE;
 }

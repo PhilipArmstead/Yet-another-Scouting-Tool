@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nationality-search.h"
+#include "app/entities.h"
 #include "app/search-handler.h"
 #include "app/ui.h"
 #include "app/callbacks/filters.h"
@@ -109,7 +110,12 @@ void callbacks_onNationalitySelected(
 
 	GtkWidget *child = gtk_list_box_row_get_child(row);
 	const uint8_t nationIndex = (uint8_t)GPOINTER_TO_INT(g_object_get_data(G_OBJECT(child), "index"));
-	const Nation *nation = &gameContext.nations[nationIndex];
+	// The nations may have been republished since the list was built.
+	const Nation *nation = entities_getNation(nationIndex);
+	if (nation == NULL) {
+		gtk_popover_popdown(datalist->popover);
+		return;
+	}
 
 	// Block the change handler while we update the text
 	g_signal_handlers_block_by_func(

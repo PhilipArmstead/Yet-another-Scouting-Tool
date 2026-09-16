@@ -9,3 +9,7 @@
 
 void cache_clear(void);
 void cache_run(void);
+
+// Guards gameContext.clubs against the detached club-search thread; see cache.c.
+void cache_lockClubs(void);
+void cache_unlockClubs(void);

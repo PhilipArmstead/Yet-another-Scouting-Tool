@@ -1,12 +1,17 @@
 // SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "app/entities.h"
 #include "app/maths.h"
 #include "app/player.h"
 #include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
 #include "app/helpers/vector.h"
+#include "core/logger.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 
 extern GameContext gameContext;
@@ -17,16 +22,47 @@ static void setPercentage(GtkBuilder *builder, const char *id, const int16_t bas
 	gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(builder, id)), buffer);
 }
 
+static void clearBox(GtkBox *box) {
+	GtkWidget *child;
+	while ((child = gtk_widget_get_first_child(GTK_WIDGET(box))) != NULL) {
+		gtk_box_remove(box, child);
+	}
+}
+
+/**
+ * The window outlives whatever it was opened from — a row pointing into gameContext.players, or a
+ * stack temporary from the "show current player" lookup — so it keeps its own copy, which the cache
+ * re-matches to the live player by uid on every publish.
+ */
 void ui_createPlayerInfoWindow(const Player *player) {
-	WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO);
-	context.data = (void*)player;
+	if (player == NULL) {
+		return;
+	}
+
+	PlayerSnapshot *snapshot = playerSnapshot_createOne(player);
+	if (snapshot == NULL) {
+		return;
+	}
+
+	const WindowContext context = openWindow("player-info", "window:player-info", WINDOW_PLAYER_INFO, snapshot);
+	g_object_set_data_full(G_OBJECT(context.window), "player-info:player", snapshot, playerSnapshot_free);
 
 	ui_renderPlayerInfoWindow(context);
 	ui_presentWindow(context);
 }
 
+void ui_rebindPlayerInfoWindow(const WindowContext context, const PlayerLookup *lookup) {
+	playerSnapshot_refresh(context.data, lookup);
+	ui_renderPlayerInfoWindow(context);
+}
+
 void ui_renderPlayerInfoWindow(WindowContext context) {
-	const Player *player = context.data;
+	const PlayerSnapshot *snapshot = context.data;
+	if (snapshot == NULL || snapshot->count == 0) {
+		return;
+	}
+
+	const Player *player = &snapshot->players[0];
 
 	// Player name
 	GtkLabel *commonNameLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:common-name")));
@@ -54,30 +90,36 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 
 
 	// Player nationalities
+	GtkBox *nationalityBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:nationality")));
+	clearBox(nationalityBox);
 	uint8_t nationalityIndex = 0;
 	while (nationalityIndex < 4 && player->nationality[nationalityIndex] != 0xFF) {
-		GtkBox *nationalityBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:nationality")));
+		const Nation *nation = entities_getNation(player->nationality[nationalityIndex]);
+		if (nation == NULL) {
+			nationalityIndex++;
+			continue;
+		}
+
 		char pathToFlag[256] = {0};
-		const Nation nation = gameContext.nations[player->nationality[nationalityIndex]];
 		snprintf(
 			pathToFlag,
 			sizeof(pathToFlag),
 			RESOURCE_BASE "/assets/flags/%s.png",
-			nation.code
+			nation->code
 		);
 		GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
 		gtk_box_append(nationalityBox, flagImage);
-		gtk_widget_set_tooltip_text(flagImage, nation.name);
+		gtk_widget_set_tooltip_text(flagImage, nation->name);
 		nationalityIndex++;
 	}
 
 	// Club name
 	GtkLabel *clubNameLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, "label:club-name")));
+	const Club *club = entities_getClub(player->clubIndex);
 	if (player->clubIndex == -1) {
 		gtk_label_set_text(clubNameLabel, "Free agent");
 	} else {
-		const Club club = gameContext.clubs[player->clubIndex];
-		gtk_label_set_text(clubNameLabel, club.name);
+		gtk_label_set_text(clubNameLabel, club != NULL ? club->name : "");
 	}
 
 	const PositionWeights *positionWeights = getWeightsForPosition(player->ratings[0].position);
@@ -99,6 +141,8 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		gtk_label_set_text(label, buffer);																									\
 		snprintf(widgetId, 64, "row:%s", id);																								\
 		widget = GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId));							\
+		gtk_widget_remove_css_class(widget, "attribute-row--high");													\
+		gtk_widget_remove_css_class(widget, "attribute-row--mid");														\
 		if (positionWeights->weights[attributeIndex].weight > max * 0.5f) {									\
 			gtk_widget_add_css_class(widget, "attribute-row--high");													\
 		} else if (positionWeights->weights[attributeIndex].weight > max * 0.15f) {					\
@@ -120,11 +164,7 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	// Footedness
 	{
 		GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
-		GtkWidget *child;
-		while ((child = gtk_widget_get_first_child(GTK_WIDGET(footednessBox))) != NULL) {
-			gtk_box_remove(footednessBox, child);
-		}
-
+		clearBox(footednessBox);
 		char footBuffer[16] = {0};
 		GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
 		snprintf(footBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
@@ -222,6 +262,7 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	// Ratings
 	{
 		GtkBox *boxRoles = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:top-roles")));
+		clearBox(boxRoles);
 		uint8_t i = 0;
 		while (i < POSITION_GROUPED_COUNT && player->ratings[i].value > 0.f) {
 			GtkWidget *parent = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);

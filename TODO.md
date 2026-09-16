@@ -13,7 +13,3 @@ TODO
 	- Search for asking/guide price/wage
 - Club search
 	- ⭐ Show club data when searching by division / reputation / overall average rating
-
-## Bugs
-
-- List players, advance time, refresh cache, double-click player. A crash occurs because clubIndex is garbage.

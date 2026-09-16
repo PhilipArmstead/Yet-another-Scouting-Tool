@@ -41,7 +41,7 @@ void ui_init(GtkApplication *app) {
 	);
 
 	// Show main window
-	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH);
+	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH, NULL);
 	gameContext.builder = context.builder;
 	gtk_window_set_application(GTK_WINDOW(context.window), GTK_APPLICATION(app));
 
@@ -138,11 +138,13 @@ void ui_updateGameVersion(void) {
 	gtk_label_set_text(versionLabel, buffer);
 }
 
-WindowContext openWindow(const char *layoutName, const char *windowName, const WindowType type) {
+WindowContext openWindow(const char *layoutName, const char *windowName, const WindowType type, void *data) {
 	char pathToAppLayout[256] = {0};
 	snprintf(pathToAppLayout, sizeof(pathToAppLayout), RESOURCE_BASE "/layouts/%s.ui", layoutName);
 
-	WindowContext context = {.type = type};
+	// `data` is set before the push because the vector stores a copy: anything assigned to the
+	// caller's context afterwards would never reach the copy the refresh paths walk.
+	WindowContext context = {.type = type, .data = data};
 	context.builder = gtk_builder_new_from_resource(pathToAppLayout);
 	context.window = GTK_WIDGET(gtk_builder_get_object(context.builder, windowName));
 	g_signal_connect(context.window, "close_request", G_CALLBACK(onWindowClose), NULL);
@@ -171,6 +173,7 @@ static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
 		if (gameContext.windows[i].window == widget) {
 			WindowContext out;
 			vector_splice(gameContext.windows, i, &out);
+			break;
 		}
 	}
 
@@ -185,6 +188,56 @@ void ui_refreshAllWindows(void) {
 		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
 			ui_renderPlayerInfoWindow(gameContext.windows[i]);
 		}
+	}
+}
+
+static bool hasPlayerWindow(void) {
+	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
+		const WindowType type = gameContext.windows[i].type;
+		if (type == WINDOW_BEST_XI || type == WINDOW_PLAYER_INFO) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// `lookup` is NULL when the players themselves have not changed and only need drawing again.
+static void renderPlayerWindows(const PlayerLookup *lookup) {
+	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
+		if (gameContext.windows[i].type == WINDOW_BEST_XI) {
+			ui_rebindBestElevenWindow(gameContext.windows[i], lookup);
+		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
+			ui_rebindPlayerInfoWindow(gameContext.windows[i], lookup);
+		}
+	}
+}
+
+/**
+ * Called when the player cache is replaced. Both window types own a snapshot of the players they
+ * were opened with, so each one is re-matched to the new buffer by uid — anyone still in the cache
+ * picks up their latest data, anyone who has gone keeps the data we last saw — and then re-rendered.
+ * The uid lookup costs a pass over the cache, so it is built once and shared.
+ */
+void ui_rebindPlayerWindows(void) {
+	if (!hasPlayerWindow()) {
+		return;
+	}
+
+	// A failed build leaves an empty lookup, which refreshing treats as "nothing to match against".
+	PlayerLookup lookup;
+	playerLookup_build(&lookup);
+	renderPlayerWindows(&lookup);
+	playerLookup_destroy(&lookup);
+}
+
+/**
+ * Clubs and nations are published on their own, after the players that reference them, so the
+ * windows are rendered again to pick up names that were not yet cached the first time round.
+ */
+void ui_rerenderPlayerWindows(void) {
+	if (hasPlayerWindow()) {
+		renderPlayerWindows(NULL);
 	}
 }
 

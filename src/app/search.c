@@ -12,7 +12,7 @@
 extern GameContext gameContext;
 
 // TODO: multithread this
-uint32_t *search_findPlayers(void) {
+void search_findPlayers(void) {
 	const int64_t timeStart = platform_getMicroseconds();
 
 	uint32_t *playerIds = NULL;

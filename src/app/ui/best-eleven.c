@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "app/ui.h"
+#include "app/entities.h"
 #include "app/maths.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
@@ -26,7 +27,8 @@ extern GameContext gameContext;
 static float getPlayerPositionalRating(const Player *player, PositionCode position);
 static void hungarian(float **matrix, uint32_t n, uint32_t *outAssignment);
 static void assignFormation(
-	const uint32_t *playerIds,
+	const Player *players,
+	uint32_t playerCount,
 	const PositionCode positions[FORMATION_POSITION_COUNT],
 	BestElevenFilters filters,
 	BestElevenRow outSlots[FORMATION_POSITION_COUNT]
@@ -43,16 +45,17 @@ static void onPlayerNameClicked(
 static void onFilterChange(GObject *object, gpointer userData);
 
 void ui_createBestElevenWindow(void) {
-	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI);
+	// The window works from its own copy of the results: the indices point into a buffer the cache
+	// is free to replace, and the players themselves are re-matched by uid after every publish.
+	const SharedPointer *results = gameContext.searchResults;
+	const uint32_t *playerIds = results != NULL ? results->data : NULL;
+	PlayerSnapshot *snapshot = playerSnapshot_create(playerIds, playerIds != NULL ? vector_length(playerIds) : 0);
+	if (snapshot == NULL) {
+		return;
+	}
 
-	SharedPointer *snapshot = gameContext.searchResults;
-	sharedPointer_ref(snapshot);
-	g_object_set_data_full(
-		G_OBJECT(context.window),
-		"best-xi:search-results",
-		snapshot,
-		(GDestroyNotify)sharedPointer_unref
-	);
+	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI, snapshot);
+	g_object_set_data_full(G_OBJECT(context.window), "best-xi:players", snapshot, playerSnapshot_free);
 
 	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
 
@@ -114,6 +117,16 @@ void ui_renderBestElevenWindow(const WindowContext context) {
 		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
 }
 
+/**
+ * The snapshot's players are re-matched to the new cache by uid, so the window keeps showing the
+ * same eleven with their latest data. Re-rendering also rebuilds the rows, which is what keeps the
+ * click gestures pointing at live entries.
+ */
+void ui_rebindBestElevenWindow(const WindowContext context, const PlayerLookup *lookup) {
+	playerSnapshot_refresh(context.data, lookup);
+	renderBestElevenTable(context);
+}
+
 static void renderBestElevenTable(const WindowContext context) {
 	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
 	uint32_t selectedFormationIndex = gtk_drop_down_get_selected(formationDropDown);
@@ -122,13 +135,13 @@ static void renderBestElevenTable(const WindowContext context) {
 	}
 	const Formation formation = gameContext.options.formations[selectedFormationIndex];
 
-	const SharedPointer *snapshot = g_object_get_data(G_OBJECT(context.window), "best-xi:search-results");
+	const PlayerSnapshot *snapshot = context.data;
 
 	GtkListBox *listBox = GTK_LIST_BOX(gtk_builder_get_object(context.builder, "list-box:best-xi"));
 	gtk_list_box_remove_all(listBox);
 
-	const uint32_t *playerIds = snapshot ? snapshot->data : NULL;
-	const size_t playerCount = playerIds ? vector_length(playerIds) : 0;
+	const Player *players = snapshot != NULL ? snapshot->players : NULL;
+	const uint32_t playerCount = snapshot != NULL ? snapshot->count : 0;
 
 	GtkSpinButton *spinMinAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-age"));
 	GtkSpinButton *spinMaxAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-age"));
@@ -149,9 +162,9 @@ static void renderBestElevenTable(const WindowContext context) {
 
 	BestElevenRow rows[FORMATION_POSITION_COUNT] = {0};
 	const int64_t timeStart = platform_getMicroseconds();
-	assignFormation(playerIds, formation.positions, filters, rows);
+	assignFormation(players, playerCount, formation.positions, filters, rows);
 	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Found best XI for %d players in %zu microseconds", playerCount, timeEnd - timeStart);
+	LOG_DEBUG("Found best XI for %u players in %zu microseconds", playerCount, timeEnd - timeStart);
 
 	uint8_t playerIncludedCount = 0;
 	float ratingTotal = 0;
@@ -205,17 +218,19 @@ static void renderBestElevenTable(const WindowContext context) {
 			gtk_label_set_xalign(GTK_LABEL(widgetLabelRating), 1.f);
 
 			// Country flag
-			char pathToFlag[256] = {0};
-			const Nation nation = gameContext.nations[player->nationality[0]];
-			snprintf(
-				pathToFlag,
-				sizeof(pathToFlag),
-				RESOURCE_BASE "/assets/flags/%s.png",
-				nation.code
-			);
-			GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
-			gtk_box_append(GTK_BOX(widgetBoxNationality), flagImage);
-			gtk_widget_set_tooltip_text(flagImage, nation.name);
+			const Nation *nation = entities_getNation(player->nationality[0]);
+			if (nation != NULL) {
+				char pathToFlag[256] = {0};
+				snprintf(
+					pathToFlag,
+					sizeof(pathToFlag),
+					RESOURCE_BASE "/assets/flags/%s.png",
+					nation->code
+				);
+				GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
+				gtk_box_append(GTK_BOX(widgetBoxNationality), flagImage);
+				gtk_widget_set_tooltip_text(flagImage, nation->name);
+			}
 
 			if (player->injury.duration > 0) {
 				widgetHeart = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -450,7 +465,7 @@ static void insertTopK(
 }
 
 /**
- * Assigns players from `playerIds` to each slot in `positions` so as to maximise
+ * Assigns players from `players` to each slot in `positions` so as to maximise
  * the cumulative positional rating. A player is eligible for a slot only if they
  * meet MINIMUM_POSITIONAL_PROFICIENCY for the slot's position and have a rating
  * for the grouped role that owns it. Eligible cost = −rating (minimisation ≡
@@ -466,7 +481,8 @@ static void insertTopK(
  * dim = max(FORMATION_POSITION_COUNT, candidateCount) is bounded by ~121.
  */
 static void assignFormation(
-	const uint32_t *playerIds,
+	const Player *players,
+	const uint32_t playerCount,
 	const PositionCode positions[FORMATION_POSITION_COUNT],
 	const BestElevenFilters filters,
 	BestElevenRow outSlots[FORMATION_POSITION_COUNT]
@@ -476,7 +492,6 @@ static void assignFormation(
 		outSlots[i] = (BestElevenRow){.player = NULL, .rating = 0};
 	}
 
-	const uint32_t playerCount = playerIds ? (uint32_t)vector_length(playerIds) : 0;
 	if (playerCount == 0) {
 		LOG_WARN("No players available to fill formation");
 		return;
@@ -502,7 +517,7 @@ static void assignFormation(
 	}
 
 	// Collect the union of the top-N eligible players for each distinct position.
-	// `candidates` holds indices into playerIds; `chosen` dedupes across positions.
+	// `candidates` holds indices into players; `chosen` dedupes across positions.
 	bool *chosen = calloc(playerCount, sizeof(bool));
 	uint32_t *candidates = malloc((size_t)distinctCount * FORMATION_POSITION_COUNT * sizeof(uint32_t));
 	uint32_t candidateCount = 0;
@@ -514,7 +529,7 @@ static void assignFormation(
 		const PositionCode position = distinctPositions[d];
 		uint8_t topCount = 0;
 		for (uint32_t j = 0; j < playerCount; ++j) {
-			const Player *player = &gameContext.players[playerIds[j]];
+			const Player *player = &players[j];
 
 			if (
 				player->age < filters.minAge ||
@@ -553,8 +568,7 @@ static void assignFormation(
 		matrix[i] = malloc(dim * sizeof(float));
 		for (uint32_t j = 0; j < dim; ++j) {
 			if (i < FORMATION_POSITION_COUNT && j < candidateCount) {
-				const uint32_t pid = playerIds[candidates[j]];
-				const float rating = getPlayerPositionalRating(&gameContext.players[pid], positions[i]);
+				const float rating = getPlayerPositionalRating(&players[candidates[j]], positions[i]);
 				matrix[i][j] = rating >= INFEASIBLE_COST ? INFEASIBLE_COST : -rating;
 			} else {
 				matrix[i][j] = 0.f;
@@ -571,8 +585,7 @@ static void assignFormation(
 			continue; // slot matched to padding: no eligible player
 		}
 
-		const uint32_t pid = playerIds[candidates[col]];
-		const Player *player = &gameContext.players[pid];
+		const Player *player = &players[candidates[col]];
 		const float rating = getPlayerPositionalRating(player, positions[i]);
 		if (rating >= INFEASIBLE_COST) {
 			LOG_DEBUG("No player is eligible for position \"%s\"", positionCodeNames[positions[i]]);
