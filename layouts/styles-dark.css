@@ -1,20 +1,20 @@
 /** Dark mode palette. Loaded on top of styles.css when `dark-mode: true` */
 window {
 	--colour-accent-gold: #d9a441;
-	--colour-accent-gold-soft: alpha(#d9a441, 0.35);
+	--colour-accent-gold-soft: alpha(var(--colour-accent-gold), 0.35);
 	--colour-accent-orange: #e08a2c;
 	--colour-accent-yellow: #f0b23c;
 	--colour-attribute: #d7dde5;
 	--background-colour-accent: #2f6fed;
 	--background-colour-accent-hover: #4480f5;
-	--background-colour-attribute-high: rgb(51, 64, 9);
-	--background-colour-attribute-mid: rgb(68, 57, 17);
+	--background-colour-attribute-high: #334009ff;
+	--background-colour-attribute-mid: #443911ff;
 	--background-colour-button-secondary: #182233;
 	--background-colour-button-secondary-hover: #202c40;
 	--background-colour-card: #1b2430;
 	--background-colour-chip: #1c2530;
 	--background-colour-header: #0b0e11;
-	--background-colour-panel: alpha(#000, 0.25);
+	--background-colour-panel: rgba(0, 0, 0, 0.25);
 	--background-colour-pill-learner: #2b3a5c;
 	--border-colour-pill-learner: #3182ce;
 	--background-colour-pill-prospect: #3d2112;
@@ -42,9 +42,6 @@ window {
 	--colour-primary: #c2c9d0;
 	--colour-primary-dark: #9aa4ad;
 	--colour-primary-darker: #7f8a93;
-	--border-radius-l: 12px;
-	--border-radius-m: 8px;
-	--border-radius-s: 4px;
 	--colour-section-heading: #8fa0b3;
 	--colour-title: #f2f2f2;
 }
