@@ -10,7 +10,7 @@
 
 extern ProcessContext processContext;
 
-static void showPlayerById(uint32_t uniqueId);
+static void showPlayerById(uint64_t uniqueId);
 
 G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void) {
 #ifndef MOCKS_MODE
@@ -20,17 +20,17 @@ G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void) {
 	}
 #endif
 
-	const uint32_t uniqueId = getCurrentPersonUniqueId(&processContext);
+	const uint64_t uniqueId = getCurrentPersonUniqueId(&processContext);
 	showPlayerById(uniqueId);
 }
 
-static void showPlayerById(uint32_t uniqueId) {
+static void showPlayerById(const uint64_t uniqueId) {
 	if (uniqueId == 0) {
 		LOG_INFO("Unique ID not found.");
 		return;
 	}
 
-	LOG_INFO("Searching for Player Unique ID: %u", uniqueId);
+	LOG_INFO("Searching for Player Unique ID: %lu", uniqueId);
 
 #ifdef PLAYER_BY_ID
 	const Player player = PLAYER_BY_ID;

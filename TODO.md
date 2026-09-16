@@ -5,7 +5,6 @@ TODO
 	- 🚩 Add contract details
 	- Add happiness
 - To player search
-	- 🚩 Fix "Show current player"
 	- ⭐ Search player names
 	- ⭐ Pull players from in-game shortlist
 	- Search for asking/guide price/wage

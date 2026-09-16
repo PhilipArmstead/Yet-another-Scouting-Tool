@@ -25,25 +25,24 @@ static inline void getPersonSurname(void *handle, uint64_t attributeBase, char s
 static inline void getPersonCommonName(void *handle, uint64_t attributeBase, char str[PERSON_COMMON_NAME_LENGTH]);
 static uint8_t getAge(void *handle, uint64_t address);
 static int64_t getClubIndexFromPerson(void *handle, uint64_t personAddress);
-static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint32_t uid);
+static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint64_t uid);
 static void getSortedPositionRatings(Player *player);
 static float getRatingPerPosition(const Player *player, PositionGrouped position);
 
 // Assumes valid ProcessContext
-uint32_t getCurrentPersonUniqueId(const ProcessContext *processContext) {
+uint64_t getCurrentPersonUniqueId(const ProcessContext *processContext) {
 #ifndef PLAYER_BY_ID
-	uint8_t bytes[4];
+	uint8_t bytes[8];
 	void *handle = processContext->handle;
-	readFromMemory(handle, processContext->moduleBaseAddress + CURRENT_SCREEN_PLAYER_ID_PTR_BASE, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_1, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_2, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_3, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_4, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_5, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_6, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_7, 4, bytes);
-	readFromMemory(handle, hexBytesToInt(bytes, 4) + CURRENT_SCREEN_PLAYER_ID_PTR_BASE_OFFSET_8, 4, bytes);
-	return (uint32_t)hexBytesToInt(bytes, 4);
+	readFromMemory(handle, processContext->moduleBaseAddress + CURRENT_SCREEN_PERSON_ID_PTR_BASE, 8, bytes);
+	readFromMemory(handle, hexBytesToInt(bytes, 8) + CURRENT_SCREEN_PERSON_ID_PTR_BASE_OFFSET_1, 8, bytes);
+	readFromMemory(
+		handle,
+		hexBytesToInt(bytes, 8) + CURRENT_SCREEN_PERSON_ID_PTR_BASE_OFFSET_2 + PERSON_OFFSET_UNIQUE_ID,
+		8,
+		bytes
+	);
+	return hexBytesToInt(bytes, 8);
 #else
 	const Player player = PLAYER_BY_ID;
 	return player.uid;
@@ -51,7 +50,7 @@ uint32_t getCurrentPersonUniqueId(const ProcessContext *processContext) {
 }
 
 // Assumes valid ProcessContext
-Player getPlayerById(const ProcessContext *processContext, const uint32_t uniqueId) {
+Player getPlayerById(const ProcessContext *processContext, const uint64_t uniqueId) {
 	const uint64_t personAddress = getPersonAddressFromUid(processContext, uniqueId);
 	if (personAddress && isPlayerValid(processContext->handle, personAddress)) {
 		return getPlayer(processContext->handle, false, personAddress, 0);
@@ -466,7 +465,7 @@ static void getSortedPositionRatings(Player *player) {
 	}
 }
 
-static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint32_t uid) {
+static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, const uint64_t uid) {
 #ifndef PLAYER_BY_ID
 	// Iterate over all players to find one with the matching UID
 	uint8_t bytes[8];
@@ -488,10 +487,10 @@ static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, ui
 	for (uint32_t i = 0; i < playerCount; ++i) {
 		readFromMemory(processContext->handle, allPlayers + PLAYER_LIST_STRIDE * i, 8, bytes);
 		const uint64_t playerAddress = hexBytesToInt(bytes, 8);
-		const uint64_t personAddress = playerAddress - (uint32_t)PLAYER_OFFSET_FROM_PERSON;
+		const uint64_t personAddress = playerAddress - (uint64_t)PLAYER_OFFSET_FROM_PERSON;
 
-		readFromMemory(processContext->handle, personAddress + (uint32_t)PERSON_OFFSET_UNIQUE_ID, 4, bytes);
-		const uint32_t foundPlayerId = (uint32_t)hexBytesToInt(bytes, 4);
+		readFromMemory(processContext->handle, personAddress + (uint64_t)PERSON_OFFSET_UNIQUE_ID, 8, bytes);
+		const uint64_t foundPlayerId = hexBytesToInt(bytes, 8);
 		if (foundPlayerId == uid) {
 			return personAddress;
 		}

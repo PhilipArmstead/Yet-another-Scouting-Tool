@@ -30,7 +30,6 @@ the [Steam version of Football Manager 24](https://store.steampowered.com/app/22
 
 - List all players for all squads (senior, reserves, U18)
 - Pick the best XI for a given formation based on player competency ratings
-- See squad depth options and identify weaknesses in positions
 
 ## Troubleshooting
 

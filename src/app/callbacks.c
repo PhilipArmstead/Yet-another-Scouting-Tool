@@ -12,8 +12,6 @@
 
 extern GameContext gameContext;
 
-static void accordionToggle(const char *name);
-
 void callbacks_init(void) {
 	// Capture keypresses within sidebar to trigger search
 	GtkEventControllerKey *controllerKey = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());

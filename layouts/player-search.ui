@@ -71,14 +71,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							</object>
 						</child>
 						<child>
-							<object class="GtkButton">
-								<property name="label">Squad Depth</property>
-								<style>
-									<class name="nav-tab"/>
-								</style>
-							</object>
-						</child>
-						<child>
 							<object class="GtkBox">
 								<property name="hexpand">true</property>
 							</object>
