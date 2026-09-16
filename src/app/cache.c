@@ -23,24 +23,92 @@ extern GameContext gameContext;
 static GThread *threads[THREAD_COUNT];
 static gint cacheInProgress = false;
 static uint8_t completedPlayerThreads = 0;
-static gboolean onThreadComplete(gpointer userData);
+
+/**
+ * Bumped on every run and every clear, and captured by each worker when it starts. A publish whose
+ * generation no longer matches belongs to a cache run that has since been abandoned, so its buffer
+ * is discarded instead of being swapped in.
+ *
+ * Only ever touched on the main thread, and only while no workers are running.
+ */
+static uint32_t cacheGeneration = 0;
+
+// Filled by the player workers and swapped into gameContext once the last of them finishes.
+static Player *stagingPlayers = NULL;
+static uint64_t stagingPlayerCount = 0;
+
+typedef struct {
+	uint32_t generation;
+	uint8_t index;
+} Worker;
+
+typedef struct {
+	Nation *nations;
+	uint64_t count;
+	uint32_t generation;
+} NationsPublish;
+
+typedef struct {
+	Club *clubs;
+	uint64_t count;
+	uint32_t generation;
+} ClubsPublish;
+
+static gboolean onPlayerThreadComplete(gpointer userData);
 static void cachePlayers(uint8_t workerIndex);
-static void cacheClubs(void);
-static void cacheNations(void);
+static void cacheClubs(uint32_t generation);
+static void cacheNations(uint32_t generation);
 
 static gpointer threadFunction(gpointer arg) {
-	const uint8_t functionIndex = (uint8_t)(intptr_t)arg;
+	Worker *worker = arg;
 
-	if (functionIndex == 1) {
-		cacheNations();
-	} else if (functionIndex == 2) {
-		cacheClubs();
+	if (worker->index == 0) {
+		cacheNations(worker->generation);
+		g_free(worker);
+	} else if (worker->index == 1) {
+		cacheClubs(worker->generation);
+		g_free(worker);
 	} else {
-		cachePlayers(functionIndex - (NON_PLAYERS_THREAD_COUNT + 1));
-		g_idle_add(onThreadComplete, arg);
+		cachePlayers(worker->index - NON_PLAYERS_THREAD_COUNT);
+		g_idle_add(onPlayerThreadComplete, worker);
 	}
 
 	return NULL;
+}
+
+// Swaps a finished buffer into gameContext, replacing whatever it held before.
+static gboolean publishNations(gpointer userData) {
+	NationsPublish *publish = userData;
+
+	if (publish->generation == cacheGeneration) {
+		free(gameContext.nations);
+		gameContext.nations = publish->nations;
+		gameContext.nationCount = publish->count;
+	} else {
+		LOG_DEBUG("Discarding nations from an abandoned cache run");
+		free(publish->nations);
+	}
+
+	g_free(publish);
+
+	return G_SOURCE_REMOVE;
+}
+
+static gboolean publishClubs(gpointer userData) {
+	ClubsPublish *publish = userData;
+
+	if (publish->generation == cacheGeneration) {
+		free(gameContext.clubs);
+		gameContext.clubs = publish->clubs;
+		gameContext.clubCount = publish->count;
+	} else {
+		LOG_DEBUG("Discarding clubs from an abandoned cache run");
+		free(publish->clubs);
+	}
+
+	g_free(publish);
+
+	return G_SOURCE_REMOVE;
 }
 
 void cache_clear(void) {
@@ -53,7 +121,13 @@ void cache_clear(void) {
 		}
 	}
 
+	// Invalidates any publish already queued by a worker that finished before the join.
+	++cacheGeneration;
 	completedPlayerThreads = 0;
+
+	free(stagingPlayers);
+	stagingPlayers = NULL;
+	stagingPlayerCount = 0;
 
 	if (gameContext.clubs != NULL) {
 		free(gameContext.clubs);
@@ -73,7 +147,7 @@ void cache_clear(void) {
 }
 
 
-static void cacheNations(void) {
+static void cacheNations(const uint32_t generation) {
 	const int64_t timeStart = platform_getMicroseconds();
 
 #ifndef MOCKS_MODE
@@ -88,11 +162,16 @@ static void cacheNations(void) {
 	const uint64_t nationStart = hexBytesToInt(nationStartBuffer, 8);
 	const uint64_t nationEnd = hexBytesToInt(nationEndBuffer, 8);
 	const uint64_t nationCount = (nationEnd - nationStart) / NATION_LIST_STRIDE;
-	gameContext.nationCount = nationCount;
-	gameContext.nations = calloc(nationCount, sizeof(Nation));
+	Nation *nations = calloc(nationCount, sizeof(Nation));
+	if (nations == NULL) {
+		LOG_ERROR("Failed to allocate memory for %llu nations", (unsigned long long)nationCount);
+		return;
+	}
+
 	for (uint64_t i = 0; i < nationCount; i++) {
 		if (!g_atomic_int_get(&cacheInProgress)) {
 			LOG_DEBUG("Ending nations cache early");
+			free(nations);
 			return;
 		}
 
@@ -102,35 +181,45 @@ static void cacheNations(void) {
 		const uint64_t nameAddress = hexBytesToInt(bytes, 8);
 		if (!nameAddress) {
 			LOG_WARN("Nation %llu has no name pointer", i);
+			free(nations);
 			return;
 		}
 		readFromMemory(
 			processContext.handle,
 			nameAddress + STRING_OFFSET_VALUE,
 			MAX_NATION_STRING_LENGTH,
-			(uint8_t*)gameContext.nations[i].name
+			(uint8_t*)nations[i].name
 		);
 		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME_CODE, 8, bytes);
 		readFromMemory(
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			4,
-			(uint8_t*)gameContext.nations[i].code
+			(uint8_t*)nations[i].code
 		);
 	}
 #else
 	const uint8_t nationCount = 251;
-	gameContext.nationCount = nationCount;
-	gameContext.nations = calloc(nationCount, sizeof(Nation));
-	gameContext.nations[189] = PLAYER_BY_ID_NATION_1;
-	gameContext.nations[170] = PLAYER_BY_ID_NATION_2;
+	Nation *nations = calloc(nationCount, sizeof(Nation));
+	if (nations == NULL) {
+		LOG_ERROR("Failed to allocate memory for %llu nations", (unsigned long long)nationCount);
+		return;
+	}
+	nations[189] = PLAYER_BY_ID_NATION_1;
+	nations[170] = PLAYER_BY_ID_NATION_2;
 #endif
+
+	NationsPublish *publish = g_new(NationsPublish, 1);
+	publish->nations = nations;
+	publish->count = nationCount;
+	publish->generation = generation;
+	g_idle_add(publishNations, publish);
 
 	const int64_t timeEnd = platform_getMicroseconds();
 	LOG_DEBUG("Cached %d nations in %zu microseconds", nationCount, timeEnd - timeStart);
 }
 
-static void cacheClubs(void) {
+static void cacheClubs(const uint32_t generation) {
 	const int64_t timeStart = platform_getMicroseconds();
 
 #ifndef MOCKS_MODE
@@ -145,26 +234,31 @@ static void cacheClubs(void) {
 	const uint64_t clubStart = hexBytesToInt(clubStartBuffer, 8);
 	const uint64_t clubEnd = hexBytesToInt(clubEndBuffer, 8);
 	const uint64_t clubCount = (clubEnd - clubStart) / CLUB_LIST_STRIDE;
-	gameContext.clubCount = clubCount;
-	gameContext.clubs = malloc(clubCount * sizeof(Club));
+	Club *clubs = malloc(clubCount * sizeof(Club));
+	if (clubs == NULL) {
+		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
+		return;
+	}
+
 	uint64_t missed = 0;
 	for (uint64_t i = 0; i < clubCount; i++) {
 		if (!g_atomic_int_get(&cacheInProgress)) {
 			LOG_DEBUG("Ending clubs cache early");
+			free(clubs);
 			return;
 		}
 
 		uint8_t clubBuffer[8];
 		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
 		const uint64_t clubAddress = hexBytesToInt(clubBuffer, 8);
-		gameContext.clubs[i - missed].address = clubAddress;
+		clubs[i - missed].address = clubAddress;
 		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME, 8, bytes);
 		uint64_t namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		if (!namePointer || !readFromMemory(
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			CLUB_LONG_NAME_LENGTH,
-			(uint8_t*)gameContext.clubs[i - missed].name
+			(uint8_t*)clubs[i - missed].name
 		)) {
 			missed++;
 			continue;
@@ -176,20 +270,30 @@ static void cacheClubs(void) {
 			processContext.handle,
 			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
 			CLUB_SHORT_NAME_LENGTH,
-			(uint8_t*)gameContext.clubs[i - missed].shortName
+			(uint8_t*)clubs[i - missed].shortName
 		);
 	}
 
-	gameContext.clubCount -= missed;
+	const uint64_t cachedClubCount = clubCount - missed;
 #else
 	const uint32_t clubCount = 36289;
-	gameContext.clubCount = clubCount;
-	gameContext.clubs = malloc(clubCount * sizeof(Club));
-	gameContext.clubs[1125] = PLAYER_BY_ID_CLUB;
+	Club *clubs = malloc(clubCount * sizeof(Club));
+	if (clubs == NULL) {
+		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
+		return;
+	}
+	clubs[1125] = PLAYER_BY_ID_CLUB;
+	const uint64_t cachedClubCount = clubCount;
 #endif
 
+	ClubsPublish *publish = g_new(ClubsPublish, 1);
+	publish->clubs = clubs;
+	publish->count = cachedClubCount;
+	publish->generation = generation;
+	g_idle_add(publishClubs, publish);
+
 	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Cached %d clubs in %zu microseconds", gameContext.clubCount, timeEnd - timeStart);
+	LOG_DEBUG("Cached %llu clubs in %zu microseconds", (unsigned long long)cachedClubCount, timeEnd - timeStart);
 }
 
 static void cachePlayers(const uint8_t workerIndex) {
@@ -197,8 +301,8 @@ static void cachePlayers(const uint8_t workerIndex) {
 	uint64_t cached = 0;
 
 #ifndef MOCKS_MODE
-	const uint64_t start = gameContext.playerCount * workerIndex / PLAYERS_THREAD_COUNT;
-	const uint64_t end = gameContext.playerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
+	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
+	const uint64_t end = stagingPlayerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 
 	uint8_t bytes[8];
 	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
@@ -216,21 +320,21 @@ static void cachePlayers(const uint8_t workerIndex) {
 		if (!player.uid) {
 			continue;
 		}
-		gameContext.players[i] = player;
+		stagingPlayers[i] = player;
 		++cached;
 	}
 #else
 	const Player playerVini = PLAYER_VINI;
 	const Player playerJeff = PLAYER_JEFF;
 	const Player playerGk = PLAYER_GK;
-	const uint64_t start = gameContext.playerCount * workerIndex / PLAYERS_THREAD_COUNT;
-	const uint64_t end = gameContext.playerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
+	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
+	const uint64_t end = stagingPlayerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 	for (uint64_t i = start; i < end; i++) {
 		++cached;
 		if (i % 3 == 0) {
-			memcpy(&gameContext.players[i], &playerGk, sizeof(Player));
+			memcpy(&stagingPlayers[i], &playerGk, sizeof(Player));
 		} else {
-			memcpy(&gameContext.players[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
+			memcpy(&stagingPlayers[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
 		}
 	}
 #endif
@@ -260,42 +364,61 @@ void cache_run(void) {
 	const uint64_t playerCount = 900;
 #endif
 
-	gameContext.playerCount = playerCount;
 	// calloc so that slots the workers skip stay zeroed (uid == 0) and are
 	// recognisable to compactPlayers().
-	gameContext.players = calloc(playerCount, sizeof(Player));
-	if (gameContext.players == NULL) {
+	free(stagingPlayers);
+	stagingPlayers = calloc(playerCount, sizeof(Player));
+	if (stagingPlayers == NULL) {
 		LOG_ERROR("Failed to allocate memory for %llu players", (unsigned long long)playerCount);
-		gameContext.playerCount = 0;
+		stagingPlayerCount = 0;
 		return;
 	}
+	stagingPlayerCount = playerCount;
 
-	g_atomic_int_set(&cacheInProgress, true);
+	// Workers read the generation and the staging buffer, both of which are only ever written here
+	// and in cache_clear(), which joins every worker first.
+	++cacheGeneration;
 	completedPlayerThreads = 0;
+	g_atomic_int_set(&cacheInProgress, true);
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
 		snprintf(buffer, sizeof(buffer), "worker-%d", i);
-		threads[i] = g_thread_new(buffer, threadFunction, (void*)(uintptr_t)(i + 1));
+		Worker *worker = g_new(Worker, 1);
+		worker->generation = cacheGeneration;
+		worker->index = i;
+		threads[i] = g_thread_new(buffer, threadFunction, worker);
 	}
 }
 
-static gboolean onThreadComplete(gpointer userData) {
-	const uint8_t threadIndex = (uint8_t)userData;
-	if (threadIndex >= (NON_PLAYERS_THREAD_COUNT + 1)) {
-		++completedPlayerThreads;
+static gboolean onPlayerThreadComplete(gpointer userData) {
+	Worker *worker = userData;
+	const uint32_t generation = worker->generation;
+	g_free(worker);
+
+	if (generation != cacheGeneration) {
+		LOG_DEBUG("Ignoring player worker from an abandoned cache run");
+		return G_SOURCE_REMOVE;
 	}
 
-	// Back in main thread, update the UI after every player worker completes.
-	if (completedPlayerThreads == PLAYERS_THREAD_COUNT) {
-		g_atomic_int_set(&cacheInProgress, false);
-
-		char buffer[8];
-		snprintf(buffer, 8, "%llu", gameContext.playerCount);
-		formatter_printNumber(buffer);
-		char bufferStatus[32];
-		snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);
-		ui_setCurrentStatus(bufferStatus);
+	// Back in main thread; the players only become visible once every worker has finished writing.
+	if (++completedPlayerThreads < PLAYERS_THREAD_COUNT) {
+		return G_SOURCE_REMOVE;
 	}
+
+	g_atomic_int_set(&cacheInProgress, false);
+
+	free(gameContext.players);
+	gameContext.players = stagingPlayers;
+	gameContext.playerCount = stagingPlayerCount;
+	stagingPlayers = NULL;
+	stagingPlayerCount = 0;
+
+	char buffer[8];
+	snprintf(buffer, 8, "%llu", gameContext.playerCount);
+	formatter_printNumber(buffer);
+	char bufferStatus[32];
+	snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);
+	ui_setCurrentStatus(bufferStatus);
 
 	return G_SOURCE_REMOVE;
 }
