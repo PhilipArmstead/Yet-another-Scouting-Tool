@@ -1,7 +1,6 @@
 TODO
 ===
 
-- Port `platform_openProcess` to Linux
 - To player-info
 	- 🚩 Add height/weight
 	- 🚩 Add contract details
