@@ -42,14 +42,11 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 				<child>
 					<object class="GtkBox">
 						<property name="css-classes">topbar</property>
-						<property name="spacing">10</property>
+						<property name="spacing">4</property>
 						<child>
-							<object class="GtkButton">
-								<property name="label">Players</property>
-								<style>
-									<class name="nav-tab"/>
-									<class name="nav-tab-active"/>
-								</style>
+							<object class="GtkLabel">
+								<property name="label">Show:</property>
+								<property name="css-classes">strong</property>
 							</object>
 						</child>
 						<child>
