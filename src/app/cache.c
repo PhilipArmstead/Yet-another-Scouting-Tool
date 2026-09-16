@@ -156,7 +156,9 @@ static void cacheClubs(void) {
 
 		uint8_t clubBuffer[8];
 		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
-		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 8) + CLUB_OFFSET_NAME, 8, bytes);
+		const uint64_t clubAddress = hexBytesToInt(clubBuffer, 8);
+		gameContext.clubs[i - missed].address = clubAddress;
+		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME, 8, bytes);
 		uint64_t namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		if (!namePointer || !readFromMemory(
 			processContext.handle,
@@ -168,7 +170,7 @@ static void cacheClubs(void) {
 			continue;
 		}
 
-		readFromMemory(processContext.handle, hexBytesToInt(clubBuffer, 8) + CLUB_OFFSET_NAME_SHORT, 8, bytes);
+		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME_SHORT, 8, bytes);
 		namePointer = (uint32_t)hexBytesToInt(bytes, 8);
 		readFromMemory(
 			processContext.handle,

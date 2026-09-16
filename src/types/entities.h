@@ -14,7 +14,7 @@
 typedef struct {
 	char name[CLUB_LONG_NAME_LENGTH];
 	char shortName[CLUB_SHORT_NAME_LENGTH];
-	uint32_t address;
+	uint64_t address;
 	uint8_t teamType;
 } Club;
 
