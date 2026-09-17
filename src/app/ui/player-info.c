@@ -16,9 +16,9 @@
 
 extern GameContext gameContext;
 
-static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints) {
+static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints, const bool inverted) {
 	char buffer[44];
-	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), basisPoints < 0, buffer);
+	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), inverted, buffer);
 	gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(builder, id)), buffer);
 }
 
@@ -183,9 +183,9 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		gtk_box_append(footednessBox, rightShoe);
 	}
 
-	setPercentage(context.builder, "label:condition", (int16_t)player->condition);
-	setPercentage(context.builder, "label:sharpness", (int16_t)player->sharpness);
-	setPercentage(context.builder, "label:fatigue", player->fatigue);
+	setPercentage(context.builder, "label:condition", (int16_t)player->condition, false);
+	setPercentage(context.builder, "label:sharpness", (int16_t)player->sharpness, false);
+	setPercentage(context.builder, "label:fatigue", player->fatigue, true);
 
 	// Attributes
 	GtkWidget *boxGoalkeeper = GTK_WIDGET(gtk_builder_get_object(context.builder, "box:attribute:goalkeeper"));
