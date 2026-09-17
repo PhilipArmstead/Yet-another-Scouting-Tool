@@ -141,20 +141,25 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	char widgetId[64];
 	GtkLabel *label;
 	GtkWidget *widget;
-#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {																\
-		snprintf(buffer, 8, "%d", convertTo20Scale(player->attributes[attributeIndex]));		\
-		snprintf(widgetId, 64, "label:%s", id);																							\
-		label = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId)));		\
-		gtk_label_set_text(label, buffer);																									\
-		snprintf(widgetId, 64, "row:%s", id);																								\
-		widget = GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId));							\
-		gtk_widget_remove_css_class(widget, "attribute-row--high");													\
-		gtk_widget_remove_css_class(widget, "attribute-row--mid");														\
-		if (positionWeights->weights[attributeIndex].weight > max * 0.5f) {									\
-			gtk_widget_add_css_class(widget, "attribute-row--high");													\
-		} else if (positionWeights->weights[attributeIndex].weight > max * 0.15f) {					\
-			gtk_widget_add_css_class(widget, "attribute-row--mid");														\
-		}																																										\
+#define SET_ROW_TEXT_AND_HIGHLIGHT(id, attributeIndex) {																									\
+		snprintf(buffer, 8, "%d", convertTo20Scale(player->attributes[attributeIndex]));											\
+		snprintf(widgetId, 64, "label:%s", id);																																\
+		label = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId)));											\
+		gtk_label_set_text(label, buffer);																																		\
+		snprintf(widgetId, 64, "row:%s", id);																																	\
+		widget = GTK_WIDGET(gtk_builder_get_object(context.builder, widgetId));																\
+		gtk_widget_remove_css_class(widget, "attribute-row--high");																						\
+		gtk_widget_remove_css_class(widget, "attribute-row--mid");																						\
+		for (size_t weightIndex = 0; weightIndex < vector_length(positionWeights->weights); ++weightIndex) {	\
+			if (positionWeights->weights[weightIndex].attribute == attributeIndex) {												\
+				if (positionWeights->weights[weightIndex].weight > max * 0.5f) {																\
+					gtk_widget_add_css_class(widget, "attribute-row--high");																				\
+				} else if (positionWeights->weights[weightIndex].weight > max * 0.15f) {												\
+					gtk_widget_add_css_class(widget, "attribute-row--mid");																					\
+				}																																																	\
+				break;																																														\
+			}																																																		\
+		}																																																			\
 	}
 
 	// Ability scores
