@@ -174,19 +174,25 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	}
 
 	// Footedness
-	{
-		GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
-		clearBox(footednessBox);
-		char footBuffer[16] = {0};
-		GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
-		snprintf(footBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
-		gtk_widget_set_tooltip_text(leftShoe, footBuffer);
-		gtk_box_append(footednessBox, leftShoe);
-		GtkWidget *rightShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_RIG] * 1.2), false);
-		snprintf(footBuffer, 16, "Right foot: %d", player->attributes[ATTR_RIG] / 5);
-		gtk_widget_set_tooltip_text(rightShoe, footBuffer);
-		gtk_box_append(footednessBox, rightShoe);
-	}
+	GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
+	clearBox(footednessBox);
+	char iconBuffer[16] = {0};
+	GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
+	snprintf(iconBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
+	gtk_widget_set_tooltip_text(leftShoe, iconBuffer);
+	gtk_box_append(footednessBox, leftShoe);
+	GtkWidget *rightShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_RIG] * 1.2), false);
+	snprintf(iconBuffer, 16, "Right foot: %d", player->attributes[ATTR_RIG] / 5);
+	gtk_widget_set_tooltip_text(rightShoe, iconBuffer);
+	gtk_box_append(footednessBox, rightShoe);
+
+	// Morale is a 1-20 rating, widened to the 1-120 index the colour gradient works in
+	GtkBox *moraleBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:morale")));
+	clearBox(moraleBox);
+	GtkWidget *face = icons_faceNew((uint8_t)(player->morale * 6));
+	snprintf(iconBuffer, 16, "Morale: %d", player->morale);
+	gtk_widget_set_tooltip_text(face, iconBuffer);
+	gtk_box_append(moraleBox, face);
 
 	setPercentage(context.builder, "label:condition", (int16_t)player->condition, false);
 	setPercentage(context.builder, "label:sharpness", (int16_t)player->sharpness, false);

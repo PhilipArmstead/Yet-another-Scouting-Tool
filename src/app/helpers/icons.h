@@ -12,6 +12,8 @@
 // Condition, sharpness and fatigue are all stored as basis points by the game
 #define HEART_MAX_VALUE 10000.f
 
+#define FACE_SIZE 32
+
 #define SHOE_WIDTH 18
 #define SHOE_HEIGHT 32
 
@@ -19,4 +21,5 @@ void icons_init(void);
 uint8_t icons_heartQuantise(float value, float max);
 void icons_heartAttach(GtkDrawingArea *area, uint8_t quality);
 GtkWidget *icons_heartNew(uint8_t quality);
+GtkWidget *icons_faceNew(uint8_t quality);
 GtkWidget *icons_shoeNew(uint8_t quality, bool mirrored);

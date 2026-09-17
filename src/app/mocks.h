@@ -32,6 +32,7 @@
 	.age = 24, \
 	.ca = 190, \
 	.pa = 190, \
+	.morale = 13, \
 	.canDevelopQuickly = false, \
 	.isHotProspect = false, \
 	})
@@ -59,6 +60,7 @@
 	.age = 17, \
 	.ca = 190, \
 	.pa = 200, \
+	.morale = 10, \
 	.canDevelopQuickly = true, \
 	.isHotProspect = true, \
 	})
@@ -86,6 +88,7 @@
 	.age = 24, \
 	.ca = 168, \
 	.pa = 184, \
+	.morale = 20, \
 	.canDevelopQuickly = false, \
 	.isHotProspect = true, \
 	.injury = {.duration = 5, .treatmentMask = 1, .date = (DateTime){.days=34, .year=2024, .time=15}}, \

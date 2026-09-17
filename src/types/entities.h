@@ -133,6 +133,7 @@ typedef struct {
 	uint8_t pa;
 	uint8_t height;
 	uint8_t weight;
+	uint8_t morale;
 	bool canDevelopQuickly;
 	bool isHotProspect;
 } Player;

@@ -3,7 +3,6 @@ TODO
 
 - To player-info
 	- 🚩 Add contract details
-	- Add happiness
 - To player search
 	- ⭐ Search player names
 	- ⭐ Pull players from in-game shortlist
