@@ -18,6 +18,7 @@ void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer);
 void ui_createClubFilterTag(const char *name, GtkEditable *buffer);
 void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer);
 void ui_createPositionFilterTag(const char *name, GtkCheckButton *button);
+void ui_loadStylesheet(const char *fileName, guint priority);
 
 WindowContext openWindow(const char *layoutName, const char *windowName, WindowType type, void *data);
 void ui_presentWindow(WindowContext context);

@@ -23,11 +23,10 @@ static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
 static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
 static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer);
 static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button);
-static void loadStylesheet(const char *fileName, guint priority);
 
 void ui_init(GtkApplication *app) {
-	loadStylesheet("styles.css", GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-	loadStylesheet(
+	ui_loadStylesheet("styles.css", GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	ui_loadStylesheet(
 		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
 		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
 	);
@@ -358,7 +357,7 @@ static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button) {
 }
 
 
-static void loadStylesheet(const char *fileName, const guint priority) {
+void ui_loadStylesheet(const char *fileName, const guint priority) {
 	char pathToStylesheet[256] = {0};
 	GtkCssProvider *provider = gtk_css_provider_new();
 

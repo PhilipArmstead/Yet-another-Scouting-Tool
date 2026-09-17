@@ -566,13 +566,16 @@ static void reloadOptions(void *userData) {
 	fclose(file);
 
 	LOG_INFO("Reloaded options from '%s'", optionsPath);
-	const int64_t timeStart = platform_getMicroseconds();
 
 	// Recalculate player ratings in case the option file's weights have changed
 	for (uint64_t i = 0; i < gameContext.playerCount; ++i) {
 		getSortedPositionRatings(&gameContext.players[i]);
 	}
-	LOG_INFO("Regen in %" PRId64 " microseconds", platform_getMicroseconds() - timeStart);
+
+	ui_loadStylesheet(
+		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
+		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
+	);
 
 	ui_refreshAllWindows();
 }
