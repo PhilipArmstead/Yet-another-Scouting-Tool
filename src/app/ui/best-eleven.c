@@ -239,7 +239,7 @@ static void renderBestElevenTable(const WindowContext context) {
 				snprintf(buffer, 128, "Injured: %s", injuryNames_get(player->injury.nameIndex));
 				gtk_widget_set_tooltip_text(label, buffer);
 			} else {
-				widgetHeart = icons_heartNew(icons_heartQuantise(player->condition, HEART_MAX_VALUE));
+				widgetHeart = icons_new(ICON_HEART, icons_conditionQuantise(player->condition));
 			}
 
 

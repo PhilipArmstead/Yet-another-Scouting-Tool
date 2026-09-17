@@ -177,19 +177,18 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 	GtkBox *footednessBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:footedness")));
 	clearBox(footednessBox);
 	char iconBuffer[16] = {0};
-	GtkWidget *leftShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_LEF] * 1.2), true);
+	GtkWidget *leftShoe = icons_new(ICON_SHOE_LEFT, icons_footQuantise(player->attributes[ATTR_LEF]));
 	snprintf(iconBuffer, 16, "Left foot: %d", player->attributes[ATTR_LEF] / 5);
 	gtk_widget_set_tooltip_text(leftShoe, iconBuffer);
 	gtk_box_append(footednessBox, leftShoe);
-	GtkWidget *rightShoe = icons_shoeNew((uint8_t)(player->attributes[ATTR_RIG] * 1.2), false);
+	GtkWidget *rightShoe = icons_new(ICON_SHOE_RIGHT, icons_footQuantise(player->attributes[ATTR_RIG]));
 	snprintf(iconBuffer, 16, "Right foot: %d", player->attributes[ATTR_RIG] / 5);
 	gtk_widget_set_tooltip_text(rightShoe, iconBuffer);
 	gtk_box_append(footednessBox, rightShoe);
 
-	// Morale is a 1-20 rating, widened to the 1-120 index the colour gradient works in
 	GtkBox *moraleBox = GTK_BOX(GTK_WIDGET(gtk_builder_get_object(context.builder, "box:morale")));
 	clearBox(moraleBox);
-	GtkWidget *face = icons_faceNew((uint8_t)(player->morale * 6));
+	GtkWidget *face = icons_new(ICON_FACE, icons_moraleQuantise(player->morale));
 	snprintf(iconBuffer, 16, "Morale: %d", player->morale);
 	gtk_widget_set_tooltip_text(face, iconBuffer);
 	gtk_box_append(moraleBox, face);
