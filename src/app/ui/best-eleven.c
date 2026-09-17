@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "app/ui.h"
 #include "app/entities.h"
 #include "app/injury-names.h"
 #include "app/maths.h"
+#include "app/player.h"
+#include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
 #include "app/helpers/vector.h"
@@ -87,6 +88,15 @@ void ui_renderBestElevenWindow(const WindowContext context) {
 	for (uint64_t i = 0; i < vector_length(gameContext.options.formations); ++i) {
 		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
 	}
+
+	const PlayerSnapshot *snapshot = context.data;
+	Player *players = snapshot != NULL ? snapshot->players : NULL;
+	const uint32_t playerCount = snapshot != NULL ? snapshot->count : 0;
+	for (uint32_t i = 0; i < playerCount; ++i) {
+		getSortedPositionRatings(&players[i]);
+	}
+
+	renderBestElevenTable(context);
 }
 
 /**
@@ -239,8 +249,6 @@ static void renderBestElevenTable(const WindowContext context) {
 		gtk_grid_attach(grid, widgetHeart, c++, i, 1, 1);
 		gtk_grid_attach(grid, widgetLabelRating, c++, i, 1, 1);
 		gtk_list_box_row_set_child(row, widgetGrid);
-
-		// TODO: show condition, if we're going to filter on them
 	}
 
 	if (playerIncludedCount > 0) {

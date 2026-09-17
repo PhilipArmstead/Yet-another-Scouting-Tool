@@ -11,3 +11,4 @@ uint64_t getPersonAddressFromPlayerAddress(void *handle, uint64_t playerAddress)
 uint64_t getCurrentPersonUniqueId(const ProcessContext *processContext);
 Player getPlayerById(const ProcessContext *processContext, uint64_t uniqueId);
 PositionWeights *getWeightsForPosition(PositionGrouped position);
+void getSortedPositionRatings(Player *player);

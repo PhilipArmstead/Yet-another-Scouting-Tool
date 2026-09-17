@@ -26,7 +26,6 @@ static inline void getPersonCommonName(void *handle, uint64_t attributeBase, cha
 static uint8_t getAge(void *handle, uint64_t address);
 static int64_t getClubIndexFromPerson(void *handle, uint64_t personAddress);
 static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint64_t uid);
-static void getSortedPositionRatings(Player *player);
 static float getRatingPerPosition(const Player *player, PositionGrouped position);
 
 // Assumes valid ProcessContext
@@ -63,16 +62,16 @@ Player getPlayerById(const ProcessContext *processContext, const uint64_t unique
 
 static uint64_t getPlayerAddressFromPersonAddress(void *handle, const uint64_t personAddress) {
 	const int64_t offset = isPersonAlsoStaff(handle, personAddress)
-													? STAFF_OFFSET_FROM_PERSON
-													: PLAYER_OFFSET_FROM_PERSON;
+		? STAFF_OFFSET_FROM_PERSON
+		: PLAYER_OFFSET_FROM_PERSON;
 
 	return personAddress + (uint64_t)offset;
 }
 
 uint64_t getPersonAddressFromPlayerAddress(void *handle, const uint64_t playerAddress) {
 	const int64_t offset = isPlayerAlsoStaff(handle, playerAddress)
-													? STAFF_OFFSET_FROM_PERSON
-													: PLAYER_OFFSET_FROM_PERSON;
+		? STAFF_OFFSET_FROM_PERSON
+		: PLAYER_OFFSET_FROM_PERSON;
 
 	return playerAddress - (uint64_t)offset;
 }
@@ -438,7 +437,7 @@ static float getRatingPerPosition(const Player *player, const PositionGrouped po
 	return rating;
 }
 
-static void getSortedPositionRatings(Player *player) {
+void getSortedPositionRatings(Player *player) {
 	PositionGrouped i = 0;
 	PositionGrouped j = 0;
 	while (i < POSITION_GROUPED_COUNT) {

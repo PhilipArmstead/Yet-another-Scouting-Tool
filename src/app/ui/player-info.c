@@ -62,6 +62,7 @@ void ui_renderPlayerInfoWindow(WindowContext context) {
 		return;
 	}
 
+	getSortedPositionRatings(&snapshot->players[0]);
 	const Player *player = &snapshot->players[0];
 
 	// Player name

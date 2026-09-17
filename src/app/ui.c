@@ -188,6 +188,11 @@ void ui_refreshAllWindows(void) {
 			ui_renderBestElevenWindow(gameContext.windows[i]);
 		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
 			ui_renderPlayerInfoWindow(gameContext.windows[i]);
+		} else if (
+			gameContext.windows[i].type == WINDOW_PLAYER_SEARCH &&
+			(gameContext.filterOptions.filterMask || gameContext.searchResults->data != NULL)
+		) {
+			searchHandler_doSearch(false);
 		}
 	}
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "options.h"
+#include "app/player.h"
 #include "app/types.h"
 #include "app/ui.h"
 #include "app/helpers/file-watcher.h"
@@ -565,6 +566,13 @@ static void reloadOptions(void *userData) {
 	fclose(file);
 
 	LOG_INFO("Reloaded options from '%s'", optionsPath);
+	const int64_t timeStart = platform_getMicroseconds();
+
+	// Recalculate player ratings in case the option file's weights have changed
+	for (uint64_t i = 0; i < gameContext.playerCount; ++i) {
+		getSortedPositionRatings(&gameContext.players[i]);
+	}
+	LOG_INFO("Regen in %" PRId64 " microseconds", platform_getMicroseconds() - timeStart);
 
 	ui_refreshAllWindows();
 }
