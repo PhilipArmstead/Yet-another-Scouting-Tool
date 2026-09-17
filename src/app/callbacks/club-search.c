@@ -130,7 +130,10 @@ static gboolean updateUIWithResults(gpointer userData) {
 
 // This runs on the worker thread; CPU-intensive work only
 static void runSearch(SearchContext *context) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
+
 	const char *searchValue = context->searchValue;
 
 	// The main thread frees and republishes the clubs, and this thread is detached, so the whole
@@ -163,8 +166,11 @@ static void runSearch(SearchContext *context) {
 
 	cache_unlockClubs();
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Searched %zu clubs in %zu microseconds", context->count, timeEnd - timeStart);
+	LOG_DEBUG(
+		"Searched %" PRIu64 " clubs in %" PRId64 " microseconds",
+		context->count,
+		platform_getMicroseconds() - timeStart
+	);
 
 	// Schedule UI update on the main thread
 	g_idle_add(updateUIWithResults, context);

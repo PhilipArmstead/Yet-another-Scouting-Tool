@@ -9,7 +9,7 @@
 #ifdef MOCKS_MODE
 #define PLAYER_VINI ((Player){ \
 	.attributes = { 68, 95, 83, 62, 62, 18, 86, 75, 59, 31, 73, 15, 5, 5, 5, 5, 10, 84, 81, 10, 47, 10, 73, 79, 100, 60, 80, 37, 63, 71, 24, 5, 5, 15, 93, 40, 61, 80, 88, 39, 69, 55, 79, 84, 69, 85, 88, 65, 25, 67, 78, 100, 75, 65, 15, 17, 12, 9, 14, 8, 4, 18 }, \
-	.ratings = { { .value = 81.530304, .position = POSITION_GROUPED_W }, { .value = 76.6908493, .position = POSITION_GROUPED_ST } }, \
+	.ratings = { { .value = 81.53f, .position = POSITION_GROUPED_W }, { .value = 76.69f, .position = POSITION_GROUPED_ST } }, \
 	.commonName = "Vinícius Júnior", \
 	.forename = "Vinícius José", \
 	.surname = "Paixão de Oliveira Júnior", \
@@ -38,13 +38,13 @@
 	})
 #define PLAYER_JEFF ((Player){ \
 	.attributes = { 68, 95, 83, 62, 62, 18, 86, 75, 59, 31, 73, 15, 5, 5, 5, 5, 10, 84, 81, 10, 47, 10, 73, 79, 60, 100, 80, 37, 63, 71, 24, 5, 5, 15, 93, 40, 61, 80, 88, 39, 69, 55, 79, 84, 69, 85, 88, 65, 25, 67, 78, 100, 75, 65, 15, 17, 12, 9, 14, 8, 4, 18 }, \
-	.ratings = { { .value = 92.654, .position = POSITION_GROUPED_W }, { .value = 90.584, .position = POSITION_GROUPED_AM } }, \
+	.ratings = { { .value = 92.65f, .position = POSITION_GROUPED_W }, { .value = 90.58f, .position = POSITION_GROUPED_AM } }, \
 	.forename = "Jeff", \
 	.surname = "Jefferson", \
 	.nationality = { 189, 255, 255, 255 }, \
 	.rowId = 99999, \
-	.rid = 9999999999, \
-	.uid = 9999999999, \
+	.rid = 999999999, \
+	.uid = 999999999, \
 	.personAddress = 0xa06df440, \
 	.playerAddress = 0xa06df1c8, \
 	.guideValue = 300000000, \
@@ -66,13 +66,13 @@
 	})
 #define PLAYER_GK ((Player){ \
 	.attributes = { 68, 95, 83, 62, 62, 18, 86, 75, 59, 31, 73, 15, 5, 5, 5, 5, 10, 84, 81, 10, 47, 10, 73, 79, 100, 24, 80, 37, 63, 71, 24, 5, 5, 15, 93, 40, 61, 80, 88, 39, 69, 55, 79, 84, 69, 85, 88, 65, 25, 67, 78, 100, 75, 65, 15, 17, 12, 9, 14, 8, 4, 18 }, \
-	.ratings = { { .value = 84.123, .position = POSITION_GROUPED_GK } }, \
+	.ratings = { { .value = 84.12f, .position = POSITION_GROUPED_GK } }, \
 	.forename = "Goal", \
 	.surname = "Keeper", \
 	.nationality = { 189, 255, 255, 255 }, \
 	.rowId = 99998, \
-	.rid = 9999999998, \
-	.uid = 9999999998, \
+	.rid = 999999998, \
+	.uid = 999999998, \
 	.personAddress = 0xa06df441, \
 	.playerAddress = 0xa06df1c9, \
 	.guideValue = 123456789, \

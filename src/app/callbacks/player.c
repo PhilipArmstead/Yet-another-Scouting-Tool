@@ -30,7 +30,7 @@ static void showPlayerById(const uint64_t uniqueId) {
 		return;
 	}
 
-	LOG_INFO("Searching for Player Unique ID: %lu", uniqueId);
+	LOG_INFO("Searching for Player Unique ID: %" PRIu64, uniqueId);
 
 #ifdef PLAYER_BY_ID
 	const Player player = PLAYER_BY_ID;
@@ -39,12 +39,12 @@ static void showPlayerById(const uint64_t uniqueId) {
 #endif
 
 	if (player.personAddress == 0) {
-		LOG_ERROR("Player with Unique ID %u not found", uniqueId);
+		LOG_ERROR("Player with Unique ID %" PRIu64 " not found", uniqueId);
 		return;
 	}
 
 	LOG_DEBUG(
-		"Found %s %s at address 0x%08x, 0x%08x",
+		"Found %s %s at address 0x%016" PRIx64 ", 0x%016" PRIx64,
 		player.forename,
 		player.surname,
 		player.personAddress,

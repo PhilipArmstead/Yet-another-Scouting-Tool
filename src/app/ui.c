@@ -173,12 +173,13 @@ static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
 		if (gameContext.windows[i].window == widget) {
 			WindowContext out;
 			vector_splice(gameContext.windows, i, &out);
+			g_object_unref(out.builder);
 			break;
 		}
 	}
 
 	(void)userData;
-	return G_SOURCE_REMOVE;
+	return GDK_EVENT_PROPAGATE;
 }
 
 void ui_refreshAllWindows(void) {

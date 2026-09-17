@@ -23,6 +23,7 @@ void platform_consoleWriteError(const char *message, const LogLevel colour) {
 // Memory
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
+#include <stdint.h>
 #include <string.h>
 
 
@@ -60,7 +61,16 @@ uint8_t readByte(void *handle, const uintptr_t address) {
 }
 
 void writeToMemory(void *handle, const uintptr_t address, const size_t length, const uint8_t *bytes) {
-	const kern_return_t kr = mach_vm_write((task_t)(uintptr_t)handle, address, (vm_offset_t)bytes, length);
+	if (length > UINT32_MAX) {
+		platform_consoleWriteError("Write length exceeds mach_vm_write limit\n", LogLevelError);
+		return;
+	}
+	const kern_return_t kr = mach_vm_write(
+		(task_t)(uintptr_t)handle,
+		address,
+		(vm_offset_t)bytes,
+		(mach_msg_type_number_t)length
+	);
 	if (kr != KERN_SUCCESS) {
 		platform_consoleWriteError("Failed to write to memory\n", LogLevelError);
 	}

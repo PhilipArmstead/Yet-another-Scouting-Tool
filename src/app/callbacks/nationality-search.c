@@ -38,7 +38,9 @@ void callbacks_onNationalityChange(GtkEditable *editable, const SearchDatalist *
 		return;
 	}
 
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 
 	uint64_t indices[NATIONALITY_SEARCH_LIMIT];
 	uint64_t count = 0;
@@ -69,8 +71,7 @@ void callbacks_onNationalityChange(GtkEditable *editable, const SearchDatalist *
 		indices[j + 1] = nationIndex;
 	}
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Searched %zu nations in %zu microseconds", count, timeEnd - timeStart);
+	LOG_DEBUG("Searched %" PRIu64 " nations in %" PRId64 " microseconds", count, platform_getMicroseconds() - timeStart);
 
 	// Clear the list
 	GtkWidget *child;

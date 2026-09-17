@@ -13,7 +13,9 @@ extern GameContext gameContext;
 
 // TODO: multithread this
 void search_findPlayers(void) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 
 	uint32_t *playerIds = NULL;
 	const FilterOptions options = gameContext.filterOptions;
@@ -114,6 +116,9 @@ void search_findPlayers(void) {
 	sharedPointer_unref(gameContext.searchResults);
 	gameContext.searchResults = sharedPointer_new(playerIds);
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Found %d players in %zu microseconds", vector_length(playerIds), timeEnd - timeStart);
+	LOG_DEBUG(
+		"Found %zu players in %" PRId64 " microseconds",
+		vector_length(playerIds),
+		platform_getMicroseconds() - timeStart
+	);
 }

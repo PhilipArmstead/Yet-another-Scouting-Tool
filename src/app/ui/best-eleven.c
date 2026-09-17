@@ -7,7 +7,6 @@
 #include "app/maths.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
-#include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -56,53 +55,25 @@ void ui_createBestElevenWindow(void) {
 	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI, snapshot);
 	g_object_set_data_full(G_OBJECT(context.window), "best-xi:players", snapshot, playerSnapshot_free);
 
-	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
-
-	// Heap allocate WindowContext so I can get it from inside this callback
 	WindowContext *cbContext = g_new(WindowContext, 1);
 	*cbContext = context; // copy the two pointers
-	g_signal_connect_data(
-		formationDropDown,
-		"notify::selected",
-		G_CALLBACK(onFormationSelected),
-		cbContext,
-		(GClosureNotify)g_free,
-		0
-	);
+	g_object_set_data_full(G_OBJECT(context.window), "best-xi:context", cbContext, g_free);
+
+	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
 
 	GtkSpinButton *spinMinAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-age"));
 	GtkSpinButton *spinMaxAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-age"));
 	GtkSpinButton *spinMinCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-condition"));
 	GtkSpinButton *spinMaxCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-condition"));
-	g_signal_connect_data(spinMinAge, "value-changed",G_CALLBACK(onFilterChange), cbContext, (GClosureNotify)g_free, 0);
-	g_signal_connect_data(spinMaxAge, "value-changed",G_CALLBACK(onFilterChange), cbContext, (GClosureNotify)g_free, 0);
-	g_signal_connect_data(
-		spinMinCondition,
-		"value-changed",
-		G_CALLBACK(onFilterChange),
-		cbContext,
-		(GClosureNotify)g_free,
-		0
-	);
-	g_signal_connect_data(
-		spinMaxCondition,
-		"value-changed",
-		G_CALLBACK(onFilterChange),
-		cbContext,
-		(GClosureNotify)g_free,
-		0
-	);
 	GtkWidget *checkboxExcludeInjured = GTK_WIDGET(
 		gtk_builder_get_object(context.builder, "checkbox:best-xi:exclude-injured")
 	);
-	g_signal_connect_data(
-		checkboxExcludeInjured,
-		"toggled",
-		G_CALLBACK(onFilterChange),
-		cbContext,
-		(GClosureNotify)g_free,
-		0
-	);
+	g_signal_connect(formationDropDown, "notify::selected", G_CALLBACK(onFormationSelected), cbContext);
+	g_signal_connect(spinMinAge, "value-changed", G_CALLBACK(onFilterChange), cbContext);
+	g_signal_connect(spinMaxAge, "value-changed", G_CALLBACK(onFilterChange), cbContext);
+	g_signal_connect(spinMinCondition, "value-changed", G_CALLBACK(onFilterChange), cbContext);
+	g_signal_connect(spinMaxCondition, "value-changed", G_CALLBACK(onFilterChange), cbContext);
+	g_signal_connect(checkboxExcludeInjured, "toggled", G_CALLBACK(onFilterChange), cbContext);
 
 	ui_renderBestElevenWindow(context);
 	ui_presentWindow(context);
@@ -110,10 +81,12 @@ void ui_createBestElevenWindow(void) {
 
 void ui_renderBestElevenWindow(const WindowContext context) {
 	GtkStringList *formationList = GTK_STRING_LIST(gtk_builder_get_object(context.builder, "string-list:formation"));
-	while (gtk_string_list_get_string(formationList, 0) != NULL)
+	while (gtk_string_list_get_string(formationList, 0) != NULL) {
 		gtk_string_list_remove(formationList, 0);
-	for (uint64_t i = 0; i < vector_length(gameContext.options.formations); ++i)
+	}
+	for (uint64_t i = 0; i < vector_length(gameContext.options.formations); ++i) {
 		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
+	}
 }
 
 /**
@@ -160,10 +133,15 @@ static void renderBestElevenTable(const WindowContext context) {
 	};
 
 	BestElevenRow rows[FORMATION_POSITION_COUNT] = {0};
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 	assignFormation(players, playerCount, formation.positions, filters, rows);
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Found best XI for %u players in %zu microseconds", playerCount, timeEnd - timeStart);
+	LOG_DEBUG(
+		"Found best XI for %" PRIu32 " players in %" PRId64 " microseconds",
+		playerCount,
+		platform_getMicroseconds() - timeStart
+	);
 
 	uint8_t playerIncludedCount = 0;
 	float ratingTotal = 0;
@@ -496,7 +474,7 @@ static void assignFormation(
 		return;
 	}
 	if (playerCount < FORMATION_POSITION_COUNT) {
-		LOG_WARN("Not enough players (%u) to fill formation; some slots will be empty", playerCount);
+		LOG_WARN("Not enough players (%" PRIu32 ") to fill formation; some slots will be empty", playerCount);
 	}
 
 	// Distinct positions requested by the formation.

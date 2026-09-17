@@ -15,7 +15,6 @@
 #include "platform/platform.h"
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "ui.h"
 
@@ -198,7 +197,9 @@ void cache_clear(void) {
 
 
 static void cacheNations(const uint32_t generation) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 
 #ifndef MOCKS_MODE
 	uint8_t bytes[8];
@@ -214,7 +215,7 @@ static void cacheNations(const uint32_t generation) {
 	const uint64_t nationCount = (nationEnd - nationStart) / NATION_LIST_STRIDE;
 	Nation *nations = calloc(nationCount, sizeof(Nation));
 	if (nations == NULL) {
-		LOG_ERROR("Failed to allocate memory for %llu nations", (unsigned long long)nationCount);
+		LOG_ERROR("Failed to allocate memory for %" PRIu64 " nations", nationCount);
 		return;
 	}
 
@@ -230,7 +231,7 @@ static void cacheNations(const uint32_t generation) {
 		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME, 8, bytes);
 		const uint64_t nameAddress = hexBytesToInt(bytes, 8);
 		if (!nameAddress) {
-			LOG_WARN("Nation %llu has no name pointer", i);
+			LOG_WARN("Nation %" PRIu64 " has no name pointer", i);
 			free(nations);
 			return;
 		}
@@ -249,10 +250,10 @@ static void cacheNations(const uint32_t generation) {
 		);
 	}
 #else
-	const uint8_t nationCount = 251;
+	const uint64_t nationCount = 251;
 	Nation *nations = calloc(nationCount, sizeof(Nation));
 	if (nations == NULL) {
-		LOG_ERROR("Failed to allocate memory for %llu nations", (unsigned long long)nationCount);
+		LOG_ERROR("Failed to allocate memory for %" PRIu64 " nations", nationCount);
 		return;
 	}
 	nations[189] = PLAYER_BY_ID_NATION_1;
@@ -265,12 +266,17 @@ static void cacheNations(const uint32_t generation) {
 	publish->generation = generation;
 	g_idle_add(publishNations, publish);
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Cached %d nations in %zu microseconds", nationCount, timeEnd - timeStart);
+	LOG_DEBUG(
+		"Cached %" PRIu64 " nations in %" PRId64 " microseconds",
+		nationCount,
+		platform_getMicroseconds() - timeStart
+	);
 }
 
 static void cacheClubs(const uint32_t generation) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 
 #ifndef MOCKS_MODE
 	uint8_t bytes[8];
@@ -288,7 +294,7 @@ static void cacheClubs(const uint32_t generation) {
 	// is kept either way because a player's clubIndex is a row ID, i.e. a position in this list.
 	Club *clubs = calloc(clubCount, sizeof(Club));
 	if (clubs == NULL) {
-		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
+		LOG_ERROR("Failed to allocate memory for %" PRIu64 " clubs", (unsigned long long)clubCount);
 		return;
 	}
 
@@ -329,13 +335,13 @@ static void cacheClubs(const uint32_t generation) {
 
 	const uint64_t cachedClubCount = clubCount;
 	if (missed > 0) {
-		LOG_WARN("Could not read a name for %llu of %llu clubs", (unsigned long long)missed, (unsigned long long)clubCount);
+		LOG_WARN("Could not read a name for %" PRIu64 " of %" PRIu64 " clubs", missed, clubCount);
 	}
 #else
 	const uint32_t clubCount = 36289;
 	Club *clubs = calloc(clubCount, sizeof(Club));
 	if (clubs == NULL) {
-		LOG_ERROR("Failed to allocate memory for %llu clubs", (unsigned long long)clubCount);
+		LOG_ERROR("Failed to allocate memory for %" PRIu32 " clubs", clubCount);
 		return;
 	}
 	clubs[1125] = PLAYER_BY_ID_CLUB;
@@ -348,13 +354,18 @@ static void cacheClubs(const uint32_t generation) {
 	publish->generation = generation;
 	g_idle_add(publishClubs, publish);
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG("Cached %llu clubs in %zu microseconds", (unsigned long long)cachedClubCount, timeEnd - timeStart);
+	LOG_DEBUG(
+		"Cached %" PRIu64 " clubs in %" PRId64 " microseconds",
+		cachedClubCount,
+		platform_getMicroseconds() - timeStart
+	);
 }
 
 static void cachePlayers(const uint8_t workerIndex) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
 	uint64_t cached = 0;
+#endif
 
 #ifndef MOCKS_MODE
 	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
@@ -377,7 +388,9 @@ static void cachePlayers(const uint8_t workerIndex) {
 			continue;
 		}
 		stagingPlayers[i] = player;
+#ifdef DEBUG
 		++cached;
+#endif
 	}
 #else
 	Player playerVini = PLAYER_VINI;
@@ -387,21 +400,18 @@ static void cachePlayers(const uint8_t workerIndex) {
 	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
 	const uint64_t end = stagingPlayerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
 	for (uint64_t i = start; i < end; i++) {
-		++cached;
-		if (i % 3 == 0) {
-			memcpy(&stagingPlayers[i], &playerGk, sizeof(Player));
-		} else {
-			memcpy(&stagingPlayers[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
-		}
+#ifdef DEBUG
+	++cached;
+#endif
+	if (i % 3 == 0) {
+		memcpy(&stagingPlayers[i], &playerGk, sizeof(Player));
+	} else {
+		memcpy(&stagingPlayers[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
+	}
 	}
 #endif
 
-	const int64_t timeEnd = platform_getMicroseconds();
-	LOG_DEBUG(
-		"Cached %llu players in %llu microseconds",
-		(unsigned long long)cached,
-		(unsigned long long)(timeEnd - timeStart)
-	);
+	LOG_DEBUG("Cached %" PRIu64 " players in %" PRId64 " microseconds", cached, platform_getMicroseconds() - timeStart);
 }
 
 void cache_run(void) {
@@ -426,7 +436,7 @@ void cache_run(void) {
 	free(stagingPlayers);
 	stagingPlayers = calloc(playerCount, sizeof(Player));
 	if (stagingPlayers == NULL) {
-		LOG_ERROR("Failed to allocate memory for %llu players", (unsigned long long)playerCount);
+		LOG_ERROR("Failed to allocate memory for %" PRIu64 " players", playerCount);
 		stagingPlayerCount = 0;
 		return;
 	}

@@ -56,7 +56,7 @@ Player getPlayerById(const ProcessContext *processContext, const uint64_t unique
 		return getPlayer(processContext->handle, false, personAddress, 0);
 	}
 
-	LOG_ERROR("Could not find player by ID %d", uniqueId);
+	LOG_ERROR("Could not find player by ID %" PRIu64, uniqueId);
 
 	return (Player){0};
 }

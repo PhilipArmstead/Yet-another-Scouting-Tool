@@ -33,9 +33,6 @@ gboolean callbacks_onWindowKeypress(
 	GdkModifierType state,
 	gpointer window
 ) {
-	(void)controller;
-	(void)keycode;
-
 	const gboolean ctrl = (state & GDK_CONTROL_MASK) != 0;
 	const gboolean meta = (state & GDK_META_MASK) != 0;
 	const gboolean alt = (state & GDK_ALT_MASK) != 0;
@@ -61,6 +58,12 @@ gboolean callbacks_onWindowKeypress(
 		return TRUE;
 	}
 #endif
+
+	(void)controller;
+	(void)keycode;
+	(void)ctrl;
+	(void)meta;
+	(void)alt;
 
 	return FALSE;
 }

@@ -256,16 +256,16 @@ static void setupRatingLabel(const GtkSignalListItemFactory *factory, GtkListIte
 
 static void printNumeric(GtkWidget *label, const int64_t value) {
 	gchar buffer[32];
-	g_snprintf(buffer, sizeof(buffer), "%zu", value);
-	if (value > 999) {
+	g_snprintf(buffer, sizeof(buffer), "%" PRId64, value);
+	if (value > 999 || value < -999) {
 		formatter_printNumber(buffer);
 	}
 	gtk_label_set_text(GTK_LABEL(label), buffer);
 }
 
-static void printCurrency(GtkWidget *label, uint64_t value) {
+static void printCurrency(GtkWidget *label, const uint64_t value) {
 	gchar buffer[32];
-	g_snprintf(buffer, sizeof(buffer), "%zu", value);
+	g_snprintf(buffer, sizeof(buffer), "%" PRIu64, value);
 	formatter_printCurrency(buffer);
 	gtk_label_set_xalign(GTK_LABEL(label), 0);
 	gtk_label_set_text(GTK_LABEL(label), buffer);
@@ -721,7 +721,9 @@ void playerTable_clear(void) {
 }
 
 void playerTable_populate(void) {
+#ifdef DEBUG
 	const int64_t timeStart = platform_getMicroseconds();
+#endif
 
 	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(context.table));
 	gtk_adjustment_set_value(adjustment, 0);
@@ -739,8 +741,8 @@ void playerTable_populate(void) {
 			continue;
 		}
 
-		const Player *player = &gameContext.players[playerIds[i]];
-		SearchPlayerRow *row = search_player_row_new((Player*)player);
+		Player *player = &gameContext.players[playerIds[i]];
+		SearchPlayerRow *row = search_player_row_new(player);
 		g_list_store_append(store, row);
 		g_object_unref(row);
 	}
@@ -774,7 +776,5 @@ void playerTable_populate(void) {
 	);
 	gtk_label_set_text(resultsCountLabel, resultCountString);
 
-	const int64_t timeEnd = platform_getMicroseconds();
-
-	LOG_DEBUG("Rendered %zu players in %lld microseconds", playerCount, (long long)(timeEnd - timeStart));
+	LOG_DEBUG("Rendered %zu players in %" PRId64 " microseconds", playerCount, platform_getMicroseconds() - timeStart);
 }

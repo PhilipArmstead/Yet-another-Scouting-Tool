@@ -11,18 +11,16 @@
 bool logger_init(void);
 void logger_shutdown(void);
 void logger_flush(void);
-void logger_output(LogLevel level, const char *message, ...);
+void logger_output(LogLevel level, const char *message, ...) G_GNUC_PRINTF(2, 3);
 
-#define ERROR_EXIT(message, ...) { LOG_FATAL(message, ##__VA_ARGS__); exit(1); }
-#define ERROR_RETURN(R, message, ...) { LOG_FATAL(message, ##__VA_ARGS__); return (R); }
-#define LOG_FATAL(message, ...) logger_output(LogLevelFatal, message, ##__VA_ARGS__)
-#define LOG_ERROR(message, ...) logger_output(LogLevelError, message, ##__VA_ARGS__)
-#define LOG_WARN(message, ...) logger_output(LogLevelWarn, message, ##__VA_ARGS__)
-#define LOG_INFO(message, ...) logger_output(LogLevelInfo, message, ##__VA_ARGS__)
+#define ERROR_EXIT(...) { LOG_FATAL(__VA_ARGS__); exit(1); }
+#define ERROR_RETURN(R, ...) { LOG_FATAL(__VA_ARGS__); return (R); }
+#define LOG_FATAL(...) logger_output(LogLevelFatal, __VA_ARGS__)
+#define LOG_ERROR(...) logger_output(LogLevelError, __VA_ARGS__)
+#define LOG_WARN(...) logger_output(LogLevelWarn, __VA_ARGS__)
+#define LOG_INFO(...) logger_output(LogLevelInfo, __VA_ARGS__)
 #ifdef DEBUG
-#define LOG_DEBUG(message, ...) \
-        logger_output(LogLevelDebug, message, ##__VA_ARGS__)
+#define LOG_DEBUG(...) logger_output(LogLevelDebug, __VA_ARGS__)
 #else
-#define LOG_DEBUG(message, ...) \
-        do { } while (0)
+#define LOG_DEBUG(...) do { } while (0)
 #endif
