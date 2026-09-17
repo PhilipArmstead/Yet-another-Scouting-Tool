@@ -78,7 +78,7 @@ void platform_openProcess(ProcessContext *context) {
 
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		LOG_ERROR("Failed to create process snapshot: %s", GetLastError());
+		LOG_ERROR("Failed to create process snapshot: %ld", GetLastError());
 		return;
 	}
 
@@ -107,14 +107,14 @@ void platform_openProcess(ProcessContext *context) {
 
 	HANDLE h = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION, FALSE, pid);
 	if (h == NULL || h == INVALID_HANDLE_VALUE) {
-		LOG_ERROR("Failed to open process with PID %u: access denied or process not found", pid);
+		LOG_ERROR("Failed to open process with PID %ld: access denied or process not found", pid);
 		return;
 	}
 
 	// Get the base address of the module
 	HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
 	if (snap == INVALID_HANDLE_VALUE) {
-		LOG_ERROR("Failed to create module snapshot: %d", GetLastError());
+		LOG_ERROR("Failed to create module snapshot: %ld", GetLastError());
 		CloseHandle(h);
 		return;
 	}
@@ -136,7 +136,7 @@ void platform_openProcess(ProcessContext *context) {
 	CloseHandle(snap);
 
 	if (moduleNotFound) {
-		LOG_ERROR("Module '%s' not found in process with PID %u", "fm.exe", pid);
+		LOG_ERROR("Module 'fm.exe' not found in process with PID %ld", pid);
 		CloseHandle(h);
 		return;
 	}
@@ -155,12 +155,12 @@ int64_t platform_getMicroseconds(void) {
 }
 
 // Paths
-void platform_getExecutableDirectory(char *buffer, const size_t size) {
+void platform_getExecutableDirectory(char *buffer, const DWORD size) {
 	if (size == 0) {
 		return;
 	}
 
-	const DWORD length = GetModuleFileNameA(NULL, buffer, (DWORD)size);
+	const DWORD length = GetModuleFileNameA(NULL, buffer, size);
 	if (length == 0 || length >= size) {
 		platform_consoleWriteError("Could not resolve executable path\n", LogLevelError);
 		buffer[0] = '\0';

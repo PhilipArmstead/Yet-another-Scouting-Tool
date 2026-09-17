@@ -43,7 +43,7 @@ void writeToMemory(void *handle, uintptr_t address, size_t length, const uint8_t
 void platform_openProcess(ProcessContext *context);
 
 // Paths
-void platform_getExecutableDirectory(char *buffer, size_t size);
+void platform_getExecutableDirectory(char *buffer, DWORD size);
 
 // Time
 int64_t platform_getMicroseconds(void);
