@@ -113,13 +113,13 @@ void callbacks_updateFilterTags(void) {
 		gtk_entry_buffer_set_text(fb.maxPA, "", 1);
 	}
 	if (options.filterMask & FILTER_HAS_MIN_RATING) {
-		snprintf(buffer, 32, "Rating ≥ %f.2%%", options.minRating);
+		snprintf(buffer, 32, "Rating ≥ %.2f%%", options.minRating);
 		ui_createFilterTag(buffer, fb.minRating);
 	} else {
 		gtk_entry_buffer_set_text(fb.minRating, "", 1);
 	}
 	if (options.filterMask & FILTER_HAS_MAX_RATING) {
-		snprintf(buffer, 32, "Rating ≤ %f.2%%", options.maxRating);
+		snprintf(buffer, 32, "Rating ≤ %.2f%%", options.maxRating);
 		ui_createFilterTag(buffer, fb.maxRating);
 	} else {
 		gtk_entry_buffer_set_text(fb.maxRating, "", 1);
@@ -140,7 +140,20 @@ void callbacks_updateFilterTags(void) {
 	if (options.filterMask & FILTER_HAS_POSITION) {
 		// Indices line up with the POSITION_MASK_* bit positions
 		static const char *const names[] = {
-			"GK", "DL", "DC", "DR", "WBL", "DM", "WBR", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST",
+			"GK",
+			"DL",
+			"DC",
+			"DR",
+			"WBL",
+			"DM",
+			"WBR",
+			"ML",
+			"MC",
+			"MR",
+			"AML",
+			"AMC",
+			"AMR",
+			"ST",
 		};
 		const CheckBox *checks = &gameContext.checkboxes;
 		GtkCheckButton *const buttons[] = {
