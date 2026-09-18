@@ -4,12 +4,13 @@
 #include "player-table.h"
 #include "app/entities.h"
 #include "app/injury-names.h"
+#include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
-#include "app/ui.h"
 #include "core/logger.h"
 #include "platform/platform.h"
+#include "types/position-code-names.h"
 
 #include <glib.h>
 

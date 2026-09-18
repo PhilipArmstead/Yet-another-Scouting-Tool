@@ -11,6 +11,7 @@
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
+#include "types/position-code-names.h"
 
 
 typedef struct {

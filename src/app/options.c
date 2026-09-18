@@ -9,14 +9,93 @@
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
+#include "types/position-code-names.h"
 
 #include <stdio.h>
 #include <string.h>
 
 
 #define OPTIONS_FILE_NAME "options.yaml"
-#define OPTIONS_PATH_BUFFER_SIZE 4096
+#define OPTIONS_PATH_BUFFER_SIZE (4096 - 12)
 #define OPTIONS_LINE_BUFFER_SIZE 512
+
+static const char *attributeNames[ATTRIBUTE_COUNT] = {
+	"Crossing",
+	"Dribbling",
+	"Finishing",
+	"Heading",
+	"LongShots",
+	"Marking",
+	"OffTheBall",
+	"Passing",
+	"PenaltyTaking",
+	"Tackling",
+	"Vision",
+	"Handling",
+	"AerialReach",
+	"CommandOfArea",
+	"Communication",
+	"Kicking",
+	"Throwing",
+	"Anticipation",
+	"Decisions",
+	"OneOnOnes",
+	"Positioning",
+	"Reflexes",
+	"FirstTouch",
+	"Technique",
+	"LeftFoot",
+	"RightFoot",
+	"Flair",
+	"CornerTaking",
+	"Teamwork",
+	"WorkRate",
+	"LongThrows",
+	"Eccentricity",
+	"RushingOut",
+	"Punching",
+	"Acceleration",
+	"FreeKickTaking",
+	"Strength",
+	"Stamina",
+	"Pace",
+	"JumpingReach",
+	"Leadership",
+	"Dirtiness",
+	"Balance",
+	"Bravery",
+	"Consistency",
+	"Aggression",
+	"Agility",
+	"ImportantMatches",
+	"InjuryProneness",
+	"Versatility",
+	"NaturalFitness",
+	"Determination",
+	"Composure",
+	"Concentration",
+	"Adaptability",
+	"Ambition",
+	"Loyalty",
+	"Pressure",
+	"Professionalism",
+	"Sportsmanship",
+	"Temperament",
+	"Controversy",
+};
+
+static const char *positionGroupedCodes[POSITION_GROUPED_COUNT + 1] = {
+	"GK",
+	"FB",
+	"CB",
+	"WB",
+	"DM",
+	"MC",
+	"W",
+	"AM",
+	"ST",
+	"General",
+};
 
 extern GameContext gameContext;
 

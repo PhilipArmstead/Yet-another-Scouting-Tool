@@ -21,21 +21,3 @@ typedef enum PositionCode {
 	POSITION_CODE_WBR,
 	POSITION_CODE_COUNT,
 } PositionCode;
-
-static const char *positionCodeNames[POSITION_CODE_COUNT] = {
-	"GK",
-	"SW",
-	"DL",
-	"DC",
-	"DR",
-	"DM",
-	"ML",
-	"MC",
-	"MR",
-	"AML",
-	"AMC",
-	"AMR",
-	"ST",
-	"WBL",
-	"WBR",
-};

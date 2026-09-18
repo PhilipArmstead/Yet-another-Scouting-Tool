@@ -14,7 +14,17 @@
 #include <string.h>
 
 
-extern GameContext gameContext;
+static const char *positionGroupedNames[POSITION_GROUPED_COUNT] = {
+	"Goalkeeper",
+	"Full back",
+	"Centre back",
+	"Wing back",
+	"Defensive midfielder",
+	"Midfielder",
+	"Winger",
+	"Attacking midfielder",
+	"Striker"
+};
 
 static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints, const bool inverted) {
 	char buffer[44];

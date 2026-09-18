@@ -413,7 +413,6 @@ static float getRatingPerPosition(const Player *player, const PositionGrouped po
 	if (!canPlay) {
 		return 0.0f;
 	}
-	// LOG_INFO("%s can play	%d", player->forename, position);
 
 	const PositionWeights *weights = getWeightsForPosition(position);
 	const float totalScale = weights->scale;
@@ -425,14 +424,12 @@ static float getRatingPerPosition(const Player *player, const PositionGrouped po
 		if (value > 0.1f || value < -0.1f) {
 			const float scaledValue = (float)player->attributes[attribute] / 100.f;
 			rating += value * scaledValue;
-			// LOG_INFO("Attribute %s has a weight of %f", attributeNames[attribute], value);
 		}
 	}
 
 	if (totalScale != 0.f) {
 		rating /= totalScale;
 	}
-	// LOG_INFO("Final rating after dividing by %f: %f", totalWeight, rating);
 
 	return rating;
 }
