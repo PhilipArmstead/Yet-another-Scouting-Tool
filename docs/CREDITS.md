@@ -27,6 +27,6 @@ grateful to the hardworking people who make these so I don't have to.
 The following assets were created by me for this project. They are licensed under
 the [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) licence.
 
-- ![Pitch](./assets/icons/pitch.svg)
-- ![Sort icon](./assets/icons/sort-ascending.svg)
+- ![Pitch](../assets/icons/pitch.svg)
+- ![Sort icon](../assets/icons/sort-ascending.svg)
 
