@@ -83,6 +83,10 @@ headerbar {
 	padding: 4px 6px;
 }
 
+.status-row > * {
+	padding-left: 80px;
+}
+
 /** Player search */
 .topbar {
 	background-color: var(--background-colour-topbar);
@@ -111,6 +115,7 @@ headerbar {
 
 .version, .date {
 	color: var(--colour-primary-dark);
+	margin-left: 10px;
 }
 
 .filterbar {
