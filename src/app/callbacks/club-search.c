@@ -176,38 +176,20 @@ static void runSearch(SearchContext *context) {
 	g_idle_add(updateUIWithResults, context);
 }
 
-#ifdef ARCH_WIN
-static DWORD WINAPI threadFunction(LPVOID arg) {
-	runSearch(arg);
-	return 0;
-}
-#else
-static void *threadFunction(void *arg) {
+static gpointer threadFunction(gpointer arg) {
 	runSearch(arg);
 	return NULL;
 }
-#endif
 
 static void runThreadedSearch(SearchContext *context) {
-#ifdef ARCH_WIN
-	if (CreateThread(
-		NULL,
-		0,
-		threadFunction,
-		context,
-		0,
-		NULL
-	) == NULL) {
-		LOG_ERROR("Failed to create thread.");
+	GError *error = NULL;
+	GThread *thread = g_thread_try_new("club-search", threadFunction, context, &error);
+	if (thread == NULL) {
+		LOG_ERROR("Failed to create club-search thread: %s", error->message);
+		g_clear_error(&error);
 		free(context);
+		return;
 	}
-#else
-	pthread_t thread;
-	if (pthread_create(&thread, NULL, threadFunction, context) != 0) {
-		LOG_ERROR("Failed to create club-search thread");
-		free(context);
-	} else {
-		pthread_detach(thread);
-	}
-#endif
+
+	g_thread_unref(thread);
 }

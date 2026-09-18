@@ -86,9 +86,27 @@ else ()
 	set(WIN_ICON_RC "")
 endif ()
 
+# Exactly one platform backend is compiled. Selecting it here rather than wrapping each file in
+# `#if defined(ARCH_*)` means an unimplemented or misnamed entry point is an unresolved-symbol
+# error at link time, instead of a translation unit that silently compiles to nothing.
+# APPLE must be tested before UNIX, because macOS satisfies both.
+if (WIN32)
+	set(PLATFORM_SOURCES src/platform/windows.c)
+elseif (APPLE)
+	set(PLATFORM_SOURCES src/platform/macos.c)
+elseif (UNIX)
+	set(PLATFORM_SOURCES src/platform/linux.c)
+else ()
+	message(FATAL_ERROR
+		"No platform backend exists for '${CMAKE_SYSTEM_NAME}'. Add one under src/platform/ and "
+		"wire it up here."
+	)
+endif ()
+
 add_executable(yast
 	${GRESOURCE_C}
 	${WIN_ICON_RC}
+	${PLATFORM_SOURCES}
 	src/main.c
 	src/app/callbacks.c
 	src/app/cache.c
@@ -114,9 +132,6 @@ add_executable(yast
 	src/app/ui/best-eleven.c
 	src/app/ui/player-info.c
 	src/core/logger.c
-	src/platform/linux.c
-	src/platform/macos.c
-	src/platform/windows.c
 )
 
 # Prevent a console/terminal window in Release builds.

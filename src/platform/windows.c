@@ -4,7 +4,6 @@
 #include "platform.h"
 
 
-#if defined(ARCH_WIN)
 // Logging
 #include <stdio.h>
 #include <string.h>
@@ -179,4 +178,3 @@ void platform_getExecutableDirectory(char *buffer, const size_t size) {
 		lastSlash[1] = '\0';
 	}
 }
-#endif

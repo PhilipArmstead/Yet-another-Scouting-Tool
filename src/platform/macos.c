@@ -4,7 +4,6 @@
 #include "platform.h"
 
 
-#if defined(ARCH_MACOS)
 // Logging
 #include <stdio.h>
 
@@ -203,4 +202,3 @@ void platform_getExecutableDirectory(char *buffer, const size_t size) {
 		lastSlash[1] = '\0';
 	}
 }
-#endif

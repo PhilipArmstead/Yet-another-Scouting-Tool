@@ -5,29 +5,9 @@
 
 #include "app/types.h"
 
-#include <unistd.h>
-
-
-#ifdef ARCH_WIN
-#include <windows.h>
-
-typedef HANDLE thread_t;
-typedef HANDLE event_t;
-#endif
-#ifdef ARCH_LINUX
-#include <pthread.h>
-#include <semaphore.h>
-
-typedef pthread_t thread_t;
-typedef sem_t event_t;
-#endif
-#ifdef ARCH_MACOS
-#include <pthread.h>
-#include <semaphore.h>
-
-typedef mach_port_t thread_t;
-typedef sem_t event_t;
-#endif
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 
 // Logger
