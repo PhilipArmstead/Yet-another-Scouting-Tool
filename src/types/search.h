@@ -19,4 +19,7 @@ typedef struct {
 	// Store results from the worker thread
 	uint64_t clubIndices[CLUB_SEARCH_LIMIT];
 	uint64_t count;
+	// Value of the club-search generation counter when this search started. Anything that no
+	// longer matches has been superseded and is discarded rather than rendered.
+	gint generation;
 } SearchContext;

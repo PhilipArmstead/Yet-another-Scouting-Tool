@@ -13,7 +13,27 @@
 
 extern GameContext gameContext;
 
+/**
+ * Bumped on every keystroke, and once more when the search entry is torn down. Each worker carries
+ * the value it started with, so anything that no longer matches belongs to a superceded keystroke —
+ * or to a window that is going away — and is thrown away instead of touching the UI.
+ *
+ * Only the main thread writes it, but the workers read it, so every access goes through
+ * g_atomic_int_*.
+ */
+static gint searchGeneration = 0;
+
 static void runThreadedSearch(SearchContext *context);
+
+// The entry, popover and list box all belong to the main window, so once that is destroyed the
+// pointers held in gameContext.clubDatalist dangle. Invalidating every in-flight search here stops
+// a worker that is mid-scan from calling back into freed widgets.
+static void onSearchEntryDestroy(GtkWidget *widget, gpointer userData) {
+	(void)widget;
+	(void)userData;
+
+	g_atomic_int_add(&searchGeneration, 1);
+}
 
 void clubSearch_init(void) {
 	GtkBuilder *builder = gameContext.builder;
@@ -30,6 +50,7 @@ void clubSearch_init(void) {
 
 	g_signal_connect(dataList->entry, "changed", G_CALLBACK(callbacks_OnClubNameChange), dataList);
 	g_signal_connect(dataList->listBox, "row-activated", G_CALLBACK(callbacks_onClubNameSelected), dataList);
+	g_signal_connect(dataList->entry, "destroy", G_CALLBACK(onSearchEntryDestroy), NULL);
 }
 
 void callbacks_OnClubNameChange(GtkEditable *editable, SearchDatalist *dataList) {
@@ -44,6 +65,9 @@ void callbacks_OnClubNameChange(GtkEditable *editable, SearchDatalist *dataList)
 	SearchContext *context = malloc(sizeof(SearchContext));
 	context->dataList = dataList;
 	context->count = 0;
+	// g_atomic_int_add returns the previous value, so this records the generation the keystroke
+	// establishes; every search started before it is now stale.
+	context->generation = g_atomic_int_add(&searchGeneration, 1) + 1;
 	strncpy(context->searchValue, searchValue, CLUB_SEARCH_NAME_LENGTH - 1);
 	context->searchValue[CLUB_SEARCH_NAME_LENGTH - 1] = '\0';
 
@@ -93,6 +117,14 @@ void callbacks_onClubNameSelected(
 // This runs on the main thread; it's safe to modify the UI
 static gboolean updateUIWithResults(gpointer userData) {
 	SearchContext *context = userData;
+
+	// Authoritative staleness check: this runs on the main thread, so neither a newer keystroke nor
+	// the window teardown can slip in between here and the last gtk_* call below.
+	if (context->generation != g_atomic_int_get(&searchGeneration)) {
+		free(context);
+		return G_SOURCE_REMOVE;
+	}
+
 	const SearchDatalist *dataList = context->dataList;
 	gtk_popover_popdown(dataList->popover);
 
@@ -135,6 +167,13 @@ static void runSearch(SearchContext *context) {
 #endif
 
 	const char *searchValue = context->searchValue;
+
+	// Typing queues one worker per keystroke, so bail before taking the lock if a later keystroke
+	// has already superseded this search. Purely an optimisation; updateUIWithResults re-checks.
+	if (g_atomic_int_get(&searchGeneration) != context->generation) {
+		free(context);
+		return;
+	}
 
 	// The main thread frees and republishes the clubs, and this thread is detached, so the whole
 	// scan is taken under the cache's lock rather than racing the swap.
