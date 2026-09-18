@@ -155,12 +155,12 @@ int64_t platform_getMicroseconds(void) {
 }
 
 // Paths
-void platform_getExecutableDirectory(char *buffer, const DWORD size) {
+void platform_getExecutableDirectory(char *buffer, const size_t size) {
 	if (size == 0) {
 		return;
 	}
 
-	const DWORD length = GetModuleFileNameA(NULL, buffer, size);
+	const DWORD length = GetModuleFileNameA(NULL, buffer, (DWORD)size);
 	if (length == 0 || length >= size) {
 		platform_consoleWriteError("Could not resolve executable path\n", LogLevelError);
 		buffer[0] = '\0';
