@@ -5,6 +5,6 @@
 #include "app/ui.h"
 
 
-G_MODULE_EXPORT void callbacks_onShowBestEleven(void) {
+BUILDER_CALLBACK void callbacks_onShowBestEleven(void) {
 	ui_createBestElevenWindow();
 }

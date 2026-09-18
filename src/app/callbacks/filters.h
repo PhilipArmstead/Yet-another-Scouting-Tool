@@ -3,13 +3,15 @@
 
 #pragma once
 
+#include "app/builder-callback.h"
+
 #include <gtk/gtk.h>
 
 
-G_MODULE_EXPORT void callbacks_onFiltersClear(void);
-G_MODULE_EXPORT void callbacks_onFilterRun(void);
-G_MODULE_EXPORT void callbacks_onPositionToggled(GtkCheckButton *button, gpointer data);
-G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
+BUILDER_CALLBACK void callbacks_onFiltersClear(void);
+BUILDER_CALLBACK void callbacks_onFilterRun(void);
+BUILDER_CALLBACK void callbacks_onPositionToggled(GtkCheckButton *button, gpointer data);
+BUILDER_CALLBACK gboolean callbacks_onFiltersKeypress(
 	GtkEventControllerKey *controller,
 	guint keyval,
 	guint keycode,

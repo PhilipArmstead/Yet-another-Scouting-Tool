@@ -3,13 +3,15 @@
 
 #pragma once
 
+#include "app/builder-callback.h"
+
 #include <gtk/gtk.h>
 
 
 void callbacks_init(void);
-G_MODULE_EXPORT void callbacks_onShowQualityAccordionToggle(void);
-G_MODULE_EXPORT void callbacks_onShowPositionAccordionToggle(void);
-G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void);
+BUILDER_CALLBACK void callbacks_onShowQualityAccordionToggle(void);
+BUILDER_CALLBACK void callbacks_onShowPositionAccordionToggle(void);
+BUILDER_CALLBACK void callbacks_onShowCurrentPlayer(void);
 gboolean callbacks_onWindowKeypress(
 	GtkEventControllerKey *controller,
 	guint keyval,

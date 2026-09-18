@@ -15,7 +15,7 @@ extern GameContext gameContext;
 // Set while we mutate filter widgets ourselves, so their change signals do not re-run a search
 static bool filtersAreResetting = false;
 
-G_MODULE_EXPORT void callbacks_onFiltersClear(void) {
+BUILDER_CALLBACK void callbacks_onFiltersClear(void) {
 	filtersAreResetting = true;
 	searchHandler_clearFilters();
 	filtersAreResetting = false;
@@ -24,7 +24,7 @@ G_MODULE_EXPORT void callbacks_onFiltersClear(void) {
 	playerTable_clear();
 }
 
-G_MODULE_EXPORT void callbacks_onPositionToggled(GtkCheckButton *button, gpointer data) {
+BUILDER_CALLBACK void callbacks_onPositionToggled(GtkCheckButton *button, gpointer data) {
 	(void)button;
 	(void)data;
 
@@ -42,7 +42,7 @@ G_MODULE_EXPORT void callbacks_onPositionToggled(GtkCheckButton *button, gpointe
 	callbacks_updateFilterTags();
 }
 
-G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
+BUILDER_CALLBACK gboolean callbacks_onFiltersKeypress(
 	GtkEventControllerKey *controller,
 	guint keyval,
 	guint keycode,
@@ -64,7 +64,7 @@ G_MODULE_EXPORT gboolean callbacks_onFiltersKeypress(
 	return FALSE;
 }
 
-G_MODULE_EXPORT void callbacks_onFilterRun(void) {
+BUILDER_CALLBACK void callbacks_onFilterRun(void) {
 	searchHandler_doSearch(true);
 	callbacks_updateFilterTags();
 }

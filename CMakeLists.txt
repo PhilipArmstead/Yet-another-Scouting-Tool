@@ -173,6 +173,30 @@ target_compile_options(yast PRIVATE
 	>
 )
 
+# Link-time optimisation, so the compiler can inline across translation units. Guarded because
+# not every toolchain ships a working plugin, and a missing one is a hard error otherwise.
+include(CheckIPOSupported)
+check_ipo_supported(RESULT IPO_SUPPORTED OUTPUT IPO_ERROR LANGUAGES C)
+if (IPO_SUPPORTED)
+	set_property(TARGET yast PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+else ()
+	message(STATUS "Link-time optimisation unavailable, continuing without it: ${IPO_ERROR}")
+endif ()
+
+# Drop the debug symbol table from Release builds; on MinGW it is the single largest contributor
+# to the binary, dwarfing the code itself. Only that table goes, never the dynamic export tables
+# GtkBuilder needs to resolve signal handlers by name at runtime (-rdynamic on Linux,
+# __declspec(dllexport) via G_MODULE_EXPORT on Windows).
+#
+# Note this is deliberately not paired with --gc-sections: nothing references those handlers
+# statically, so section GC discards them and the UI silently stops responding.
+if (APPLE)
+	# ld64 has no -s; -x drops the local symbols and leaves the external ones intact.
+	target_link_options(yast PRIVATE $<$<CONFIG:Release>:-Wl,-x>)
+elseif (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+	target_link_options(yast PRIVATE $<$<CONFIG:Release>:-s>)
+endif ()
+
 target_compile_definitions(yast PRIVATE
 	$<$<PLATFORM_ID:Windows>:ARCH_WIN>
 	$<$<PLATFORM_ID:Linux>:ARCH_LINUX>

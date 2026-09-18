@@ -12,7 +12,7 @@ extern ProcessContext processContext;
 
 static void showPlayerById(uint64_t uniqueId);
 
-G_MODULE_EXPORT void callbacks_onShowCurrentPlayer(void) {
+BUILDER_CALLBACK void callbacks_onShowCurrentPlayer(void) {
 #ifndef MOCKS_MODE
 	if (processContext.handle == NULL) {
 		LOG_ERROR("Process handle is NULL, cannot read current player");

@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include "app/builder-callback.h"
+
 #include <gtk/gtk.h>
 
 
-G_MODULE_EXPORT void callbacks_onShowBestEleven(void);
+BUILDER_CALLBACK void callbacks_onShowBestEleven(void);

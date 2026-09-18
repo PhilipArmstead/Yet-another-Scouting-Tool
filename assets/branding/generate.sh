@@ -23,7 +23,7 @@ for size in "${SIZES[@]}"; do
 	rsvg-convert -w "${size}" -h "${size}" "${MASTER}" -o "png/${size}.png"
 done
 
-# Windows: DIB entries up to 64px for maximum shell compatibility, PNG entries above.
+# Windows: every entry stored as PNG, which the shell has decoded since Vista.
 python3 make-ico.py yast.ico png/16.png png/24.png png/32.png png/48.png png/64.png png/128.png png/256.png
 
 # macOS
