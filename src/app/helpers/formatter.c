@@ -108,11 +108,17 @@ RGB formatter_qualityColour(const uint8_t value) {
 /**
  * Returns a string containing your rating, colourised on a scale of 1-120
  * @param rating
- * @param outString - should be at least 44 bytes
+ * @param outString - should be at least FORMATTER_RATING_SIZE bytes
  */
 void formatter_formatRating(const float rating, char *outString) {
 	const uint8_t value = (uint8_t)((rating < MAX_RATING_VALUE ? rating / MAX_RATING_VALUE : 1.f) * 120);
-	snprintf(outString, 44, "<span foreground=\"%s\">%.2f%%</span>", qualityRampHex[value], rating);
+	snprintf(
+		outString,
+		FORMATTER_RATING_SIZE,
+		"<span foreground=\"%s\">%.2f%%</span>",
+		qualityRampHex[value],
+		rating
+	);
 }
 
 /**
@@ -120,10 +126,10 @@ void formatter_formatRating(const float rating, char *outString) {
  * row's foreground and leave dark green sitting on the dark blue selection fill. Callers switch to
  * this while the row is selected and let the stylesheet pick the colour.
  * @param rating
- * @param outString - should be at least 16 bytes
+ * @param outString - should be at least FORMATTER_RATING_PLAIN_SIZE bytes
  */
 void formatter_formatRatingPlain(const float rating, char *outString) {
-	snprintf(outString, 16, "%.2f%%", rating);
+	snprintf(outString, FORMATTER_RATING_PLAIN_SIZE, "%.2f%%", rating);
 }
 
 /**
@@ -131,14 +137,14 @@ void formatter_formatRatingPlain(const float rating, char *outString) {
  * decimals.
  * @param percentage
  * @param inverted - for metrics like fatigue, where 0 is the healthy end of the scale
- * @param outString - should be at least 40 bytes
+ * @param outString - should be at least FORMATTER_PERCENTAGE_SIZE bytes
  */
 void formatter_formatPercentage(const float percentage, const bool inverted, char *outString) {
 	const float clamped = percentage < 0.f ? 0.f : (percentage < 100.f ? percentage : 100.f);
 	const uint8_t index = (uint8_t)(clamped * 1.2f);
 	snprintf(
 		outString,
-		40,
+		FORMATTER_PERCENTAGE_SIZE,
 		"<span foreground=\"%s\">%.0f%%</span>",
 		qualityRampHex[inverted ? 120 - index : index],
 		clamped

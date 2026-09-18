@@ -480,8 +480,8 @@ static gboolean onPlayerThreadComplete(gpointer userData) {
 	stagingPlayers = NULL;
 	stagingPlayerCount = 0;
 
-	char buffer[8];
-	snprintf(buffer, 8, "%llu", gameContext.playerCount);
+	char buffer[FORMATTER_NUMBER_SIZE];
+	snprintf(buffer, sizeof(buffer), "%llu", gameContext.playerCount);
 	formatter_printNumber(buffer);
 	char bufferStatus[32];
 	snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);

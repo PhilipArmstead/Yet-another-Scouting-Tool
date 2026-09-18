@@ -200,7 +200,7 @@ static void renderBestElevenTable(const WindowContext context) {
 			gtk_label_set_text(GTK_LABEL(widgetLabelAge), ageBuffer);
 
 			// Rating
-			char ratingBuffer[44];
+			char ratingBuffer[FORMATTER_RATING_SIZE];
 			formatter_formatRating(player->ratings[0].value, ratingBuffer);
 			gtk_label_set_markup(GTK_LABEL(widgetLabelRating), ratingBuffer);
 			gtk_label_set_xalign(GTK_LABEL(widgetLabelRating), 1.f);
@@ -253,7 +253,7 @@ static void renderBestElevenTable(const WindowContext context) {
 	}
 
 	if (playerIncludedCount > 0) {
-		char ratingBuffer[8];
+		char ratingBuffer[FORMATTER_RATING_SIZE];
 		const float averageRating = ratingTotal / (float)playerIncludedCount;
 		formatter_formatRating(averageRating, ratingBuffer);
 

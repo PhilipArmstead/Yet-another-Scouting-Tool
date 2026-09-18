@@ -223,7 +223,8 @@ static void setupBox(const GtkSignalListItemFactory *factory, GtkListItem *item,
  * selected row cannot recolour it. Render it plain whenever the row is selected instead.
  */
 static void applyRating(GtkLabel *label, const float rating, const bool selected) {
-	char buffer[44];
+	// Shared by both formatters below, so it has to satisfy the larger of the two.
+	char buffer[FORMATTER_RATING_SIZE];
 
 	if (selected) {
 		formatter_formatRatingPlain(rating, buffer);
@@ -256,7 +257,7 @@ static void setupRatingLabel(const GtkSignalListItemFactory *factory, GtkListIte
 }
 
 static void printNumeric(GtkWidget *label, const int64_t value) {
-	gchar buffer[32];
+	gchar buffer[FORMATTER_NUMBER_SIZE];
 	g_snprintf(buffer, sizeof(buffer), "%" PRId64, value);
 	if (value > 999 || value < -999) {
 		formatter_printNumber(buffer);
@@ -265,7 +266,7 @@ static void printNumeric(GtkWidget *label, const int64_t value) {
 }
 
 static void printCurrency(GtkWidget *label, const uint64_t value) {
-	gchar buffer[32];
+	gchar buffer[FORMATTER_NUMBER_SIZE];
 	g_snprintf(buffer, sizeof(buffer), "%" PRIu64, value);
 	formatter_printCurrency(buffer);
 	gtk_label_set_xalign(GTK_LABEL(label), 0);
@@ -766,8 +767,8 @@ void playerTable_populate(void) {
 		GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:results-count"))
 	);
 	char resultCountString[32] = {0};
-	char formattedResults[12] = {0};
-	snprintf(formattedResults, 12, "%zu", playerCount);
+	char formattedResults[FORMATTER_NUMBER_SIZE] = {0};
+	snprintf(formattedResults, sizeof(formattedResults), "%zu", playerCount);
 	formatter_printNumber(formattedResults);
 	snprintf(
 		resultCountString,

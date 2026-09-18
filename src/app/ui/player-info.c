@@ -27,7 +27,7 @@ static const char *positionGroupedNames[POSITION_GROUPED_COUNT] = {
 };
 
 static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints, const bool inverted) {
-	char buffer[44];
+	char buffer[FORMATTER_PERCENTAGE_SIZE];
 	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), inverted, buffer);
 	gtk_label_set_markup(GTK_LABEL(gtk_builder_get_object(builder, id)), buffer);
 }
