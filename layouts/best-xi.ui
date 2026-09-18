@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 	<requires lib="gtk" version="4.0"/>
 	<object class="GtkWindow" id="window:best-xi">
 		<property name="default-width">420</property>
-		<property name="title">Yet another Scouting Tool - Best XI</property>
+		<property name="title">Yet another Scouting Tool</property>
 		<style>
 			<class name="app-root"/>
 			<class name="best-eleven-root"/>
