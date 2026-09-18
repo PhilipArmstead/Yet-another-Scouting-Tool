@@ -53,6 +53,10 @@ int main(const int argc, char **argv) {
 static void activate(GtkApplication *app) {
 	vector_reserve(gameContext.windows, 10);
 
+	// GtkApplication has already added the bundled resource icon theme by this point, so every
+	// window created below picks the application icon up by name.
+	gtk_window_set_default_icon_name("com.philarmstead.yast");
+
 	options_init();
 	formatter_init();
 	icons_init();

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=24.0.136
+Name=Yet another Scouting Tool
+GenericName=Football Scouting Tool
+Comment=Search the Football Manager 24 player database from a running save
+Exec=YaST
+Icon=com.philarmstead.yast
+Terminal=false
+Categories=Game;SportsGame;
+StartupNotify=true
+Keywords=football;soccer;manager;scout;scouting;player;database;

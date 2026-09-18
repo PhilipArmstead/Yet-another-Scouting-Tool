@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(YaST VERSION 24.0.135 LANGUAGES C)
+project(YaST VERSION 24.0.136 LANGUAGES C)
 
 # Default build type for single-config generators only.
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -37,6 +37,12 @@ file(GLOB ASSET_FLAGS CONFIGURE_DEPENDS RELATIVE "${REPO_ROOT}"
 )
 set(RESOURCE_FILES ${LAYOUT_FILES} ${ASSET_ICONS} ${ASSET_FLAGS})
 
+# GtkApplication automatically searches "<resource base path>/icons" for themed icons. That path
+# is treated as a theme root in its own right, so it takes "<size>/<context>/" directly with no
+# "hicolor/" segment, unlike the on-disk theme installed further down.
+set(APP_ID "com.philarmstead.yast")
+set(APP_ICON_SVG "assets/branding/yast.svg")
+
 set(GRESOURCE_ENTRIES "")
 foreach (res_file IN LISTS RESOURCE_FILES)
 	# Text assets compress well; PNG flags are already compressed.
@@ -46,6 +52,8 @@ foreach (res_file IN LISTS RESOURCE_FILES)
 	endif ()
 	string(APPEND GRESOURCE_ENTRIES "    <file${compress}>${res_file}</file>\n")
 endforeach ()
+string(APPEND GRESOURCE_ENTRIES
+	"    <file alias=\"icons/scalable/apps/${APP_ID}.svg\" compressed=\"true\">${APP_ICON_SVG}</file>\n")
 
 file(WRITE "${GRESOURCE_XML}"
 	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -62,14 +70,25 @@ add_custom_command(
 	--sourcedir=${REPO_ROOT}
 	--generate-source
 	${GRESOURCE_XML}
-	DEPENDS ${GRESOURCE_XML} ${RESOURCE_FILES}
+	DEPENDS ${GRESOURCE_XML} ${RESOURCE_FILES} ${APP_ICON_SVG}
 	WORKING_DIRECTORY ${REPO_ROOT}
 	COMMENT "Compiling bundled resources"
 	VERBATIM
 )
 
+# Windows embeds the icon in the executable itself, which is what Explorer, the taskbar and
+# Alt-Tab read. The first icon resource by ID is the one the shell picks up.
+if (WIN32)
+	enable_language(RC)
+	set(WIN_ICON_RC "${CMAKE_CURRENT_BINARY_DIR}/app-icon.rc")
+	file(WRITE "${WIN_ICON_RC}" "1 ICON \"${REPO_ROOT}/assets/branding/yast.ico\"\n")
+else ()
+	set(WIN_ICON_RC "")
+endif ()
+
 add_executable(yast
 	${GRESOURCE_C}
+	${WIN_ICON_RC}
 	src/main.c
 	src/app/callbacks.c
 	src/app/cache.c
@@ -105,8 +124,23 @@ if (WIN32)
 	# Windows: link as a GUI subsystem app so no console is allocated.
 	target_link_options(yast PRIVATE $<$<CONFIG:Release>:-mwindows>)
 elseif (APPLE)
-	# macOS: build a .app bundle in Release so launching does not open a Terminal.
-	set_target_properties(yast PROPERTIES MACOSX_BUNDLE $<$<CONFIG:Release>:TRUE>)
+	# macOS resolves an application's icon from its bundle, so a bare executable always falls back
+	# to the generic one. Bundling unconditionally therefore keeps the icon working in every
+	# configuration, and also stops a Terminal window opening on launch.
+	# Note: MACOSX_BUNDLE is read at configure time and does not support generator expressions.
+	set_target_properties(yast PROPERTIES
+		MACOSX_BUNDLE TRUE
+		MACOSX_BUNDLE_ICON_FILE "yast"
+		MACOSX_BUNDLE_BUNDLE_NAME "${PROJECT_NAME}"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "${APP_ID}"
+		MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+		MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+	)
+	# Finder and the Dock read the icon from the bundle's Resources directory.
+	target_sources(yast PRIVATE "${REPO_ROOT}/assets/branding/yast.icns")
+	set_source_files_properties("${REPO_ROOT}/assets/branding/yast.icns"
+		PROPERTIES MACOSX_PACKAGE_LOCATION "Resources"
+	)
 endif ()
 
 # Allow including headers using absolute paths relative to the project `src/` directory,
@@ -157,6 +191,24 @@ target_link_libraries(yast PRIVATE PkgConfig::GTK4)
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# -rdynamic makes all symbols available to the dynamic linker for dlsym/lookup
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+
+	# Linux desktop integration: launchers, window managers and file managers resolve the icon by
+	# name out of the hicolor theme, so it has to be installed there as well as bundled in the binary.
+	include(GNUInstallDirs)
+	install(TARGETS yast RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+	install(FILES "${REPO_ROOT}/assets/branding/${APP_ID}.desktop"
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+	)
+	install(FILES "${REPO_ROOT}/${APP_ICON_SVG}"
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+		RENAME ${APP_ID}.svg
+	)
+	foreach (size IN ITEMS 16 24 32 48 64 128 256 512)
+		install(FILES "${REPO_ROOT}/assets/branding/png/${size}.png"
+			DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
+			RENAME ${APP_ID}.png
+		)
+	endforeach ()
 endif ()
 
 add_custom_target(info

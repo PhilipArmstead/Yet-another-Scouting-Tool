@@ -164,6 +164,14 @@ cmake --build build --target info
   platforms. The code also defines `ARCH_MACOS` for unofficial local macOS builds.
 - CMake compiles the UI layouts, CSS, icons, and flags into a generated GResource during the build. The generated files
   live in the build directory and should not be edited manually.
+- The application icon is authored once in `assets/branding/yast.svg`. Every platform artefact — the PNG set, the
+  Windows `yast.ico` and the macOS `yast.icns` — is generated from it by `assets/branding/generate.sh`, which needs
+  `rsvg-convert` and `python3` (plus `iconutil` for the `.icns`, so the macOS artefact can only be refreshed on macOS).
+  Re-run that script and commit the results whenever the master SVG changes.
+- Each platform picks the icon up differently: Linux installs the hicolor theme and `.desktop` entry, Windows embeds
+  `yast.ico` as a resource in the executable, and macOS reads `yast.icns` from the application bundle. Unofficial macOS
+  builds are therefore always produced as a `YaST.app` bundle, in every configuration, because macOS resolves an
+  application's icon from its bundle and falls back to the generic icon for a bare executable.
 - On Windows, use a correctly configured MSYS2 MinGW64 environment for the whole build. The requirement is the matching
   toolchain and package paths, not a particular terminal application.
 - GTK4 also requires the platform's normal graphics and font libraries. These are installed as transitive dependencies
