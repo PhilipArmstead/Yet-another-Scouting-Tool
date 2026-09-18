@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <gtk/gtk.h>
 
-#include "types/common.h"
 #include "types/entities.h"
 #include "types/logger.h"
 #include "types/position.h"
