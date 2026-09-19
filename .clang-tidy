@@ -67,29 +67,33 @@ readability-identifier-naming'
 # A trailing "namespace_" prefix (e.g. vector_push, ui_init) is allowed via
 # the *Prefix options where the codebase uses a module_functionName style.
 CheckOptions:
-  - key:   readability-identifier-naming.FunctionCase
+  - key: readability-identifier-naming.FunctionCase
     value: camelBack
-  - key:   readability-identifier-naming.VariableCase
+  - key: readability-identifier-naming.VariableCase
     value: camelBack
-  - key:   readability-identifier-naming.ParameterCase
+  - key: readability-identifier-naming.FunctionCase
+    value: 'aN_p'  # Allow camelCase with underscores
+  - key: readability-identifier-naming.VariableCase
+    value: 'aN_p'  # Allow camelCase with underscores
+  - key: readability-identifier-naming.ParameterCase
     value: camelBack
-  - key:   readability-identifier-naming.LocalVariableCase
+  - key: readability-identifier-naming.LocalVariableCase
     value: camelBack
-  - key:   readability-identifier-naming.GlobalVariableCase
+  - key: readability-identifier-naming.GlobalVariableCase
     value: camelBack
-  - key:   readability-identifier-naming.MemberCase
+  - key: readability-identifier-naming.MemberCase
     value: camelBack
-  - key:   readability-identifier-naming.StructCase
+  - key: readability-identifier-naming.StructCase
     value: CamelCase
-  - key:   readability-identifier-naming.UnionCase
+  - key: readability-identifier-naming.UnionCase
     value: CamelCase
-  - key:   readability-identifier-naming.EnumCase
+  - key: readability-identifier-naming.EnumCase
     value: CamelCase
-  - key:   readability-identifier-naming.TypedefCase
+  - key: readability-identifier-naming.TypedefCase
     value: CamelCase
-  - key:   readability-identifier-naming.EnumConstantCase
+  - key: readability-identifier-naming.EnumConstantCase
     value: UPPER_CASE
-  - key:   readability-identifier-naming.MacroDefinitionCase
+  - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
-  - key:   readability-identifier-naming.ConstantCase
+  - key: readability-identifier-naming.ConstantCase
     value: camelBack

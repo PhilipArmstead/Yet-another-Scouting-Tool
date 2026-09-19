@@ -68,6 +68,15 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 							</object>
 						</child>
 						<child>
+							<object class="GtkButton">
+								<property name="label">Squad Depth</property>
+								<signal name="clicked" handler="callbacks_onShowSquadDepth"/>
+								<style>
+									<class name="nav-tab"/>
+								</style>
+							</object>
+						</child>
+						<child>
 							<object class="GtkBox">
 								<property name="hexpand">true</property>
 							</object>
@@ -314,7 +323,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</style>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:st">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="margin-top">8</property>
 														<property name="child">
@@ -334,7 +342,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:aml">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -353,7 +360,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amc">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -372,7 +378,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:amr">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -391,7 +396,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:ml">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -410,7 +414,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:mc">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -429,7 +432,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:mr">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -448,7 +450,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:wbl">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -467,7 +468,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dm">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -486,7 +486,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:wbr">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -505,7 +504,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dl">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -524,7 +522,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dc">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -543,7 +540,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:dr">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="child">
 															<object class="GtkLabel">
@@ -562,7 +558,6 @@ SPDX-License-Identifier: GPL-3.0-or-later -->
 												</child>
 												<child>
 													<object class="GtkCheckButton" id="checkbox:position:gk">
-														<signal name="toggled" handler="callbacks_onPositionToggled"/>
 														<property name="valign">center</property>
 														<property name="margin-bottom">8</property>
 														<property name="child">

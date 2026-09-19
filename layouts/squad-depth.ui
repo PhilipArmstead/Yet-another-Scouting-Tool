@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Yet another Scouting Tool - GTK4 GtkBuilder UI definition.
+  See: https://docs.gtk.org/gtk4/class.Builder.html
+-->
+<interface domain="squad-depth">
+	<!-- interface-name squad-depth.ui -->
+	<!-- interface-copyright SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
+SPDX-License-Identifier: GPL-3.0-or-later -->
+	<!-- interface-authors Phil Armstead <philarmstead@mailbox.org> -->
+	<requires lib="gtk" version="4.0"/>
+	<object class="GtkWindow" id="window:squad-depth">
+		<property name="default-width">420</property>
+		<property name="default-height">690</property>
+		<property name="title">Yet another Scouting Tool</property>
+		<style>
+			<class name="app-root"/>
+			<class name="squad-depth-root"/>
+		</style>
+		<child>
+			<object class="GtkScrolledWindow">
+				<property name="hscrollbar-policy">never</property>
+				<property name="vscrollbar-policy">automatic</property>
+				<property name="kinetic-scrolling">false</property>
+				<property name="propagate-natural-width">true</property>
+				<property name="propagate-natural-height">true</property>
+				<child>
+					<object class="GtkBox">
+						<property name="orientation">vertical</property>
+						<property name="spacing">20</property>
+						<property name="margin-top">28</property>
+						<property name="margin-bottom">24</property>
+						<property name="margin-start">30</property>
+						<property name="margin-end">30</property>
+						<child>
+							<object class="GtkLabel">
+								<property name="label">Squad Depth</property>
+								<property name="halign">start</property>
+								<property name="xalign">0</property>
+								<style>
+									<class name="title-1"/>
+								</style>
+							</object>
+						</child>
+
+						<child>
+							<object class="GtkLabel">
+								<property name="label">FILTERS</property>
+								<property name="halign">start</property>
+								<style>
+									<class name="section-title"/>
+								</style>
+							</object>
+						</child>
+						<child>
+							<!-- Position toggles are built in squad-depth.c from positionFilters[] -->
+							<object class="GtkBox" id="box:filter-list">
+								<property name="orientation">horizontal</property>
+								<property name="spacing">6</property>
+								<style>
+									<class name="position-filters"/>
+								</style>
+							</object>
+						</child>
+						<child>
+							<object class="GtkGrid" id="grid:squad-positions">
+								<property name="column-spacing">22</property>
+								<property name="row-spacing">26</property>
+								<property name="margin-start">32</property>
+								<property name="margin-end">32</property>
+								<property name="margin-bottom">32</property>
+							</object>
+						</child>
+					</object>
+				</child>
+			</object>
+		</child>
+	</object>
+</interface>

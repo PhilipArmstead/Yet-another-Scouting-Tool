@@ -8,6 +8,7 @@
 #include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
+#include "app/helpers/ratings.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -375,45 +376,10 @@ static float getPlayerPositionalRating(const Player *player, const PositionCode 
 		return INFEASIBLE_COST;
 	}
 
-	PositionGrouped groupedPosition;
-	switch (position) {
-		case POSITION_CODE_GK:
-			groupedPosition = POSITION_GROUPED_GK;
-			break;
-		case POSITION_CODE_DL:
-		case POSITION_CODE_DR:
-			groupedPosition = POSITION_GROUPED_FB;
-			break;
-		case POSITION_CODE_WBL:
-		case POSITION_CODE_WBR:
-			groupedPosition = POSITION_GROUPED_WB;
-			break;
-		case POSITION_CODE_DC:
-			groupedPosition = POSITION_GROUPED_CB;
-			break;
-		case POSITION_CODE_DM:
-			groupedPosition = POSITION_GROUPED_DM;
-			break;
-		case POSITION_CODE_ML:
-		case POSITION_CODE_AML:
-		case POSITION_CODE_MR:
-		case POSITION_CODE_AMR:
-			groupedPosition = POSITION_GROUPED_W;
-			break;
-		case POSITION_CODE_AMC:
-			groupedPosition = POSITION_GROUPED_AM;
-			break;
-		default:
-			groupedPosition = POSITION_GROUPED_ST;
-	}
+	// A zero rating means the role was never scored for this player, i.e. they cannot fill it.
+	const float rating = getRatingForPosition(player, position);
 
-	for (PositionGrouped role = 0; role < POSITION_GROUPED_COUNT; ++role) {
-		if (player->ratings[role].position == groupedPosition) {
-			return player->ratings[role].value;
-		}
-	}
-
-	return INFEASIBLE_COST;
+	return rating > 0.f ? rating : INFEASIBLE_COST;
 }
 
 /**

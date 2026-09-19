@@ -7,6 +7,7 @@
 #include "app/maths.h"
 #include "app/mocks.h"
 #include "app/helpers/game.h"
+#include "app/helpers/ratings.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
@@ -344,37 +345,6 @@ static int64_t getClubIndexFromPerson(void *handle, const uint64_t personAddress
 	const uint64_t clubAddress = hexBytesToInt(pointer, 8);
 	readFromMemory(handle, clubAddress + CLUB_OFFSET_ROW_ID, 4, pointer);
 	return (int64_t)hexBytesToInt(pointer, 4);
-}
-
-static inline int positionGroupToIndices(const PositionGrouped p, int outIndices[5]) {
-	/* returns number of indices filled in outIndices (max 5) */
-	int n = 0;
-	switch (p) {
-		case POSITION_GROUPED_GK: outIndices[n++] = POSITION_CODE_GK;
-			break;
-		case POSITION_GROUPED_FB: outIndices[n++] = POSITION_CODE_DL;
-			outIndices[n++] = POSITION_CODE_DR;
-			break;
-		case POSITION_GROUPED_CB: outIndices[n++] = POSITION_CODE_DC;
-			break;
-		case POSITION_GROUPED_WB: outIndices[n++] = POSITION_CODE_WBL;
-			outIndices[n++] = POSITION_CODE_WBR;
-			break;
-		case POSITION_GROUPED_DM: outIndices[n++] = POSITION_CODE_DM;
-			break;
-		case POSITION_GROUPED_MC: outIndices[n++] = POSITION_CODE_MC;
-			break;
-		case POSITION_GROUPED_W: outIndices[n++] = POSITION_CODE_ML;
-			outIndices[n++] = POSITION_CODE_MR;
-			outIndices[n++] = POSITION_CODE_AML;
-			outIndices[n++] = POSITION_CODE_AMR;
-			break;
-		case POSITION_GROUPED_AM: outIndices[n++] = POSITION_CODE_AMC;
-			break;
-		default: outIndices[n++] = POSITION_CODE_ST;
-			break;
-	}
-	return n;
 }
 
 PositionWeights *getWeightsForPosition(const PositionGrouped position) {

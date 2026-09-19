@@ -26,8 +26,6 @@ typedef struct {
 
 static PlayerTableContext context = {0};
 
-extern GameContext gameContext;
-
 G_DEFINE_TYPE(SearchPlayerRow, search_player_row, G_TYPE_OBJECT)
 
 static void search_player_row_finalize(GObject *object) {

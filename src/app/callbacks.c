@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "callbacks.h"
-
 #include "app/player-table.h"
 #include "app/callbacks/club-search.h"
 #include "app/callbacks/filters.h"

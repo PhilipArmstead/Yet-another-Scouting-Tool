@@ -5,6 +5,9 @@
 
 #include "app/constants.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
 
 // Longest club name: Club de Fútbol Lobos de la Benemérita Universidad Autónoma de Puebla, 71 chars
 // Longest club short name: Persatuan Sepakbola Indonesia Karawang, 38 chars

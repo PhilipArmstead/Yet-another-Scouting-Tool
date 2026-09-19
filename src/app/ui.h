@@ -28,6 +28,9 @@ void ui_rebindPlayerInfoWindow(WindowContext context, const PlayerLookup *lookup
 void ui_createBestElevenWindow(void);
 void ui_renderBestElevenWindow(WindowContext context);
 void ui_rebindBestElevenWindow(WindowContext context, const PlayerLookup *lookup);
+void ui_createSquadDepthWindow(void);
+void ui_renderSquadDepthWindow(WindowContext context);
+void ui_rebindSquadDepthWindow(WindowContext context, const PlayerLookup *lookup);
 void ui_refreshAllWindows(void);
 void ui_rebindPlayerWindows(void);
 void ui_rerenderPlayerWindows(void);

@@ -9,3 +9,4 @@
 
 
 BUILDER_CALLBACK void callbacks_onShowBestEleven(void);
+BUILDER_CALLBACK void callbacks_onShowSquadDepth(void);

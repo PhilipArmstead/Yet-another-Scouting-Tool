@@ -223,6 +223,7 @@ headerbar {
 	padding: 8px;
 }
 
+.position-filters > checkbutton.position-toggle,
 .position-pitch > checkbutton.position-toggle {
 	background-color: rgba(0, 0, 0, 0.55);
 	border: 1px solid rgba(255, 255, 255, 0.45);
@@ -236,11 +237,13 @@ headerbar {
 	padding: 0 4px 0 0;
 }
 
+.position-filters > checkbutton.position-toggle:hover,
 .position-pitch > checkbutton.position-toggle:hover {
 	background-color: rgba(0, 0, 0, 0.65);
 	border-color: #fff;
 }
 
+.position-filters > checkbutton.position-toggle:checked,
 .position-pitch > checkbutton.position-toggle:checked {
 	background-color: #f2f2f2;
 	border-color: #fff;
@@ -248,6 +251,7 @@ headerbar {
 }
 
 /* Collapse the check indicator so the button body is the whole control. */
+.position-filters > checkbutton.position-toggle > check,
 .position-pitch > checkbutton.position-toggle > check {
 	background: none;
 	border: none;
@@ -498,4 +502,48 @@ headerbar {
 
 .best-eleven-root .average-rating {
 	font-size: 1.1em;
+}
+
+.squad-depth-heading {
+	color: var(--colour-title);
+	font-weight: 800;
+}
+
+.squad-depth-box {
+	background: var(--background-colour-card);
+	border: 1px solid var(--border-colour-primary-lighter);
+	border-radius: 6px;
+	min-width: 0;
+}
+
+.card-separator,
+.player-row {
+	border-top: 1px solid var(--border-colour-row);
+}
+
+.table-header {
+	background: var(--background-colour-header);
+}
+
+.squad-depth-column-heading {
+	color: var(--colour-heading);
+	font-weight: 600;
+}
+
+.player-row:hover {
+	background: var(--background-colour-row-hover);
+}
+
+.name-label {
+	color: var(--colour-primary);
+	font-size: 1.1em;
+}
+
+.age-label {
+	color: var(--colour-primary-darker);
+}
+
+.rating-label {
+	color: var(--colour-potential-ability);
+	font-weight: 600;
 }

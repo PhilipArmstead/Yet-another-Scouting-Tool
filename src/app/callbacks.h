@@ -12,6 +12,7 @@ void callbacks_init(void);
 BUILDER_CALLBACK void callbacks_onShowQualityAccordionToggle(void);
 BUILDER_CALLBACK void callbacks_onShowPositionAccordionToggle(void);
 BUILDER_CALLBACK void callbacks_onShowCurrentPlayer(void);
+BUILDER_CALLBACK void callbacks_onShowSquadDepth(void);
 gboolean callbacks_onWindowKeypress(
 	GtkEventControllerKey *controller,
 	guint keyval,

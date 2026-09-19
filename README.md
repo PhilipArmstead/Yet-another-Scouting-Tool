@@ -38,8 +38,10 @@ the [Steam version of Football Manager 24](https://store.steampowered.com/app/22
 ### Analyse a squad
 
 - Assemble the best XI from all players in search results, for a given formation, based on player competency ratings
+- View squad depth, outlining the strength of your options across all positions
 
 ![Screenshot of best XI](docs/best-xi.png?v=1)
+![Screenshot of squad depth](docs/squad-depth.png?v=1)
 
 ## Options
 
