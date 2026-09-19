@@ -23,7 +23,6 @@ static inline void getPersonName(void *handle, uint8_t pointer[8], char str[PERS
 static inline void getPersonForename(void *handle, uint64_t attributeBase, char str[PERSON_COMMON_NAME_LENGTH]);
 static inline void getPersonSurname(void *handle, uint64_t attributeBase, char str[PERSON_COMMON_NAME_LENGTH]);
 static inline void getPersonCommonName(void *handle, uint64_t attributeBase, char str[PERSON_COMMON_NAME_LENGTH]);
-static uint8_t getAge(void *handle, uint64_t address);
 static int64_t getClubIndexFromPerson(void *handle, uint64_t personAddress);
 static uint64_t getPersonAddressFromUid(const ProcessContext *processContext, uint64_t uid);
 static float getRatingPerPosition(const Player *player, PositionGrouped position);
@@ -106,10 +105,15 @@ Player getPlayer(
 	readFromMemory(handle, personAddress + PERSON_OFFSET_RANDOM_ID, 4, bytes);
 	const uint32_t rid = (uint32_t)hexBytesToInt(bytes, 4);
 
+	readFromMemory(handle, personAddress + PERSON_OFFSET_DOB, 4, bytes);
+
 	Player player = {
 		.personAddress = personAddress,
 		.playerAddress = playerAddress,
-		.age = getAge(handle, personAddress),
+		.dateOfBirth = {
+			.days = (uint16_t)hexBytesToInt(bytes, 2),
+			.year = (uint16_t)hexBytesToInt(bytes + 2, 2)
+		},
 		.ca = ability[ABILITY_CA],
 		.pa = ability[ABILITY_PA],
 		.rid = rid,
@@ -117,6 +121,7 @@ Player getPlayer(
 		.rowId = rowId,
 		.nationality = {0xFF, 0xFF, 0xFF, 0xFF}
 	};
+	player.age = player_getAge(player.dateOfBirth);
 	getPersonForename(handle, personAddress, player.forename);
 	getPersonSurname(handle, personAddress, player.surname);
 	getPersonCommonName(handle, personAddress, player.commonName);
@@ -316,15 +321,9 @@ static inline void getPersonCommonName(
 	getPersonName(handle, pointer, str);
 }
 
-static uint8_t getAge(void *handle, const uint64_t address) {
-	uint8_t bytes[4];
-	readFromMemory(handle, address + PERSON_OFFSET_DOB, 4, bytes);
-	const uint8_t yearBytes[2] = {bytes[2], bytes[3]};
-	const uint16_t yearOfBirth = (uint16_t)hexBytesToInt(yearBytes, 2);
-	const uint16_t dayOfBirth = (uint16_t)hexBytesToInt(bytes, 2);
-
-	uint8_t age = (uint8_t)(gameContext.currentDate.year - yearOfBirth);
-	if (gameContext.currentDate.days < dayOfBirth) {
+uint8_t player_getAge(const Date dateOfBirth) {
+	uint8_t age = (uint8_t)(gameContext.currentDate.year - dateOfBirth.year);
+	if (gameContext.currentDate.days < dateOfBirth.days) {
 		--age;
 	}
 

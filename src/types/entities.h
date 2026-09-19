@@ -68,6 +68,11 @@ typedef struct {
 	uint8_t time;
 } DayMonthYearTime;
 
+typedef struct {
+	uint16_t days;
+	uint16_t year;
+} Date;
+
 /**
  * Injury names are read straight out of the game and repeat across thousands of players, so they
  * are interned once and referenced by index. Index 0 is the empty string, i.e. "no name".
@@ -95,6 +100,7 @@ typedef struct {
 	uint32_t uid;
 	uint32_t guideValue;
 	uint32_t annualWage;
+	Date dateOfBirth;
 	uint16_t sharpness;
 	int16_t fatigue;
 	uint16_t condition;

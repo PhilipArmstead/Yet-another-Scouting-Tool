@@ -12,3 +12,4 @@ uint64_t getCurrentPersonUniqueId(const ProcessContext *processContext);
 Player getPlayerById(const ProcessContext *processContext, uint64_t uniqueId);
 PositionWeights *getWeightsForPosition(PositionGrouped position);
 void getSortedPositionRatings(Player *player);
+uint8_t player_getAge(Date dateOfBirth);
