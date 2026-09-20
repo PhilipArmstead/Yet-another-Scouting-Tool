@@ -143,8 +143,8 @@ cmake --build build --target info
 ## Runtime requirements for source builds
 
 - GTK4 and GLib runtime libraries must be available to the application. The development packages normally install these
-  automatically. If distributing a Windows build outside MSYS2, distribute matching GTK4/GLib DLLs and their
-  dependencies.
+  automatically. To distribute a Windows build outside MSYS2, use the `package` target described in
+  [Packaging a Windows build for distribution](#packaging-a-windows-build-for-distribution).
 - A graphical desktop session is required on the officially supported platforms: X11 or Wayland on Linux, or a Windows
   desktop session on Windows. Unofficial macOS builds require the macOS window server.
 - Football Manager 24 must be running with the target save loaded. The current platform backends look for a
@@ -176,6 +176,103 @@ cmake --build build --target info
   toolchain and package paths, not a particular terminal application.
 - GTK4 also requires the platform's normal graphics and font libraries. These are installed as transitive dependencies
   by the packages above.
+
+## Packaging a Windows build for distribution
+
+A MinGW build links GTK4 dynamically, so the bare `YaST.exe` only starts on a machine that already
+has the MSYS2 prefix on `PATH`. Elsewhere it fails with errors such as
+`libcairo-2.dll was not found`. The `package` target, available only on Windows, collects the whole
+runtime closure into a self-contained directory and produces both a zip and an installer:
+
+```bash
+cmake --build build --target package
+```
+
+Building the installer needs NSIS 3. Install it with
+`pacman -S --needed mingw-w64-x86_64-nsis`, or use the official build from
+[nsis.sourceforge.io](https://nsis.sourceforge.io/) and put `makensis` on `PATH`. Without it the
+target still produces the zip, and says so.
+
+The artefacts are `build/YaST-<version>-windows-x64/` (the staging directory), `…-windows-x64.zip`
+and `…-windows-x64-setup.exe`. The zip is unzipped anywhere and run in place; the installer writes
+the same tree to `%LOCALAPPDATA%\Programs\YaST` and adds a Start Menu shortcut and an Apps &
+Features entry.
+
+### Bundle layout
+
+```
+bin\      YaST.exe and every DLL it needs
+lib\      gdk-pixbuf loader modules and their cache
+share\    GSettings schemas and the icon theme
+```
+
+This layout is required, not cosmetic. GLib, gdk-pixbuf and GTK are relocatable on Windows: each
+finds its data by asking where its own DLL lives, through
+`g_win32_get_package_installation_directory_of_module()`. That helper treats a `bin` directory as a
+marker and walks up to its parent, so `lib\` and `share\` must stay siblings of `bin\`. Flattening
+the tree, or moving the DLLs somewhere central like `System32`, makes GLib look for its schemas in
+the wrong place and GTK aborts on startup. It is also why the DLLs cannot simply be tidied away
+into a folder of their own.
+
+The staging directory is the single source for both artefacts, so whatever is verified from the zip
+is exactly what the installer ships.
+
+### Keeping the bundle small
+
+Copying the GTK runtime wholesale produces a bundle several times larger than the parts the
+application can actually reach, so the script prunes each tree. The prunes are keyed off properties
+of the application rather than hard-coded file lists, so they stay correct as GTK changes:
+
+- **gdk-pixbuf loaders.** YaST decodes only the PNG flags and the two SVGs referenced from
+  `styles.css`, so only those two loader modules ship. This is the largest saving, because each
+  unused loader would otherwise pull its entire codec stack — libtiff, libwebp, libjxl, libavif,
+  libheif and their dependencies — into the DLL closure. `loaders.cache` is filtered textually to
+  match rather than regenerated, because regenerating it here would bake this machine's absolute
+  paths into the bundle.
+- **Adwaita icon theme.** The application draws its own iconography with Cairo paths and requests
+  no icon by name, so the only icons reachable at runtime are the symbolic ones GTK's widgets ask
+  for — the search entry's clear button, dropdown arrows, spin button steppers. Only Adwaita's
+  `symbolic` tree ships; the full-colour and legacy raster trees, which are the bulk of the theme,
+  are dropped. Adwaita cannot be dropped altogether: GTK4 embeds only its `image-missing` fallback,
+  so without it those widgets render blank.
+- **GSettings schemas.** Only the compiled blob is kept, never the `.xml` sources.
+
+If you add an image format, an icon looked up by name, or a new dependency, re-check those
+assumptions. The script prints the bundle's total size and its ten largest binaries on every run,
+which makes an unexpected jump traceable to whatever caused it.
+
+The installer compresses with solid LZMA, which suits a payload of structurally similar DLLs far
+better than the default deflate, so `setup.exe` is typically well under half the size of the zip.
+
+### Installer behaviour
+
+`cmake/installer.nsi.in` installs per-user, into `%LOCALAPPDATA%\Programs`. That needs no elevation:
+only one user runs the application and it never writes to its own directory, so Program Files would
+mean a UAC prompt on an unsigned binary for nothing. The installer clears `bin\`, `lib\` and
+`share\` before copying, so upgrading cannot leave a stale GTK DLL behind — one sitting next to the
+executable would win every lookup. Uninstalling removes only those three directories and the
+uninstaller, then removes the install directory itself non-recursively, so anything the user put
+alongside the application survives.
+
+The executable stays in `bin\` beside its DLLs, because Windows resolves a PE's implicit imports
+from the executable's own directory and there is no way to redirect that. Shortcuts are created in
+the Start Menu and in the install root, so browsing the installation shows the application rather
+than the forty-odd DLLs it links against. Moving the DLLs to a shared location such as `System32`
+is not an option: GLib finds its schemas, gdk-pixbuf loaders and icon theme relative to the
+directory `libgtk-4-1.dll` itself lives in, so from `System32` it would search
+`C:\Windows\share\glib-2.0\schemas` and GTK would abort at startup.
+
+The script is a template: CMake expands its `@VAR@` placeholders into `build/installer.nsi`, and
+`makensis` is then invoked with no options at all. Passing the values as `makensis /D` defines
+instead would be fragile on three counts — the option prefix differs between the Windows and POSIX
+makensis builds, values containing spaces depend on the invoking shell's quoting, and MSYS2
+rewrites arguments that look like POSIX paths. Paths are injected in native backslash form, because
+NSIS's `File` and `Icon` do not reliably accept the forward slashes CMake uses internally. If the
+installer ever misbehaves, read the generated `build/installer.nsi` directly; it is the exact input
+makensis saw.
+
+Note that the resulting `setup.exe` is unsigned, so SmartScreen will warn on first run until the
+download builds reputation. Code signing is the only real fix.
 
 ## Troubleshooting
 

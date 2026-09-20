@@ -1,0 +1,137 @@
+; SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; Template for the installer that wraps the staging directory produced by
+; cmake/package-windows.cmake. CMake expands the @VAR@ placeholders below into the build directory;
+; NSIS's own ${...} syntax is left untouched, because configure_file() is called with @ONLY.
+;
+; The values arrive this way rather than as makensis /D options deliberately. Command-line defines
+; are fragile here on three counts: the option prefix differs between the Windows and POSIX
+; makensis builds, values containing spaces depend on the invoking shell's quoting, and MSYS2
+; rewrites arguments that look like POSIX paths. Baking them into the script sidesteps all three,
+; and leaves a generated file that can be read directly when something does go wrong.
+;
+; Every path is injected in native form, with backslashes: NSIS's File and Icon do not reliably
+; accept the forward slashes CMake uses internally.
+;
+; The staging layout is installed verbatim: the executable and its DLLs live in bin\, with lib\
+; and share\ as siblings. GLib's relocation logic recognises the bin\ marker and resolves the
+; GSettings schemas, gdk-pixbuf loaders and icon theme against its parent, so the tree must not be
+; flattened. It also keeps the DLLs out of the directory the user actually sees.
+;
+; Installs per-user into %LOCALAPPDATA%\Programs, which needs no elevation. The alternative,
+; Program Files, would force a UAC prompt on an unsigned binary for no benefit: only one user runs
+; this, and the application never needs to write to its own directory.
+
+!define APP_NAME "@APP_NAME@"
+!define APP_EXE "@APP_EXE@"
+!define APP_VERSION "@APP_VERSION@"
+!define APP_VERSION_QUAD "@APP_VERSION_QUAD@"
+!define APP_PUBLISHER "@APP_PUBLISHER@"
+!define APP_STAGE_DIR "@APP_STAGE_DIR@"
+!define APP_OUTFILE "@APP_OUTFILE@"
+!define APP_ICON "@APP_ICON@"
+!define APP_LICENSE "@APP_LICENSE@"
+
+Unicode true
+ManifestDPIAware true
+
+!include "MUI2.nsh"
+!include "FileFunc.nsh"
+
+; FileFunc.nsh only emits the GetSize function when its macro is inserted; ${GetSize} below is
+; undefined without this.
+!insertmacro GetSize
+
+!define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
+
+Name "${APP_NAME} ${APP_VERSION}"
+OutFile "${APP_OUTFILE}"
+InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
+InstallDirRegKey HKCU "Software\${APP_NAME}" "InstallDir"
+RequestExecutionLevel user
+
+; The payload is mostly DLLs, which share a great deal of structure, so solid LZMA pays for itself
+; several times over compared with the default deflate.
+SetCompressor /SOLID lzma
+
+!define MUI_ICON "${APP_ICON}"
+!define MUI_UNICON "${APP_ICON}"
+!define MUI_ABORTWARNING
+
+!insertmacro MUI_PAGE_LICENSE "${APP_LICENSE}"
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+
+!define MUI_FINISHPAGE_RUN "$INSTDIR\bin\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT "Run ${APP_NAME}"
+!insertmacro MUI_PAGE_FINISH
+
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+
+!insertmacro MUI_LANGUAGE "English"
+
+; Declared after the language, because VIAddVersionKey writes into a specific language block and
+; LANG_ENGLISH only exists once MUI_LANGUAGE has been inserted.
+VIProductVersion "${APP_VERSION_QUAD}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductName" "${APP_NAME}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${APP_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${APP_VERSION}"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "FileDescription" "${APP_NAME} installer"
+VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "GPL-3.0-or-later"
+
+Section "Install"
+	; A reinstall over an older version would otherwise leave DLLs behind that the new one no
+	; longer loads, and a stale GTK DLL sitting next to the executable wins every lookup.
+	RMDir /r "$INSTDIR\bin"
+	RMDir /r "$INSTDIR\lib"
+	RMDir /r "$INSTDIR\share"
+
+	SetOutPath "$INSTDIR"
+	File /r "${APP_STAGE_DIR}\*"
+
+	WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+	CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\bin\${APP_EXE}"
+
+	; The executable has to sit in bin\ beside the DLLs it imports, because Windows resolves
+	; implicit imports from the executable's own directory and nothing can redirect that. A
+	; shortcut in the install root gives the same launch point without that constraint, so
+	; browsing the installation shows the application rather than its runtime.
+	CreateShortCut "$INSTDIR\${APP_NAME}.lnk" "$INSTDIR\bin\${APP_EXE}"
+
+	WriteRegStr HKCU "Software\${APP_NAME}" "InstallDir" "$INSTDIR"
+
+	WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APP_NAME}"
+	WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${APP_VERSION}"
+	WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\bin\${APP_EXE}"
+	WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${APP_PUBLISHER}"
+	WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
+	WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+	WriteRegStr HKCU "${UNINST_KEY}" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
+	WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1
+	WriteRegDWORD HKCU "${UNINST_KEY}" "NoRepair" 1
+
+	; Reported in Apps & Features, in KiB.
+	${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+	IntFmt $0 "0x%08X" $0
+	WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" "$0"
+SectionEnd
+
+Section "Uninstall"
+	Delete "$SMPROGRAMS\${APP_NAME}.lnk"
+
+	; Only the directories this installer created are removed. $INSTDIR itself goes via a
+	; non-recursive RMDir, which succeeds only when empty, so anything the user put alongside the
+	; application survives an uninstall.
+	RMDir /r "$INSTDIR\bin"
+	RMDir /r "$INSTDIR\lib"
+	RMDir /r "$INSTDIR\share"
+	Delete "$INSTDIR\Uninstall.exe"
+	Delete "$INSTDIR\${APP_NAME}.lnk"
+	RMDir "$INSTDIR"
+
+	DeleteRegKey HKCU "${UNINST_KEY}"
+	DeleteRegKey HKCU "Software\${APP_NAME}"
+SectionEnd

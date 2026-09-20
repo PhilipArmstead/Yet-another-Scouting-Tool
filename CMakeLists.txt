@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 cmake_minimum_required(VERSION 3.20)
-project(YaST VERSION 24.0.139 LANGUAGES C)
+project(YaST VERSION 24.0.140 LANGUAGES C)
 
 # Default build type for single-config generators only.
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
@@ -265,3 +265,80 @@ add_custom_target(run
 	WORKING_DIRECTORY $<TARGET_FILE_DIR:yast>
 	USES_TERMINAL
 )
+
+# A Windows build links GTK4 dynamically against the MinGW prefix, so the executable on its own
+# only starts on a machine that already has that prefix on PATH. `package` gathers the runtime
+# closure into a self-contained directory and zips it for distribution.
+if (WIN32)
+	pkg_get_variable(GTK4_PREFIX gtk4 prefix)
+	pkg_get_variable(GLIB_COMPILE_SCHEMAS gio-2.0 glib_compile_schemas)
+	if (NOT GLIB_COMPILE_SCHEMAS)
+		find_program(GLIB_COMPILE_SCHEMAS glib-compile-schemas)
+	endif ()
+
+	# file(GET_RUNTIME_DEPENDENCIES) shells out to objdump to read each PE import table.
+	if (NOT CMAKE_OBJDUMP)
+		find_program(CMAKE_OBJDUMP NAMES objdump llvm-objdump REQUIRED)
+	endif ()
+
+	set(PACKAGE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-windows-x64")
+	set(PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}")
+
+	add_custom_target(package
+		COMMAND ${CMAKE_COMMAND}
+		-D "EXE=$<TARGET_FILE:yast>"
+		-D "DEST=${PACKAGE_DIR}"
+		-D "GTK_PREFIX=${GTK4_PREFIX}"
+		-D "OBJDUMP=${CMAKE_OBJDUMP}"
+		-D "GLIB_COMPILE_SCHEMAS=${GLIB_COMPILE_SCHEMAS}"
+		-P "${REPO_ROOT}/cmake/package-windows.cmake"
+		# Archived from the parent directory so the zip holds "<name>/..." rather than the
+		# build machine's absolute path.
+		COMMAND ${CMAKE_COMMAND} -E tar cf "${PACKAGE_NAME}.zip" --format=zip -- "${PACKAGE_NAME}"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+		DEPENDS yast
+		COMMENT "Packaging ${PACKAGE_NAME}.zip"
+		VERBATIM
+	)
+
+	# The installer is an optional extra on top of the zip, so a missing NSIS only costs that one
+	# artefact rather than failing the whole target.
+	find_program(MAKENSIS makensis)
+	if (MAKENSIS)
+		set(APP_NAME "${PROJECT_NAME}")
+		set(APP_EXE "${PROJECT_NAME}.exe")
+		set(APP_VERSION "${PROJECT_VERSION}")
+		# VIProductVersion rejects anything that is not exactly four numeric components.
+		set(APP_VERSION_QUAD
+			"${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}.0")
+		set(APP_PUBLISHER "Phil Armstead")
+
+		# NSIS needs backslash-separated paths; CMake carries them with forward slashes.
+		file(TO_NATIVE_PATH "${PACKAGE_DIR}" APP_STAGE_DIR)
+		file(TO_NATIVE_PATH "${PACKAGE_DIR}-setup.exe" APP_OUTFILE)
+		file(TO_NATIVE_PATH "${REPO_ROOT}/assets/branding/yast.ico" APP_ICON)
+		file(TO_NATIVE_PATH "${REPO_ROOT}/COPYING" APP_LICENSE)
+
+		# @ONLY so that NSIS's own ${...} references survive substitution untouched. Generating a
+		# complete script means makensis is invoked with no options at all, which avoids the
+		# makensis option prefix differing between its Windows and POSIX builds, shell quoting of
+		# values containing spaces, and MSYS2's rewriting of arguments that look like paths.
+		set(INSTALLER_NSI "${CMAKE_CURRENT_BINARY_DIR}/installer.nsi")
+		configure_file("${REPO_ROOT}/cmake/installer.nsi.in" "${INSTALLER_NSI}" @ONLY)
+
+		add_custom_command(TARGET package POST_BUILD
+			COMMAND ${MAKENSIS} "${INSTALLER_NSI}"
+			COMMENT "Building ${PACKAGE_NAME}-setup.exe"
+			VERBATIM
+		)
+	else ()
+		# Reported at build time rather than only at configure time, where it scrolls past
+		# unnoticed and leaves a missing setup.exe looking like a silent failure.
+		add_custom_command(TARGET package POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E echo
+			"makensis not found: built the zip only, no setup.exe. Install NSIS with"
+			"'pacman -S mingw-w64-x86_64-nsis', then re-run cmake to configure."
+			VERBATIM
+		)
+	endif ()
+endif ()
