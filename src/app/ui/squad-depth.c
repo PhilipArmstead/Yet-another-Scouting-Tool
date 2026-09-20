@@ -231,7 +231,9 @@ static void renderSquadDepthGrids(const WindowContext context) {
 			qsort(depthRows, depthCount, sizeof(*depthRows), compareDepthRows);
 		}
 
-		for (uint32_t j = 0; j < depthCount; ++j) {
+		#define SQUAD_DEPTH_MAX_ROWS 20
+		const uint8_t maxRows = depthCount > SQUAD_DEPTH_MAX_ROWS ? SQUAD_DEPTH_MAX_ROWS : (uint8_t)depthCount;
+		for (uint32_t j = 0; j < maxRows; ++j) {
 			const Player *player = depthRows[j].player;
 
 			GtkWidget *playerRowBoxWidget = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
