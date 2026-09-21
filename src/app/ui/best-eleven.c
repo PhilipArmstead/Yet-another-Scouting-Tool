@@ -300,16 +300,21 @@ static void hungarian(float **matrix, const uint32_t n, uint32_t *outAssignment)
 	// p[j] = row assigned to column j (1-indexed); p[0] is a sentinel
 	uint32_t *p = calloc(n + 1, sizeof(uint32_t));
 	int64_t *way = calloc(n + 1, sizeof(int64_t));
+	float *minDist = malloc((n + 1) * sizeof(float));
+	bool *used = malloc((n + 1) * sizeof(bool));
 
+	for (uint32_t i = 0; i < n; i++) {
+		outAssignment[i] = n;
+	}
 
 	for (uint32_t i = 0; i < n; i++) {
 		p[0] = i + 1;
 		int64_t j0 = 0;
-		float *minDist = malloc((n + 1) * sizeof(float));
-		bool *used = calloc(n + 1, sizeof(bool));
-		for (uint32_t j = 0; j < n; ++j) {
+
+		for (uint32_t j = 0; j <= n; ++j) {
 			minDist[j] = INFINITY;
 		}
+		memset(used, 0, (size_t)(n + 1) * sizeof(bool));
 
 		do {
 			used[j0] = true;
@@ -331,6 +336,12 @@ static void hungarian(float **matrix, const uint32_t n, uint32_t *outAssignment)
 				}
 			}
 
+			if (j1 < 0) {
+				LOG_ERROR("Assignment solver found no reachable column; leaving row %" PRIu32 " unassigned", i);
+				j0 = -1;
+				break;
+			}
+
 			for (uint32_t j = 0; j <= n; j++) {
 				if (used[j]) {
 					u[p[j]] += delta;
@@ -343,15 +354,19 @@ static void hungarian(float **matrix, const uint32_t n, uint32_t *outAssignment)
 			j0 = j1;
 		} while (p[j0] != 0);
 
+		if (j0 < 0) {
+			continue;
+		}
+
 		do {
 			const int64_t j1 = way[j0];
 			p[j0] = p[j1];
 			j0 = j1;
 		} while (j0);
-
-		free(used);
-		free(minDist);
 	}
+
+	free(used);
+	free(minDist);
 
 	// Invert p: assignment[row] = col (0-indexed)
 	for (uint32_t j = 1; j <= n; j++) {
