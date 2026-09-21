@@ -10,6 +10,7 @@
 
 // Fatal, error, warn, info, debug
 static const char *colourStrings[5] = {"30;41", "1;31", "1;33", "1;32", "1;30"};
+
 void platform_consoleWrite(const char *message, const LogLevel colour) {
 	printf("\033[%sm%s\033[0m", colourStrings[colour], message);
 }
@@ -70,7 +71,7 @@ static uintptr_t findMemoryMap(const uint32_t pid, const uint64_t offset) {
 	uintptr_t base = 0;
 	char line[8192];
 	while (fgets(line, sizeof(line), f)) {
-		unsigned long start = 0, end = 0, fileOff = 0;
+		unsigned long start, end, fileOff;
 		char path[4096];
 		path[0] = '\0';
 
@@ -81,17 +82,19 @@ static uintptr_t findMemoryMap(const uint32_t pid, const uint64_t offset) {
 			continue;
 		}
 
-		// Only consider mappings backed by fm.exe (substring match, as the full path varies).
-		if (!strstr(path, "fm.exe") || offset < fileOff) {
+		// Does the requested file offset fall in this mapping?
+		if (offset < (uintptr_t)fileOff) {
 			continue;
 		}
 
-		const uintptr_t address = (uintptr_t)start + (uintptr_t)(offset - fileOff);
-		if (address < (uintptr_t)end) {
-			base = (uintptr_t)start - (uintptr_t)fileOff;
-			break;
+		if (offset >= (uintptr_t)fileOff + (uintptr_t)(end - start)) {
+			continue;
 		}
+
+		base = (uintptr_t)start - (uintptr_t)fileOff;
+		break;
 	}
+
 
 	fclose(f);
 	return base;
