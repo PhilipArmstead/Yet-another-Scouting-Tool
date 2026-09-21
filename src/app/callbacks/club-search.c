@@ -86,7 +86,12 @@ void callbacks_onClubNameSelected(
 	}
 
 	GtkWidget *child = gtk_list_box_row_get_child(row);
-	const char *text = gtk_label_get_text(GTK_LABEL(child));
+	const int64_t clubIndex = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(child), "index"));
+	const Club *club = entities_getClub(clubIndex);
+	if (club == NULL) {
+		gtk_popover_popdown(dataList->popover);
+		return;
+	}
 
 	// Block the change handler while we update the text
 	g_signal_handlers_block_by_func(
@@ -95,7 +100,7 @@ void callbacks_onClubNameSelected(
 		(gpointer)dataList
 	);
 
-	gtk_editable_set_text(GTK_EDITABLE(dataList->entry), text);
+	gtk_editable_set_text(GTK_EDITABLE(dataList->entry), club->shortName);
 
 	// Unblock the handler
 	g_signal_handlers_unblock_by_func(
@@ -107,7 +112,7 @@ void callbacks_onClubNameSelected(
 	gtk_popover_popdown(dataList->popover);
 
 	gameContext.filterOptions.filterMask |= FILTER_HAS_CLUB;
-	gameContext.filterOptions.clubIndex = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(child), "index"));
+	gameContext.filterOptions.clubIndex = clubIndex;
 
 	// NOTE: this is the same as the on-enter handler
 	searchHandler_doSearch(true);
@@ -126,7 +131,6 @@ static gboolean updateUIWithResults(gpointer userData) {
 	}
 
 	const SearchDatalist *dataList = context->dataList;
-	gtk_popover_popdown(dataList->popover);
 
 	// Clear the list
 	GtkWidget *child;
@@ -134,23 +138,19 @@ static gboolean updateUIWithResults(gpointer userData) {
 		gtk_list_box_remove(dataList->listBox, GTK_WIDGET(child));
 	}
 
-	// Add matching options using results from worker thread
+	// Add matching options using the names the worker snapshotted under the clubs lock. The buffer
+	// they came from may already have been republished, so nothing is re-read from it here.
 	for (uint64_t i = 0; i < context->count; i++) {
-		const uint64_t clubIndex = context->clubIndices[i];
-		// The clubs may have been republished since the scan, so the indices are re-validated here.
-		const Club *club = entities_getClub((int64_t)clubIndex);
-		if (club == NULL) {
-			continue;
-		}
+		const ClubMatch *match = &context->matches[i];
 
-		GtkWidget *label = gtk_label_new(club->shortName);
-		g_object_set_data(G_OBJECT(label), "index", GINT_TO_POINTER(clubIndex));
+		GtkWidget *label = gtk_label_new(match->shortName);
+		g_object_set_data(G_OBJECT(label), "index", GINT_TO_POINTER(match->index));
 		gtk_widget_set_halign(label, GTK_ALIGN_START);
 		gtk_list_box_append(dataList->listBox, label);
 	}
 
 	// Show/hide popover based on matches
-	if (gtk_widget_get_first_child(GTK_WIDGET(dataList->listBox)) != NULL) {
+	if (context->count > 0) {
 		gtk_popover_popup(dataList->popover);
 	} else {
 		gtk_popover_popdown(dataList->popover);
@@ -179,28 +179,42 @@ static void runSearch(SearchContext *context) {
 	// scan is taken under the cache's lock rather than racing the swap.
 	cache_lockClubs();
 
+	// Collected as bare indices so the sort below shuffles 8 bytes per move rather than a whole
+	// ClubMatch; the names are copied out once the order is settled.
+	uint64_t indices[CLUB_SEARCH_LIMIT];
+	uint64_t count = 0;
+
 	// Add matching options
-	context->count = 0;
-	for (uint64_t i = 0; i < gameContext.clubCount && context->count < CLUB_SEARCH_LIMIT; i++) {
+	for (uint64_t i = 0; i < gameContext.clubCount && count < CLUB_SEARCH_LIMIT; i++) {
 		if (
 			g_str_match_string(searchValue, gameContext.clubs[i].name, TRUE)
 			|| g_str_match_string(searchValue, gameContext.clubs[i].shortName, TRUE)
 		) {
-			context->clubIndices[context->count] = i;
-			++context->count;
+			indices[count] = i;
+			++count;
 		}
 	}
 
-	for (uint32_t i = 1; i < context->count; ++i) {
-		const uint64_t clubIndex = context->clubIndices[i];
-		char *key = gameContext.clubs[clubIndex].shortName;
-		int64_t j = i - 1;
+	for (uint64_t i = 1; i < count; ++i) {
+		const uint64_t clubIndex = indices[i];
+		const char *key = gameContext.clubs[clubIndex].shortName;
+		int64_t j = (int64_t)i - 1;
 
-		while (j >= 0 && strncmp(gameContext.clubs[context->clubIndices[j]].shortName, key, CLUB_SHORT_NAME_LENGTH) > 0) {
-			context->clubIndices[j + 1] = context->clubIndices[j];
-			j--;
+		while (j >= 0 && strncmp(gameContext.clubs[indices[j]].shortName, key, CLUB_SHORT_NAME_LENGTH) > 0) {
+			indices[j + 1] = indices[j];
+			--j;
 		}
-		context->clubIndices[j + 1] = clubIndex;
+		indices[j + 1] = clubIndex;
+	}
+
+	// Snapshot the names before dropping the lock: the main thread renders from these, so a
+	// republish between here and updateUIWithResults can no longer blank out a valid result set.
+	context->count = count;
+	for (uint64_t i = 0; i < count; ++i) {
+		ClubMatch *match = &context->matches[i];
+		match->index = indices[i];
+		memcpy(match->shortName, gameContext.clubs[indices[i]].shortName, CLUB_SHORT_NAME_LENGTH);
+		match->shortName[CLUB_SHORT_NAME_LENGTH - 1] = '\0';
 	}
 
 	cache_unlockClubs();

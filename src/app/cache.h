@@ -8,6 +8,7 @@
 #define THREAD_COUNT (NON_PLAYERS_THREAD_COUNT + PLAYERS_THREAD_COUNT)
 
 void cache_clear(void);
+void cache_reset(void);
 void cache_run(void);
 
 // Guards gameContext.clubs against the detached club-search thread; see cache.c.

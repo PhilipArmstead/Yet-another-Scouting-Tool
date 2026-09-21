@@ -122,9 +122,11 @@ static inline void updateWhileConnected(void) {
 	const uint64_t gameKey = game_getKey(&processContext, &gameKeyStatus);
 	if (gameKey != gameContext.gameKey) {
 		gameContext.gameKey = gameKey;
-		cache_clear();
 
 		if (gameKeyStatus == GAME_KEY_FOUND && gameContext.currentDate.year > 1970) {
+			// The clubs and nations are kept until the replacements land, so the search widgets
+			// keep working through the second or more this rebuild takes.
+			cache_clear();
 			ui_setCurrentStatus("Caching data");
 
 			if (cacheTimeoutId != 0) {
@@ -133,13 +135,15 @@ static inline void updateWhileConnected(void) {
 
 			cacheTimeoutId = g_timeout_add(1000, scheduleCacheRun, NULL);
 		} else {
+			// No rebuild is coming, so nothing stale is worth holding on to.
+			cache_reset();
 			ui_setCurrentStatus("Cannot read save data");
 		}
 	}
 }
 
 static inline void updateWhileDisconnected(void) {
-	cache_clear();
+	cache_reset();
 	platform_openProcess(&processContext);
 
 	if (processContext.handle != NULL) {
@@ -157,7 +161,7 @@ static void handleDisconnect(void) {
 	gameContext.gameVersion[0] = '\0';
 	gameContext.currentDate = (DateTime){0};
 
-	cache_clear();
+	cache_reset();
 
 	update(NULL);
 }

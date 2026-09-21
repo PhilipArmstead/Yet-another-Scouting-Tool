@@ -150,6 +150,15 @@ static gboolean publishClubs(gpointer userData) {
 	return G_SOURCE_REMOVE;
 }
 
+/**
+ * Abandons any in-flight cache run and drops the players, but leaves the clubs and nations in
+ * place: they are lookup tables the UI reads constantly, and the re-cache that follows takes
+ * seconds to land. Freeing them here left the club search scanning an empty list — and so showing
+ * no popover — for most of the time the game was unpaused, since every in-game clock change forces
+ * a re-cache. publishClubs/publishNations free whatever they replace, so nothing is leaked.
+ *
+ * Use cache_reset() when the buffers must actually go, i.e. when the process is gone.
+ */
 void cache_clear(void) {
 	g_atomic_int_set(&cacheInProgress, false);
 
@@ -170,6 +179,25 @@ void cache_clear(void) {
 
 	const bool hadPlayers = gameContext.players != NULL;
 
+	if (gameContext.players != NULL) {
+		free(gameContext.players);
+		gameContext.players = NULL;
+		gameContext.playerCount = 0;
+	}
+
+	// Called every tick while disconnected, so only pay for the rebuild when something was dropped.
+	// Open windows are left showing the players they already hold until a new cache arrives.
+	if (hadPlayers) {
+		invalidatePlayerTable();
+	}
+}
+
+// Drops everything, including the club and nation lookup tables that cache_clear() deliberately
+// keeps. The join inside cache_clear() covers the cache workers; the detached club search does not
+// join, so the clubs swap is taken under its lock.
+void cache_reset(void) {
+	cache_clear();
+
 	if (gameContext.clubs != NULL) {
 		cache_lockClubs();
 		free(gameContext.clubs);
@@ -181,17 +209,6 @@ void cache_clear(void) {
 		free(gameContext.nations);
 		gameContext.nations = NULL;
 		gameContext.nationCount = 0;
-	}
-	if (gameContext.players != NULL) {
-		free(gameContext.players);
-		gameContext.players = NULL;
-		gameContext.playerCount = 0;
-	}
-
-	// Called every tick while disconnected, so only pay for the rebuild when something was dropped.
-	// Open windows are left showing the players they already hold until a new cache arrives.
-	if (hadPlayers) {
-		invalidatePlayerTable();
 	}
 }
 
