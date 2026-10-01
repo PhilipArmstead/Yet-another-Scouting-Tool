@@ -26,6 +26,24 @@ static const char *positionGroupedNames[POSITION_GROUPED_COUNT] = {
 	"Striker"
 };
 
+static void onPlayerInfoClicked(
+	GtkGestureClick *gesture,
+	int clickCount,
+	double x,
+	double y,
+	gpointer userData
+) {
+	GtkWidget *window = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(gesture));
+	GtkWidget *commonNameLabel = GTK_WIDGET(userData);
+
+	if (gtk_widget_pick(window, x, y, GTK_PICK_DEFAULT) != commonNameLabel) {
+		gtk_label_set_selectable(GTK_LABEL(commonNameLabel), false);
+		gtk_label_set_selectable(GTK_LABEL(commonNameLabel), true);
+	}
+
+	(void)clickCount;
+}
+
 static void setPercentage(GtkBuilder *builder, const char *id, const int16_t basisPoints, const bool inverted) {
 	char buffer[FORMATTER_PERCENTAGE_SIZE];
 	formatter_formatPercentage(fabsf((float)basisPoints / 100.f), inverted, buffer);
@@ -58,7 +76,16 @@ void ui_createPlayerInfoWindow(const Player *player) {
 	g_object_set_data_full(G_OBJECT(context.window), "player-info:player", snapshot, playerSnapshot_free);
 
 	ui_renderPlayerInfoWindow(context);
+	GtkWidget *commonNameLabel = GTK_WIDGET(gtk_builder_get_object(context.builder, "label:common-name"));
+	GtkGestureClick *clickGesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
+	gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(clickGesture), GTK_PHASE_CAPTURE);
+	g_signal_connect(clickGesture, "pressed", G_CALLBACK(onPlayerInfoClicked), commonNameLabel);
+	gtk_widget_add_controller(context.window, GTK_EVENT_CONTROLLER(clickGesture));
 	ui_presentWindow(context);
+
+	// This has to come after the window has been presented
+	// so the label doesn't come auto-highlighted
+	gtk_label_set_selectable(GTK_LABEL(commonNameLabel), true);
 }
 
 void ui_rebindPlayerInfoWindow(const WindowContext context, const PlayerLookup *lookup) {
