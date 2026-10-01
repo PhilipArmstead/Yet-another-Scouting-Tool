@@ -306,14 +306,12 @@
 #define CONTRACTS_OFFSET_LOYALTY_BONUS 0x30
 #define CONTRACTS_OFFSET_START_DATE 0x3C
 #define CONTRACTS_OFFSET_END_DATE 0x40
+// 0 = not listed, 1 = transfer listed, 2 = loan listed, 8 = transfer listed by request, 16 = not for sale, 64 = not for loan
+#define CONTRACTS_OFFSET_TRANSFER_STATUS 0x4F
+#define CONTRACTS_OFFSET_SQUAD_NUMBER 0x55
 // 0 is part-time, 1 is full time, 2 is amateur, 3 is youth, 4 is non-contract
 #define CONTRACTS_OFFSET_CONTRACT_TYPE 0xB4
 // todo
-// public const int CON_WEEKLY_WAGE = 0x20;  // u32 GBP p/w
-// public const int CON_EXPIRY = 0x48;       // u32 FM-datum
-// public const int CON_SQUAD_NUMBER = 0x5D; // byte
-// public const int CON_STATUS_FLAGS = 0x57; // byte bitfield (transferstatus)
-//   bit0 = Listed, bit3 = Listed by Request, bit4 = Not for Sale, bit5 = Set for Release
 
 /** Continent */
 // (+0x04 from here)
