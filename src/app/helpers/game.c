@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "game.h"
-#include "app/config.h"
+#include "app/configuration.h"
 #include "app/constants.h"
 #include "app/maths.h"
 #include "app/types.h"

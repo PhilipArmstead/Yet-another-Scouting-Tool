@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "date.h"
+#include <stdio.h>
+#include <string.h>
 
 
 const char *date_getOrdinal(uint16_t day) {

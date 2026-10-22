@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 
 // Logger
@@ -21,9 +22,14 @@ void writeToMemory(void *handle, uintptr_t address, size_t length, const uint8_t
 
 // Process
 void platform_openProcess(ProcessContext *context);
+void platform_closeProcess(ProcessContext *context);
 
 // Paths
 void platform_getExecutableDirectory(char *buffer, size_t size);
+bool platform_getUserDirectory(char *buffer, size_t size, bool state);
+FILE *platform_fopen(const char *path, const char *mode);
+bool platform_removeFile(const char *path);
+bool platform_replaceFile(const char *source, const char *destination);
 
 // Time
 int64_t platform_getMicroseconds(void);

@@ -76,11 +76,12 @@ uint64_t getPersonAddressFromPlayerAddress(void *handle, const uint64_t playerAd
 	return playerAddress - (uint64_t)offset;
 }
 
-Player getPlayer(
+Player player_read(
 	void *handle,
 	const bool skipIsValidCheck,
 	const uint64_t personAddress,
-	uint64_t playerAddress
+	uint64_t playerAddress,
+	const DateTime date
 ) {
 #ifndef PLAYER_BY_ID
 	if (!skipIsValidCheck && !isPlayerValid(handle, personAddress)) {
@@ -122,7 +123,7 @@ Player getPlayer(
 		.rowId = rowId,
 		.nationality = {0xFF, 0xFF, 0xFF, 0xFF}
 	};
-	player.age = player_getAge(player.dateOfBirth);
+	player.age = player_ageAtDate(player.dateOfBirth, date);
 	getPersonForename(handle, personAddress, player.forename);
 	getPersonSurname(handle, personAddress, player.surname);
 	getPersonCommonName(handle, personAddress, player.commonName);
@@ -168,12 +169,6 @@ Player getPlayer(
 	readFromMemory(handle, playerAddress + PLAYER_OFFSET_ATTRIBUTES, TRUE_ATTRIBUTE_COUNT, player.attributes);
 	readFromMemory(handle, playerAddress + PLAYER_OFFSET_POSITIONS, 15, player.positions);
 	player.clubIndex = getClubIndexFromPerson(handle, personAddress);
-	getSortedPositionRatings(&player);
-
-	// Normalise personality
-	for (uint8_t i = TRUE_ATTRIBUTE_COUNT; i < ATTRIBUTE_COUNT; ++i) {
-		player.attributes[i] *= 5;
-	}
 
 	// Sharpness, fatigue, condition
 	readFromMemory(handle, playerAddress + PLAYER_OFFSET_SHARPNESS, 6, bytes);
@@ -218,28 +213,32 @@ Player getPlayer(
 	readFromMemory(handle, playerAddress + PLAYER_OFFSET_GUIDE_VALUE, 4, bytes);
 	player.guideValue = (uint32_t)hexBytesToInt(bytes, 4);
 
-	// Extra
-	player.canDevelopQuickly = player.age <= 23 &&
-		player.attributes[ATTR_INJ] < 70 &&
-		player.attributes[ATTR_AMB] > 10 &&
-		player.attributes[ATTR_PRO] > 10 &&
-		player.attributes[ATTR_DET] > 50;
-	if (player.age >= 15 && player.age <= 19) {
-		player.isHotProspect = player.ca >= 80 + 5 * (player.age - 15);
-	} else if (player.age <= 23) {
-		player.isHotProspect = player.ca >= 140;
-	} else {
-		player.isHotProspect = false;
-	}
 #else
 	(void)handle;
 	(void)skipIsValidCheck;
 	(void)personAddress;
 	(void)playerAddress;
+	(void)date;
 	const Player player = PLAYER_BY_ID;
 #endif
 
 	return player;
+}
+
+Player getPlayer(void *handle, const bool skipIsValidCheck, const uint64_t personAddress, const uint64_t playerAddress) {
+	Player player = player_read(handle, skipIsValidCheck, personAddress, playerAddress, gameContext.currentDate);
+	player_finishRead(&player);
+	return player;
+}
+
+void player_finishRead(Player *player) {
+	// Preserve acquisition scoring before personality display normalization.
+	getSortedPositionRatings(player);
+	for (unsigned i = TRUE_ATTRIBUTE_COUNT; i < ATTRIBUTE_COUNT; ++i) player->attributes[i] *= 5;
+	player->canDevelopQuickly = player->age <= 23 && player->attributes[ATTR_INJ] < 70 &&
+		player->attributes[ATTR_AMB] > 10 && player->attributes[ATTR_PRO] > 10 && player->attributes[ATTR_DET] > 50;
+	player->isHotProspect = player->age >= 15 && player->age <= 19 ? player->ca >= 80 + 5 * (player->age - 15) :
+		player->age <= 23 && player->ca >= 140;
 }
 
 static bool isPlayerAlsoStaff(void *handle, const uint64_t playerAddress) {
@@ -323,8 +322,13 @@ static inline void getPersonCommonName(
 }
 
 uint8_t player_getAge(const Date dateOfBirth) {
-	uint8_t age = (uint8_t)(gameContext.currentDate.year - dateOfBirth.year);
-	if (gameContext.currentDate.days < dateOfBirth.days) {
+	return player_ageAtDate(dateOfBirth, gameContext.currentDate);
+}
+
+uint8_t player_ageAtDate(const Date dateOfBirth, const DateTime date) {
+	if (!dateOfBirth.year || date.year < dateOfBirth.year) return 0;
+	uint8_t age = (uint8_t)(date.year - dateOfBirth.year);
+	if (age && date.days < dateOfBirth.days) {
 		--age;
 	}
 
@@ -348,6 +352,8 @@ static int64_t getClubIndexFromPerson(void *handle, const uint64_t personAddress
 }
 
 PositionWeights *getWeightsForPosition(const PositionGrouped position) {
+	static PositionWeights empty;
+	if (!vector_length(gameContext.options.weights)) return &empty;
 	uint64_t generalIndex = 0;
 	uint64_t matchingIndex = 0xFFFFFFFFFFFFFFFF;
 	for (uint64_t i = 0; i < vector_length(gameContext.options.weights); ++i) {
@@ -404,6 +410,7 @@ static float getRatingPerPosition(const Player *player, const PositionGrouped po
 }
 
 void getSortedPositionRatings(Player *player) {
+	memset(player->ratings, 0, sizeof(player->ratings));
 	PositionGrouped i = 0;
 	PositionGrouped j = 0;
 	while (i < POSITION_GROUPED_COUNT) {

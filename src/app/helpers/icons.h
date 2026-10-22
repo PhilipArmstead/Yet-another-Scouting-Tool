@@ -3,22 +3,23 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
+#include "raylib.h"
 #include <stdint.h>
 
 
 #define CONDITION_MAX 10000.f
 
 typedef enum {
-	ICON_HEART,
-	ICON_FACE,
-	ICON_SHOE_LEFT,
-	ICON_SHOE_RIGHT,
-	ICON_COUNT
+	YAST_ICON_HEART,
+	YAST_ICON_FACE,
+	YAST_ICON_SHOE_LEFT,
+	YAST_ICON_SHOE_RIGHT,
+	YAST_ICON_COUNT
 } IconId;
 
-void icons_init(void);
-GtkWidget *icons_new(IconId id, uint8_t quality);
+bool icons_init(void);
+void icons_draw(IconId id, Rectangle bounds, uint8_t quality);
+void icons_shutdown(void);
 
 // Condition, sharpness and fatigue are all stored values 1-10000
 static inline uint8_t icons_conditionQuantise(const float condition) {

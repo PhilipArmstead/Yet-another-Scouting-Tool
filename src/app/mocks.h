@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "app/config.h"
+#include "app/configuration.h"
 
 
 #ifdef MOCKS_MODE

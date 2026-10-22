@@ -1,372 +1,526 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-#include "ui.h"
-#include "app/callbacks.h"
 #include "app/cache.h"
-#include "app/config.h"
-#include "app/search-handler.h"
+#include "app/configuration.h"
 #include "app/helpers/date.h"
 #include "app/helpers/formatter.h"
-#include "app/helpers/vector.h"
-#include "platform/platform.h"
+#include "app/helpers/icons.h"
+#include "app/options.h"
+#include "app/player.h"
+#include "app/resources.h"
+#include "app/search-handler.h"
+#include "core/logger.h"
+#include "ui/internal.h"
+#include <math.h>
 
-#include <gtk/gtk.h>
+Ui ui;
+const char *const ui_positionNames[14] = {"GK", "DL", "DC", "DR", "WBL", "DM", "WBR", "ML", "MC", "MR", "AML", "AMC", "AMR", "ST"};
+const PositionCode ui_positionCodes[14] = {POSITION_CODE_GK, POSITION_CODE_DL, POSITION_CODE_DC, POSITION_CODE_DR,
+																					 POSITION_CODE_WBL, POSITION_CODE_DM, POSITION_CODE_WBR, POSITION_CODE_ML, POSITION_CODE_MC, POSITION_CODE_MR,
+																					 POSITION_CODE_AML, POSITION_CODE_AMC, POSITION_CODE_AMR, POSITION_CODE_ST};
 
-#include "player-table.h"
+static void theme(void) {
+	ui.dark = gameContext.options.darkMode;
+	ui.colour = ui.dark ? (Palette){
+													.background = {15, 18, 22, 255}, .sidebar = {16, 20, 26, 255}, .topbar = {20, 24, 29, 255}, .card = {27, 36, 48, 255}, .input = {26, 32, 40, 255}, .border = {42, 53, 66, 255}, .text = {194, 201, 208, 255}, .muted = {154, 164, 173, 255}, .title = {242, 242, 242, 255}, .accent = {47, 111, 237, 255}, .alternate = {18, 23, 29, 255}, .hover = {40, 54, 72, 255}, .high = {51, 64, 9, 255}, .mid = {68, 57, 17, 255}, .orange = {224, 138, 44, 255}, .ca = {102, 181, 229, 255}, .pa = {102, 203, 147, 255}}
+											: (Palette){.background = WHITE, .sidebar = {246, 248, 250, 255}, .topbar = {246, 248, 250, 255}, .card = WHITE, .input = {238, 241, 245, 255}, .border = {194, 203, 212, 255}, .text = {36, 41, 47, 255}, .muted = {75, 83, 91, 255}, .title = {27, 31, 36, 255}, .accent = {26, 90, 217, 255}, .alternate = {246, 248, 250, 255}, .hover = {221, 227, 234, 255}, .high = {214, 235, 168, 255}, .mid = {248, 233, 175, 255}, .orange = {168, 92, 20, 255}, .ca = {26, 111, 168, 255}, .pa = {26, 127, 75, 255}};
+	GuiSetStyle(DEFAULT, TEXT_SIZE, 12);
+	GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, (int)ColorToInt(ui.colour.border));
+	GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, (int)ColorToInt(ui.colour.input));
+	GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, (int)ColorToInt(ui.colour.text));
+	GuiSetStyle(DEFAULT, BORDER_COLOR_FOCUSED, (int)ColorToInt(ui.colour.accent));
+	GuiSetStyle(DEFAULT, BASE_COLOR_FOCUSED, (int)ColorToInt(ui.colour.hover));
+	GuiSetStyle(DEFAULT, TEXT_COLOR_FOCUSED, (int)ColorToInt(ui.colour.title));
+	GuiSetStyle(DEFAULT, BORDER_COLOR_PRESSED, (int)ColorToInt(ui.colour.accent));
+	GuiSetStyle(DEFAULT, BASE_COLOR_PRESSED, (int)ColorToInt(ui.colour.accent));
+	GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, (int)ColorToInt(WHITE));
+	GuiSetStyle(DEFAULT, BACKGROUND_COLOR, (int)ColorToInt(ui.colour.background));
+	GuiSetStyle(DEFAULT, TEXT_SPACING, 0);
+	formatter_init();
+}
 
+static bool loadTexture(const char *name, Texture2D *texture) {
+	const Resource *resource = resources_get(name);
+	if (!resource) {
+		LOG_ERROR("Missing embedded resource %s", name);
+		return false;
+	}
+	Image image = LoadImageFromMemory(".png", resource->data, (int)resource->size);
+	if (!IsImageValid(image)) {
+		LOG_ERROR("Cannot decode %s", name);
+		return false;
+	}
+	*texture = LoadTextureFromImage(image);
+	UnloadImage(image);
+	if (!IsTextureValid(*texture)) {
+		LOG_ERROR("Cannot upload %s", name);
+		return false;
+	}
+	SetTextureFilter(*texture, TEXTURE_FILTER_BILINEAR);
+	return true;
+}
 
-extern ProcessContext processContext;
-extern GameContext gameContext;
+static bool loadFonts(void) {
+	int codepoints[1800], count = 0;
+	for (int cp = 32; cp <= 0x52f; ++cp)
+		codepoints[count++] = cp;
+	for (int cp = 0x1e00; cp <= 0x1eff; ++cp)
+		codepoints[count++] = cp;
+	codepoints[count++] = 0x2013;
+	codepoints[count++] = 0x2014;
+	codepoints[count++] = 0x2019;
+	codepoints[count++] = 0x2022;
+	codepoints[count++] = 0x2026;
+	const Resource *regular = resources_get("assets/fonts/NotoSans-Regular.ttf");
+	const Resource *bold = resources_get("assets/fonts/NotoSans-Bold.ttf");
+	if (!regular || !bold) {
+		LOG_ERROR("Missing embedded fonts");
+		return false;
+	}
+	ui.fontDpi = fmaxf(1, GetWindowScaleDPI().x);
+	const int size = (int)(16 * ui.fontDpi);
+	Font normalFont = LoadFontFromMemory(".ttf", regular->data, (int)regular->size, size, codepoints, count);
+	Font boldFont = LoadFontFromMemory(".ttf", bold->data, (int)bold->size, size, codepoints, count);
+	if (!IsFontValid(normalFont) || !IsFontValid(boldFont) ||
+			normalFont.texture.id == GetFontDefault().texture.id || boldFont.texture.id == GetFontDefault().texture.id) {
+		if (normalFont.texture.id && normalFont.texture.id != GetFontDefault().texture.id)
+			UnloadFont(normalFont);
+		if (boldFont.texture.id && boldFont.texture.id != GetFontDefault().texture.id)
+			UnloadFont(boldFont);
+		LOG_ERROR("Cannot load embedded fonts");
+		return false;
+	}
+	if (ui.regular.texture.id)
+		UnloadFont(ui.regular);
+	if (ui.bold.texture.id)
+		UnloadFont(ui.bold);
+	ui.regular = normalFont;
+	ui.bold = boldFont;
+	SetTextureFilter(ui.regular.texture, TEXTURE_FILTER_BILINEAR);
+	SetTextureFilter(ui.bold.texture, TEXTURE_FILTER_BILINEAR);
+	GuiSetFont(ui.regular);
+	GuiSetStyle(DEFAULT, TEXT_SIZE, 12);
+	ui.fontsDirty = true;
+	return true;
+}
 
-static gboolean onWindowClose(GtkWidget *widget, gpointer userData);
-static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer);
-static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer);
-static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button);
+static void updateFallback(void) {
+	if (!ui.fontsDirty)
+		return;
+	ui.fontsDirty = false;
+	if (!vector_length(ui.extraCodepoints))
+		return;
+	const Resource *resource = resources_get("assets/fonts/Unifont.otf");
+	if (!resource) {
+		LOG_ERROR("Missing international fallback font");
+		ui_setCurrentStatus("Missing international font.");
+		return;
+	}
+	Font font = LoadFontFromMemory(".otf", resource->data, (int)resource->size, (int)(16 * ui.fontDpi), ui.extraCodepoints, (int)vector_length(ui.extraCodepoints));
+	if (!IsFontValid(font) || font.texture.id == GetFontDefault().texture.id) {
+		LOG_ERROR("Cannot load international fallback font");
+		ui_setCurrentStatus("Cannot load international font.");
+		return;
+	}
+	if (ui.fallback.texture.id)
+		UnloadFont(ui.fallback);
+	ui.fallback = font;
+	SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+	if ((size_t)font.glyphCount != vector_length(ui.extraCodepoints)) {
+		LOG_WARN("Some characters are not present in the bundled fonts");
+		ui_setCurrentStatus("Some characters are missing from the bundled fonts. See the log.");
+	}
+}
 
-void ui_init(GtkApplication *app) {
-	ui_loadStylesheet("styles.css", GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-	ui_loadStylesheet(
-		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
-		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
-	);
-
-	// Keep GTK's own widget internals (scrollbars, text carets, etc.) in step with our palette
-	g_object_set(
-		gtk_settings_get_default(),
-		"gtk-application-prefer-dark-theme",
-		(gboolean)gameContext.options.darkMode,
-		NULL
-	);
-
-	// Show main window
-	const WindowContext context = openWindow("player-search", "window:player-search", WINDOW_PLAYER_SEARCH, NULL);
-	gameContext.builder = context.builder;
-	gtk_window_set_application(GTK_WINDOW(context.window), GTK_APPLICATION(app));
-
-	// Write application version
-	const GtkLabel *appVersionLabel = GTK_LABEL(gtk_builder_get_object(context.builder, "label:application-version"));
-	char appVersionBuffer[64];
-	snprintf(
-		appVersionBuffer,
-		sizeof(appVersionBuffer),
-		"%s %d.%d.%d",
-		APP_NAME,
-		APP_VERSION_MAJOR,
-		APP_VERSION_MINOR,
-		APP_VERSION_PATCH
-	);
-	gtk_label_set_text(GTK_LABEL(appVersionLabel), appVersionBuffer);
-
-#ifdef MOCKS_MODE
-	// In mock mode, we never have the process-connected callback run
-	cache_run();
+bool ui_init(void) {
+	ui.nextId = 100;
+	ui.selectedRow = -1;
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI | FLAG_VSYNC_HINT);
+	InitWindow(1255, 800, "Yet another Scouting Tool");
+	if (!IsWindowReady()) {
+		LOG_ERROR("Could not create the application window");
+		return false;
+	}
+	SetWindowMinSize(800, 560);
+	SetExitKey(KEY_NULL);
+	SetTargetFPS(60);
+	if (!loadFonts() || !icons_init() || !loadTexture("assets/icons/pitch.png", &ui.pitch))
+		return false;
+#ifndef ARCH_MACOS
+	const Resource *icon = resources_get("assets/branding/png/128.png");
+	if (icon) {
+		Image image = LoadImageFromMemory(".png", icon->data, (int)icon->size);
+		SetWindowIcon(image);
+		UnloadImage(image);
+	}
 #endif
-
-	// Cache field buffers
-	GtkBuilder *b = gameContext.builder;
-	FilterBuffer *buf = &gameContext.filterBuffer;
-	buf->minAge = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:age:min")));
-	buf->maxAge = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:age:max")));
-	buf->minCA = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:ca:min")));
-	buf->maxCA = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:ca:max")));
-	buf->minPA = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:pa:min")));
-	buf->maxPA = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:pa:max")));
-	buf->minRating = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:rating:min")));
-	buf->maxRating = gtk_entry_get_buffer(GTK_ENTRY(gtk_builder_get_object(b, "entry:rating:max")));
-
-	// Cache check boxes
-	CheckBox *check = &gameContext.checkboxes;
-	check->positionGK = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:gk"));
-	check->positionDL = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dl"));
-	check->positionDC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dc"));
-	check->positionDR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dr"));
-	check->positionWBL = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:wbl"));
-	check->positionDM = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:dm"));
-	check->positionWBR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:wbr"));
-	check->positionML = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:ml"));
-	check->positionMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:mc"));
-	check->positionMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:mr"));
-	check->positionAML = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:aml"));
-	check->positionAMC = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amc"));
-	check->positionAMR = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:amr"));
-	check->positionST = GTK_CHECK_BUTTON(gtk_builder_get_object(b, "checkbox:position:st"));
-
-	ui_presentWindow(context);
-}
-
-void ui_update(void) {
-	ui_updateInGameDate();
-	ui_updateGameVersion();
-}
-
-void ui_updateInGameDate(void) {
-	GtkLabel *dateLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:date")));
-
-#ifndef MOCKS_MODE
-	if (processContext.handle == NULL || !gameContext.gameKey || gameContext.currentDate.year == 1900) {
-		gtk_label_set_text(dateLabel, "");
-		return;
-	}
-#endif
-
-	DayMonthYearTime d = date_prettify(gameContext.currentDate);
-	char buffer[64] = {0};
-	snprintf(
-		buffer,
-		64,
-		"📅 %s %d%s, %d %s",
-		d.month,
-		d.day,
-		date_getOrdinal(d.day),
-		d.year,
-		d.timeString
-	);
-	gtk_label_set_text(dateLabel, buffer);
-}
-
-void ui_updateGameVersion(void) {
-	GtkLabel *versionLabel = GTK_LABEL(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:version")));
-	if (gameContext.gameVersion[0] == '\0') {
-		gtk_label_set_text(versionLabel, "");
-		return;
-	}
-
-	char buffer[64] = {0};
-	snprintf(buffer, 64, "📝 %s", gameContext.gameVersion);
-	gtk_label_set_text(versionLabel, buffer);
-}
-
-WindowContext openWindow(const char *layoutName, const char *windowName, const WindowType type, void *data) {
-	char pathToAppLayout[256] = {0};
-	snprintf(pathToAppLayout, sizeof(pathToAppLayout), RESOURCE_BASE "/layouts/%s.ui", layoutName);
-
-	// `data` is set before the push because the vector stores a copy: anything assigned to the
-	// caller's context afterwards would never reach the copy the refresh paths walk.
-	WindowContext context = {.type = type, .data = data};
-	context.builder = gtk_builder_new_from_resource(pathToAppLayout);
-	context.window = GTK_WIDGET(gtk_builder_get_object(context.builder, windowName));
-	g_signal_connect(context.window, "close_request", G_CALLBACK(onWindowClose), NULL);
-
-	GtkEventControllerKey *closeController = GTK_EVENT_CONTROLLER_KEY(gtk_event_controller_key_new());
-	gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(closeController), GTK_PHASE_CAPTURE);
-	g_signal_connect(closeController, "key-pressed", G_CALLBACK(callbacks_onWindowKeypress), context.window);
-	gtk_widget_add_controller(context.window, GTK_EVENT_CONTROLLER(closeController));
-
-	vector_push(gameContext.windows, context);
-
-	return context;
-}
-
-/**
- * Presenting sizes the window to the content it has at that moment, and GTK will grow a realised
- * window but never shrink it. Callers therefore populate first and present last, otherwise widgets
- * they go on to hide leave the window permanently taller than it needs to be.
- */
-void ui_presentWindow(const WindowContext context) {
-	gtk_window_present(GTK_WINDOW(context.window));
-}
-
-static gboolean onWindowClose(GtkWidget *widget, gpointer userData) {
-	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
-		if (gameContext.windows[i].window == widget) {
-			WindowContext out;
-			vector_splice(gameContext.windows, i, &out);
-			g_object_unref(out.builder);
-			break;
-		}
-	}
-
-	(void)userData;
-	return GDK_EVENT_PROPAGATE;
-}
-
-void ui_refreshAllWindows(void) {
-	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
-		if (gameContext.windows[i].type == WINDOW_BEST_XI) {
-			ui_renderBestElevenWindow(gameContext.windows[i]);
-		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
-			ui_renderPlayerInfoWindow(gameContext.windows[i]);
-		} else if (
-			gameContext.windows[i].type == WINDOW_PLAYER_SEARCH &&
-			(gameContext.filterOptions.filterMask || gameContext.searchResults->data != NULL)
-		) {
-			searchHandler_doSearch(false);
-		}
-	}
-}
-
-static bool hasPlayerWindow(void) {
-	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
-		const WindowType type = gameContext.windows[i].type;
-		if (type == WINDOW_BEST_XI || type == WINDOW_PLAYER_INFO) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-// `lookup` is NULL when the players themselves have not changed and only need drawing again.
-static void renderPlayerWindows(const PlayerLookup *lookup) {
-	for (uint64_t i = 0; i < vector_length(gameContext.windows); i++) {
-		if (gameContext.windows[i].type == WINDOW_BEST_XI) {
-			ui_rebindBestElevenWindow(gameContext.windows[i], lookup);
-		} else if (gameContext.windows[i].type == WINDOW_PLAYER_INFO) {
-			ui_rebindPlayerInfoWindow(gameContext.windows[i], lookup);
-		}
-	}
-}
-
-/**
- * Called when the player cache is replaced. Both window types own a snapshot of the players they
- * were opened with, so each one is re-matched to the new buffer by uid — anyone still in the cache
- * picks up their latest data, anyone who has gone keeps the data we last saw — and then re-rendered.
- * The uid lookup costs a pass over the cache, so it is built once and shared.
- */
-void ui_rebindPlayerWindows(void) {
-	if (!hasPlayerWindow()) {
-		return;
-	}
-
-	// A failed build leaves an empty lookup, which refreshing treats as "nothing to match against".
-	PlayerLookup lookup;
-	playerLookup_build(&lookup);
-	renderPlayerWindows(&lookup);
-	playerLookup_destroy(&lookup);
-}
-
-/**
- * Clubs and nations are published on their own, after the players that reference them, so the
- * windows are rendered again to pick up names that were not yet cached the first time round.
- */
-void ui_rerenderPlayerWindows(void) {
-	if (hasPlayerWindow()) {
-		renderPlayerWindows(NULL);
-	}
+	theme();
+	return true;
 }
 
 void ui_setCurrentStatus(const char *status) {
-	GtkLabel *statusLabel = GTK_LABEL(gtk_builder_get_object(gameContext.builder, "label:application-status"));
-	gtk_label_set_text(statusLabel, status);
+	snprintf(ui.status, sizeof(ui.status), "%s", status);
 }
 
-typedef struct {
-	GtkWidget *box;
-	GtkWidget *label;
-	GtkWidget *closeButton;
-} FilterTag;
-
-static FilterTag createFilterTag(const char *text, const bool isClosable) {
-	GtkWidget *box = gtk_box_new(0, 4);
-	gtk_widget_add_css_class(box, "chip");
-
-	GtkWidget *label = gtk_label_new(text);
-	gtk_widget_add_css_class(label, "chip-text");
-	gtk_box_append(GTK_BOX(box), label);
-
-	GtkWidget *closeButton = NULL;
-	if (isClosable) {
-		GtkWidget *close = gtk_label_new("✕");
-		gtk_widget_add_css_class(close, "chip-x");
-		closeButton = gtk_button_new();
-		gtk_widget_add_css_class(closeButton, "chip-button");
-		gtk_widget_set_parent(close, closeButton);
-		gtk_box_append(GTK_BOX(box), closeButton);
+static View *newView(ViewType type, PlayerSnapshot *snapshot) {
+	if (!snapshot) {
+		ui_setCurrentStatus("Cannot allocate player snapshot. See the log.");
+		return NULL;
 	}
-
-	GtkBox *parent = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:filter-tags"));
-	gtk_box_append(parent, box);
-
-	return (FilterTag){.box = box, .label = label, .closeButton = closeButton};
-}
-
-void ui_createFilterTag(const char *text, GtkEntryBuffer *buffer) {
-	const FilterTag tag = createFilterTag(text, buffer != NULL);
-	if (buffer != NULL) {
-		g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onFilterTagClick), buffer);
+	View *view = calloc(1, sizeof(*view));
+	if (!view) {
+		playerSnapshot_free(snapshot);
+		LOG_ERROR("Cannot allocate view");
+		ui_setCurrentStatus("Cannot allocate view.");
+		return NULL;
 	}
+	view->id = ui.nextId++;
+	view->type = type;
+	view->snapshot = snapshot;
+	view->dirty = true;
+	view->minAge = 14;
+	view->maxAge = 50;
+	view->minCondition = 80;
+	view->maxCondition = 100;
+	view->excludeInjured = true;
+	view->positions = 0x3fff;
+	vector_push(ui.views, view);
+	ui.active = view->id;
+	ui.popup = 0;
+	ui.focus = ui.editor = 0;
+	return view;
 }
 
-void ui_createClubFilterTag(const char *name, GtkEditable *buffer) {
-	char textBuffer[CLUB_SHORT_NAME_LENGTH + 7] = {0};
-	snprintf(textBuffer, sizeof(textBuffer), "Club: %s", name);
-	const FilterTag tag = createFilterTag(textBuffer, true);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
-	gtk_widget_set_name(tag.label, "tag:club-name");
-}
-
-void ui_createNationalityFilterTag(const char *name, GtkEditable *buffer) {
-	char textBuffer[MAX_NATION_STRING_LENGTH + 15];
-	snprintf(textBuffer, sizeof(textBuffer), "Nationality: %s", name);
-	const FilterTag tag = createFilterTag(textBuffer, true);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onEditableFilterTagClick), buffer);
-	gtk_widget_set_name(tag.label, "tag:nationality");
-}
-
-void ui_createPositionFilterTag(const char *name, GtkCheckButton *button) {
-	char textBuffer[16] = {0};
-	snprintf(textBuffer, sizeof(textBuffer), "Pos: %s", name);
-	const FilterTag tag = createFilterTag(textBuffer, true);
-	g_signal_connect(tag.closeButton, "clicked", G_CALLBACK(onPositionFilterTagClick), button);
-}
-
-void ui_clearFilterTags(void) {
-	GtkBox *filterTags = GTK_BOX(gtk_builder_get_object(gameContext.builder, "box:filter-tags"));
-	GtkWidget *child;
-	while ((child = gtk_widget_get_first_child(GTK_WIDGET(filterTags))) != NULL) {
-		gtk_box_remove(filterTags, GTK_WIDGET(child));
+void ui_openPlayer(const Player *player) {
+	if (!player || !player->uid) {
+		ui_setCurrentStatus("No player is available.");
+		return;
 	}
+	View *view = newView(VIEW_PLAYER, playerSnapshot_createOne(player));
+	if (!view)
+		return;
+	player_formatName(player, view->name, sizeof(view->name));
+	ui_prepareText(view->name);
+	snprintf(view->title, sizeof(view->title), "%s", view->name);
 }
 
-static void onTagClick(GtkWidget *self) {
-	GtkWidget *box = gtk_widget_get_parent(self);
-	GtkWidget *parent = gtk_widget_get_parent(box);
-	GtkWidget *closeLabel = gtk_widget_get_first_child(self);
-	if (closeLabel != NULL) {
-		gtk_widget_unparent(closeLabel);
-	}
+static void openAnalysis(ViewType type) {
+	const uint32_t *ids = gameContext.searchResults ? gameContext.searchResults->data : NULL;
+	View *view = newView(type, playerSnapshot_create(ids, vector_length(ids)));
+	if (view)
+		snprintf(view->title, sizeof(view->title), "%s", type == VIEW_BEST_XI ? "Best XI" : "Squad depth");
+}
 
-	gtk_box_remove(GTK_BOX(parent), box);
+static void closeView(size_t index) {
+	View *view = ui.views[index];
+	if (ui.active == view->id)
+		ui.active = 0;
+	playerSnapshot_free(view->snapshot);
+	free(view);
+	vector_splice(ui.views, index, &view);
+	ui.focus = ui.editor = 0;
+}
 
-	searchHandler_cacheFilters();
-	if (gameContext.filterOptions.filterMask) {
-		searchHandler_doSearch(false);
-	} else {
-		playerTable_clear();
+static void updateFlags(void) {
+	for (unsigned i = 0; i < 255; ++i) {
+		const Nation *nation = entities_getNation((uint8_t)i);
+		const char *code = nation ? nation->code : "";
+		if (!strcmp(ui.flags[i].code, code))
+			continue;
+		if (ui.flags[i].texture.id)
+			UnloadTexture(ui.flags[i].texture);
+		ui.flags[i].texture = (Texture2D){0};
+		snprintf(ui.flags[i].code, sizeof(ui.flags[i].code), "%s", code);
+		if (!code[0])
+			continue;
+		char path[64];
+		snprintf(path, sizeof(path), "assets/flags/%s.png", code);
+		if (resources_get(path))
+			loadTexture(path, &ui.flags[i].texture);
+		else
+			LOG_WARN("No flag artwork for %s; showing its country code", code);
 	}
 }
 
-static void onEditableFilterTagClick(GtkWidget *self, GtkEditable *buffer) {
-	gtk_editable_set_text(buffer, "");
-	onTagClick(self);
+void ui_flag(uint8_t nationIndex, Rectangle bounds) {
+	const Nation *nation = entities_getNation(nationIndex);
+	if (!nation)
+		return;
+	Texture2D texture = ui.flags[nationIndex].texture;
+	if (texture.id)
+		DrawTexturePro(texture, (Rectangle){0, 0, (float)texture.width, (float)texture.height}, bounds, (Vector2){0}, 0, WHITE);
+	else
+		ui_text(bounds, nation->code, 10, ui.colour.text, true);
+	ui_tip(800000u + nationIndex, bounds, nation->name);
 }
 
-static void onFilterTagClick(GtkWidget *self, GtkEntryBuffer *buffer) {
-	gtk_entry_buffer_set_text(buffer, "", 1);
-	onTagClick(self);
+void ui_update(void) {
+	if (fabsf(ui.fontDpi - fmaxf(1, GetWindowScaleDPI().x)) > .01f && !loadFonts())
+		ui_setCurrentStatus("Cannot update fonts for this display.");
+	if (ui.indexedClubs != gameContext.clubs) {
+		if (!autocomplete_rebuild(&ui.clubs, false))
+			ui_setCurrentStatus("Club autocomplete could not be rebuilt.");
+		ui.indexedClubs = gameContext.clubs;
+	}
+	if (ui.indexedNations != gameContext.nations) {
+		if (!autocomplete_rebuild(&ui.nations, true))
+			ui_setCurrentStatus("Nation autocomplete could not be rebuilt.");
+		ui.indexedNations = gameContext.nations;
+		updateFlags();
+	}
+	if (autocomplete_poll(&ui.clubs) && ui.clubs.error[0])
+		ui_setCurrentStatus(ui.clubs.error);
+	if (autocomplete_poll(&ui.nations) && ui.nations.error[0])
+		ui_setCurrentStatus(ui.nations.error);
+	const bool optionsChanged = ui.optionsRevision != gameContext.optionsRevision;
+	if (optionsChanged) {
+		theme();
+		char error[128];
+		if (gameContext.searchActive && !searchHandler_doSearch(false, error))
+			ui_setCurrentStatus(error);
+	}
+	if (ui.revision != gameContext.revision || optionsChanged) {
+		PlayerLookup lookup = {0};
+		if (vector_length(ui.views) && gameContext.playerCount && !playerLookup_build(&lookup))
+			ui_setCurrentStatus("Cannot refresh player snapshots.");
+		for (size_t i = 0; i < vector_length(ui.views); ++i) {
+			View *view = ui.views[i];
+			playerSnapshot_refresh(view->snapshot, &lookup);
+			if (optionsChanged) {
+				for (uint32_t p = 0; p < view->snapshot->count; ++p)
+					getSortedPositionRatings(&view->snapshot->players[p]);
+			}
+			view->dirty = true;
+		}
+		playerLookup_destroy(&lookup);
+		ui.revision = gameContext.revision;
+		ui.optionsRevision = gameContext.optionsRevision;
+		if (ui.selectedRow >= (int)playerTable_count())
+			ui.selectedRow = -1;
+		for (uint64_t i = 0; i < gameContext.playerCount; ++i) {
+			ui_prepareText(gameContext.players[i].forename);
+			ui_prepareText(gameContext.players[i].surname);
+			ui_prepareText(gameContext.players[i].commonName);
+		}
+		for (uint64_t i = 0; i < gameContext.clubCount; ++i) {
+			ui_prepareText(gameContext.clubs[i].name);
+			ui_prepareText(gameContext.clubs[i].shortName);
+		}
+		for (uint64_t i = 0; i < gameContext.nationCount; ++i)
+			ui_prepareText(gameContext.nations[i].name);
+		for (size_t i = 0; i < vector_length(gameContext.options.formations); ++i)
+			ui_prepareText(gameContext.options.formations[i].name);
+	}
+	updateFallback();
+	const bool command = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL) ||
+											 IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER);
+	if (command && IsKeyPressed(KEY_W)) {
+		for (size_t i = 0; i < vector_length(ui.views); ++i)
+			if (ui.views[i]->id == ui.active) {
+				closeView(i);
+				break;
+			}
+	}
+	if (command && IsKeyPressed(KEY_Q))
+		ui.quit = true;
 }
 
-/*
- * Unsetting the button emits "toggled", which re-runs the search and rebuilds every tag —
- * including this one — so `self` must not be touched afterwards.
- */
-static void onPositionFilterTagClick(GtkWidget *self, GtkCheckButton *button) {
-	(void)self;
-	gtk_check_button_set_active(button, FALSE);
+static void toolbar(float width) {
+	DrawRectangleRec((Rectangle){0, 0, width, 40}, ui.colour.topbar);
+	ui_text((Rectangle){12, 4, 40, 30}, "Show:", 12, ui.colour.text, true);
+	if (ui_button(1, (Rectangle){52, 6, 110, 28}, "Current player", false, "Show the player currently selected in FM24")) {
+#ifdef MOCKS_MODE
+		if (gameContext.playerCount)
+			ui_openPlayer(&gameContext.players[0]);
+		else
+			ui_setCurrentStatus("The mock cache is not ready.");
+#else
+		if (processContext.handle) {
+			Player player = getPlayerById(&processContext, getCurrentPersonUniqueId(&processContext));
+			if (player.uid)
+				ui_openPlayer(&player);
+			else
+				ui_setCurrentStatus("Could not read the current player. See the log.");
+		} else
+			ui_setCurrentStatus("Connect to a supported FM24 process first.");
+#endif
+	}
+	if (ui_button(2, (Rectangle){168, 6, 72, 28}, "Best XI", false, "Create a Best XI from a snapshot of the current results"))
+		openAnalysis(VIEW_BEST_XI);
+	if (ui_button(3, (Rectangle){246, 6, 100, 28}, "Squad depth", false, "Create squad depth from the current results"))
+		openAnalysis(VIEW_DEPTH);
+	DayMonthYearTime date = date_prettify(gameContext.currentDate);
+	char status[128];
+	if (gameContext.currentDate.year)
+		snprintf(status, sizeof(status), "%u %s %u  %s  %s", date.day, date.month, date.year, date.timeString, gameContext.gameVersion);
+	else
+		snprintf(status, sizeof(status), "Not connected");
+	ui_text((Rectangle){fmaxf(360, width - 380), 4, fminf(370, width - 360), 32}, status, 12, ui.colour.muted, false);
 }
 
+static void tabs(float width) {
+	Rectangle area = {0, 40, width, 36};
+	DrawRectangleRec(area, ui.colour.sidebar);
+	Rectangle previous = ui_clip(area);
+	float x = 6 - ui.tabScroll;
+	if (ui_button(4, (Rectangle){x, 44, 112, 26}, "Player search", ui.active == 0, NULL)) {
+		ui.active = 0;
+		ui.popup = 0;
+	}
+	x += 120;
+	for (size_t i = 0; i < vector_length(ui.views); ++i) {
+		View *view = ui.views[i];
+		if (ui_button(ui_id(view, 1), (Rectangle){x, 44, 142, 26}, view->title, ui.active == view->id, view->title)) {
+			ui.active = view->id;
+			ui.popup = 0;
+		}
+		if (ui_button(ui_id(view, 2), (Rectangle){x + 144, 44, 22, 26}, "x", false, "Close view (Ctrl/Cmd+W)")) {
+			closeView(i);
+			--i;
+		}
+		x += 174;
+	}
+	ui_unclip(previous);
+	ui_scroll(5, area, x + ui.tabScroll, &ui.tabScroll, true);
+}
 
-void ui_loadStylesheet(const char *fileName, const guint priority) {
-	char pathToStylesheet[256] = {0};
-	GtkCssProvider *provider = gtk_css_provider_new();
+static void views(Rectangle area) {
+	View *active = NULL;
+	size_t panels = 1;
+	for (size_t i = 0; i < vector_length(ui.views); ++i) {
+		if (ui.views[i]->id == ui.active)
+			active = ui.views[i];
+		if (ui.views[i]->pinned && ui.views[i]->id != ui.active)
+			++panels;
+	}
+	const float minMain = active ? 390 : 650;
+	const float total = fmaxf(area.width, minMain + 390 * (float)(panels - 1));
+	const float otherWidth = panels > 1 ? fmaxf(390, (total - minMain) / (float)panels) : 0;
+	const float mainWidth = total - otherWidth * (float)(panels - 1);
+	static float horizontal;
+	ui_scroll(6, area, total, &horizontal, true);
+	Rectangle previous = ui_clip((Rectangle){area.x, area.y, area.width, area.height - (total > area.width ? 10 : 0)});
+	Rectangle panel = {area.x - horizontal, area.y, mainWidth, ui.clip.height};
+	if (!active)
+		ui_search(panel);
+	else if (active->type == VIEW_PLAYER)
+		ui_playerInfo(active, panel);
+	else if (active->type == VIEW_BEST_XI)
+		ui_bestEleven(active, panel);
+	else
+		ui_squadDepth(active, panel);
+	panel.x += mainWidth;
+	panel.width = otherWidth;
+	for (size_t i = 0; i < vector_length(ui.views); ++i) {
+		View *view = ui.views[i];
+		if (!view->pinned || view == active)
+			continue;
+		if (CheckCollisionRecs(panel, ui.clip))
+			ui_playerInfo(view, panel);
+		DrawLineEx((Vector2){panel.x, panel.y}, (Vector2){panel.x, panel.y + panel.height}, 1, ui.colour.border);
+		panel.x += otherWidth;
+	}
+	ui_unclip(previous);
+}
 
-	snprintf(pathToStylesheet, sizeof(pathToStylesheet), RESOURCE_BASE "/layouts/%s", fileName);
-	gtk_css_provider_load_from_resource(provider, pathToStylesheet);
-	gtk_style_context_add_provider_for_display(
-		gdk_display_get_default(),
-		GTK_STYLE_PROVIDER(provider),
-		priority
-	);
-	g_object_unref(provider);
+void ui_draw(void) {
+	BeginDrawing();
+	ClearBackground(ui.colour.background);
+	ui_beginControls();
+	float width = (float)GetScreenWidth(), height = (float)GetScreenHeight();
+	toolbar(width);
+	tabs(width);
+	views((Rectangle){0, 76, width, height - 104});
+	EndScissorMode();
+	ui.clip = (Rectangle){0, 0, width, height};
+	DrawRectangleRec((Rectangle){0, height - 28, width, 28}, ui.colour.sidebar);
+	const char *error = options_error();
+	ui_text((Rectangle){10, height - 28, width - 180, 28}, error[0] ? error : ui.status, 12, ui.colour.muted, false);
+	ui_text((Rectangle){width - 170, height - 28, 160, 28}, APP_NAME " " APP_VERSION, 12, ui.colour.muted, false);
+	ui_searchPopup();
+	if (ui.tooltip[0] && GetTime() - ui.hoverSince >= .6 && !ui.popup) {
+		const float w = fminf(width - 16, ui_measureText(ui.tooltip, 12, false) + 20);
+		Rectangle box = {fminf(ui.mouse.x + 12, width - w - 8), fminf(ui.mouse.y + 18, height - 36), w, 28};
+		DrawRectangleRec(box, ui.colour.card);
+		DrawRectangleLinesEx(box, 1, ui.colour.border);
+		ui_text((Rectangle){box.x + 10, box.y, box.width - 20, box.height}, ui.tooltip, 12, ui.colour.text, false);
+	}
+	EndScissorMode();
+	EndDrawing();
+}
+
+bool ui_shouldClose(void) {
+	return ui.quit || WindowShouldClose();
+}
+
+#ifdef MOCKS_MODE
+int ui_smokeTest(const char *directory) {
+	static unsigned stage;
+	static double next;
+	if (!gameContext.playerCount || cache_isRunning() || GetTime() < next)
+		return 0;
+	static const char *const names[] = {"search", "player", "comparison", "best-xi", "depth", "depth-dark", "search-dark", "player-small"};
+	if (stage && directory) {
+		char path[4096];
+		snprintf(path, sizeof(path), "%s/%s.png", directory, names[stage - 1]);
+		Image image = LoadImageFromScreen();
+		const bool saved = ExportImage(image, path);
+		UnloadImage(image);
+		if (!saved)
+			return -1;
+	}
+	switch (stage++) {
+		case 0: {
+			char error[128];
+			if (!searchHandler_doSearch(true, error) || playerTable_count() != gameContext.playerCount)
+				return -1;
+			break;
+		}
+		case 1: ui_openPlayer(&gameContext.players[1]); break;
+		case 2:
+			ui.views[0]->pinned = true;
+			ui_openPlayer(&gameContext.players[3]);
+			break;
+		case 3:
+			ui.views[0]->pinned = false;
+			openAnalysis(VIEW_BEST_XI);
+			break;
+		case 4: openAnalysis(VIEW_DEPTH); break;
+		case 5:
+			gameContext.options.darkMode = true;
+			++gameContext.optionsRevision;
+			break;
+		case 6: ui.active = 0; break;
+		case 7:
+			SetWindowSize(800, 560);
+			ui.active = ui.views[0]->id;
+			break;
+		default: return 1;
+	}
+	next = GetTime() + .15;
+	return 0;
+}
+#endif
+
+void ui_shutdown(void) {
+	autocomplete_destroy(&ui.clubs);
+	autocomplete_destroy(&ui.nations);
+	while (vector_length(ui.views))
+		closeView(vector_length(ui.views) - 1);
+	vector_free(ui.views);
+	vector_free(ui.focusOrder);
+	vector_free(ui.extraCodepoints);
+	for (unsigned i = 0; i < 255; ++i)
+		if (ui.flags[i].texture.id)
+			UnloadTexture(ui.flags[i].texture);
+	if (ui.pitch.id)
+		UnloadTexture(ui.pitch);
+	icons_shutdown();
+	if (ui.regular.texture.id)
+		UnloadFont(ui.regular);
+	if (ui.bold.texture.id)
+		UnloadFont(ui.bold);
+	if (ui.fallback.texture.id)
+		UnloadFont(ui.fallback);
+	if (IsWindowReady())
+		CloseWindow();
 }

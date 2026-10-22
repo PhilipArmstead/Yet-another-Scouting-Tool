@@ -4,13 +4,37 @@ Options
 These are the available options, their default values and a brief description of what they do. The options file is "hot
 reloadable" in this app, meaning changes will be reflected upon saving with no restart necessary.
 
+## File location and migration
+
+| Platform | Configuration | Log |
+|---|---|---|
+| Windows | `%APPDATA%\YaST\options.yaml` | `%LOCALAPPDATA%\YaST\yast.log` |
+| Linux | `$XDG_CONFIG_HOME/yast/options.yaml`, otherwise `~/.config/yast/options.yaml` | `$XDG_STATE_HOME/yast/yast.log`, otherwise `~/.local/state/yast/yast.log` |
+| macOS | `~/Library/Application Support/YaST/options.yaml` | `~/Library/Logs/YaST/yast.log` |
+
+The app creates missing directories and defaults. If the per-user file does not exist, it first
+copies an `options.yaml` beside the executable. Existing per-user configuration always wins;
+the legacy original is never changed or deleted. On macOS, "beside the executable" means
+`YaST.app/Contents/MacOS`, not the directory containing the bundle.
+
+Saves are detected through native filesystem notifications (inotify, kqueue or
+`ReadDirectoryChangesW`) and debounced for 120 ms. Atomic editor replacements and delete/recreate
+saves are followed. A temporarily missing/unreadable file leaves current settings in memory and
+reports an error. A moved/deleted configuration directory requires restarting the app.
+Weights and themes update existing snapshots, search results and analyses.
+
+The parser accepts the documented YAML subset, not arbitrary YAML. Invalid entries are logged;
+formations require exactly eleven valid position codes. An empty formation list leaves Best XI
+unavailable instead of crashing. Weights must be finite, scales finite and positive; negative
+weights are allowed. The options file does not need write access beside the application.
+
 ### Dark mode
 
 Set to `true` to enable dark mode. **Default value** is `dark-mode: false`
 
 ### Formations
 
-The formations displayed in the "Best XI" window. Rearrange the list or modify it to suit your tactical needs. **Default
+The formations displayed in the "Best XI" view. Rearrange the list or modify it to suit your tactical needs. **Default
 value** is:
 
 ```
@@ -62,7 +86,7 @@ weights for all outfield players.
 
 #### Scale
 
-The final rating is multiplied by `scale` in order to normalise it. This is purely cosmetic.
+The weighted sum is divided by the positive `scale` to normalise its display range.
 
 #### Weights
 

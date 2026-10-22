@@ -1,4 +1,4 @@
-# Curated for a C99 codebase. Checks that only ever match C++ constructs (constructors, move
+# Curated for a C17 codebase. Checks that only ever match C++ constructs (constructors, move
 # semantics, exceptions, templates, namespaces, the STL, smart pointers, virtual dispatch) have been
 # removed — they can never fire here and only obscure the set that can.
 #

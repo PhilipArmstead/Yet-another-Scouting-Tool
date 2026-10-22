@@ -13,12 +13,10 @@
 // the two bytes of UTF-8 £, and the terminator.
 #define FORMATTER_NUMBER_SIZE 32
 
-// Each formatter below writes markup of a fixed maximum shape, so the required capacity is a
-// property of the function rather than of the caller. Declare output buffers with these sizes:
-// the writes are bounded internally, but passing anything smaller is still a stack overflow.
-#define FORMATTER_RATING_SIZE 44
+// Buffers include the terminator; colours are returned separately for immediate-mode drawing.
+#define FORMATTER_RATING_SIZE 16
 #define FORMATTER_RATING_PLAIN_SIZE 16
-#define FORMATTER_PERCENTAGE_SIZE 40
+#define FORMATTER_PERCENTAGE_SIZE 16
 
 void formatter_init(void);
 void formatter_printNumber(char *outString);

@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+set(CPACK_PACKAGE_NAME YaST)
+set(CPACK_PACKAGE_VENDOR "Phil Armstead")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Yet another Scouting Tool for FM24")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/COPYING")
+set(CPACK_GENERATOR ZIP)
+find_program(YAST_MAKENSIS NAMES makensis)
+if (YAST_MAKENSIS)
+	list(APPEND CPACK_GENERATOR NSIS)
+endif ()
+set(CPACK_PACKAGE_INSTALL_DIRECTORY YaST)
+set(CPACK_NSIS_DISPLAY_NAME "Yet another Scouting Tool")
+set(CPACK_NSIS_PACKAGE_NAME YaST)
+set(CPACK_NSIS_EXECUTABLES_DIRECTORY bin)
+set(CPACK_NSIS_INSTALL_ROOT "$LOCALAPPDATA\\\\Programs")
+set(CPACK_NSIS_EXECUTION_LEVEL user)
+set(CPACK_NSIS_COMPRESSOR "/SOLID lzma")
+set(CPACK_PACKAGE_EXECUTABLES YaST "Yet another Scouting Tool")
+set(CPACK_NSIS_MUI_ICON "${PROJECT_SOURCE_DIR}/assets/branding/yast.ico")
+set(CPACK_NSIS_MUI_UNIICON "${PROJECT_SOURCE_DIR}/assets/branding/yast.ico")
+if (MINGW)
+	install(CODE [[
+		file(GET_RUNTIME_DEPENDENCIES
+			EXECUTABLES "$<TARGET_FILE:yast>"
+			RESOLVED_DEPENDENCIES_VAR runtime
+			UNRESOLVED_DEPENDENCIES_VAR unresolved
+			PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*"
+			POST_EXCLUDE_REGEXES ".*[Ww][Ii][Nn][Dd][Oo][Ww][Ss][/\\\\].*")
+		if (unresolved)
+			message(FATAL_ERROR "Unresolved runtime dependencies: ${unresolved}")
+		endif ()
+		foreach(dll IN LISTS runtime)
+			file(INSTALL "${dll}" DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" TYPE FILE)
+		endforeach()
+	]])
+endif ()
+if (MSVC)
+	include(InstallRequiredSystemLibraries)
+endif ()
+include(CPack)

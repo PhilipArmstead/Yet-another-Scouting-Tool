@@ -59,7 +59,6 @@ PlayerSnapshot *playerSnapshot_createOne(const Player *player) {
 	return snapshot;
 }
 
-// Signature matches GDestroyNotify so a window can own its snapshot directly.
 void playerSnapshot_free(void *snapshot) {
 	PlayerSnapshot *self = snapshot;
 	if (self == NULL) {
@@ -106,7 +105,7 @@ bool playerLookup_build(PlayerLookup *out) {
 			if (slots[slot]->uid == player->uid) {
 				break; // Duplicate uid: the first one read wins.
 			}
-			slot = slot + 1 & mask;
+			slot = (slot + 1) & mask;
 		}
 		if (slots[slot] == NULL) {
 			slots[slot] = player;
@@ -131,7 +130,7 @@ static const Player *findPlayer(const PlayerLookup *lookup, const uint32_t uid) 
 		if (lookup->slots[slot]->uid == uid) {
 			return lookup->slots[slot];
 		}
-		slot = slot + 1 & lookup->mask;
+		slot = (slot + 1) & lookup->mask;
 	}
 
 	return NULL;

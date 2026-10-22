@@ -1,157 +1,85 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
-// SPDX-License-Identifier: GPL-3.0-or-later
-
 #include "search-handler.h"
 #include "app/player-table.h"
 #include "app/search.h"
-
-#include <gtk/gtk.h>
-
+#include "app/types.h"
+#include <errno.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 extern GameContext gameContext;
 
-static inline bool valueFitsOneByte(int64_t value) {
-	return value >= 0 && value <= 0xFF;
+static bool byteValue(const char *text, uint8_t *out) {
+	char *end;
+	errno = 0;
+	const long value = strtol(text, &end, 10);
+	if (errno || end == text || *end || value < 0 || value > 255)
+		return false;
+	*out = (uint8_t)value;
+	return true;
 }
 
-void searchHandler_cacheFilters(void) {
-	FilterOptions *options = &gameContext.filterOptions;
-	options->filterMask &= FILTER_HAS_CLUB | FILTER_HAS_NATIONALITY;
-
-	const gchar *minAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.minAge);
-	const gchar *maxAge = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxAge);
-	const gchar *minCA = gtk_entry_buffer_get_text(gameContext.filterBuffer.minCA);
-	const gchar *maxCA = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxCA);
-	const gchar *minPA = gtk_entry_buffer_get_text(gameContext.filterBuffer.minPA);
-	const gchar *maxPA = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxPA);
-	const gchar *minRating = gtk_entry_buffer_get_text(gameContext.filterBuffer.minRating);
-	const gchar *maxRating = gtk_entry_buffer_get_text(gameContext.filterBuffer.maxRating);
-
-	const CheckBox *checks = &gameContext.checkboxes;
-	const bool isPositionGK = gtk_check_button_get_active(checks->positionGK);
-	const bool isPositionDL = gtk_check_button_get_active(checks->positionDL);
-	const bool isPositionDC = gtk_check_button_get_active(checks->positionDC);
-	const bool isPositionDR = gtk_check_button_get_active(checks->positionDR);
-	const bool isPositionWBL = gtk_check_button_get_active(checks->positionWBL);
-	const bool isPositionDM = gtk_check_button_get_active(checks->positionDM);
-	const bool isPositionWBR = gtk_check_button_get_active(checks->positionWBR);
-	const bool isPositionML = gtk_check_button_get_active(checks->positionML);
-	const bool isPositionMC = gtk_check_button_get_active(checks->positionMC);
-	const bool isPositionMR = gtk_check_button_get_active(checks->positionMR);
-	const bool isPositionAML = gtk_check_button_get_active(checks->positionAML);
-	const bool isPositionAMC = gtk_check_button_get_active(checks->positionAMC);
-	const bool isPositionAMR = gtk_check_button_get_active(checks->positionAMR);
-	const bool isPositionST = gtk_check_button_get_active(checks->positionST);
-
-	options->positions = (isPositionGK ? POSITION_MASK_GK : 0)
-		| (isPositionDL ? POSITION_MASK_DL : 0)
-		| (isPositionDC ? POSITION_MASK_DC : 0)
-		| (isPositionDR ? POSITION_MASK_DR : 0)
-		| (isPositionWBL ? POSITION_MASK_WBL : 0)
-		| (isPositionDM ? POSITION_MASK_DM : 0)
-		| (isPositionWBR ? POSITION_MASK_WBR : 0)
-		| (isPositionML ? POSITION_MASK_ML : 0)
-		| (isPositionMC ? POSITION_MASK_MC : 0)
-		| (isPositionMR ? POSITION_MASK_MR : 0)
-		| (isPositionAML ? POSITION_MASK_AML : 0)
-		| (isPositionAMC ? POSITION_MASK_AMC : 0)
-		| (isPositionAMR ? POSITION_MASK_AMR : 0)
-		| (isPositionST ? POSITION_MASK_ST : 0);
-
-	if (options->positions) {
-		options->filterMask |= FILTER_HAS_POSITION;
-	}
-
-	int64_t value;
-
-	if (minAge != NULL && *minAge != '\0') {
-		value = g_ascii_strtoll(minAge, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->minAge = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MIN_AGE;
+bool searchHandler_cacheFilters(char error[128]) {
+	const FilterBuffer *buffer = &gameContext.filterBuffer;
+	FilterOptions options = gameContext.filterOptions;
+	options.filterMask &= FILTER_HAS_CLUB | FILTER_HAS_NATIONALITY;
+	const char *strings[] = {buffer->minAge, buffer->maxAge, buffer->minCA, buffer->maxCA, buffer->minPA, buffer->maxPA};
+	uint8_t *values[] = {&options.minAge, &options.maxAge, &options.minCA, &options.maxCA, &options.minPA, &options.maxPA};
+	const uint32_t masks[] = {FILTER_HAS_MIN_AGE, FILTER_HAS_MAX_AGE, FILTER_HAS_MIN_CA, FILTER_HAS_MAX_CA, FILTER_HAS_MIN_PA, FILTER_HAS_MAX_PA};
+	for (size_t i = 0; i < 6; ++i) {
+		if (!strings[i][0])
+			continue;
+		if (!byteValue(strings[i], values[i])) {
+			snprintf(error, 128, "Age, CA and PA must be whole numbers from 0 to 255.");
+			return false;
 		}
+		options.filterMask |= masks[i];
 	}
-	if (maxAge != NULL && *maxAge != '\0') {
-		value = g_ascii_strtoll(maxAge, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->maxAge = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MAX_AGE;
+	if ((buffer->minAge[0] && buffer->maxAge[0] && options.minAge > options.maxAge) ||
+			(buffer->minCA[0] && buffer->maxCA[0] && options.minCA > options.maxCA) ||
+			(buffer->minPA[0] && buffer->maxPA[0] && options.minPA > options.maxPA)) {
+		snprintf(error, 128, "The minimum must not exceed the maximum.");
+		return false;
+	}
+	const char *ratings[] = {buffer->minRating, buffer->maxRating};
+	float *ratingValues[] = {&options.minRating, &options.maxRating};
+	for (size_t i = 0; i < 2; ++i) {
+		if (!ratings[i][0])
+			continue;
+		char *end;
+		errno = 0;
+		const float value = strtof(ratings[i], &end);
+		if (errno || end == ratings[i] || *end || !isfinite(value)) {
+			snprintf(error, 128, "Rating must be a finite number.");
+			return false;
 		}
+		*ratingValues[i] = value;
+		options.filterMask |= i == 0 ? FILTER_HAS_MIN_RATING : FILTER_HAS_MAX_RATING;
 	}
-	if (minCA != NULL && *minCA != '\0') {
-		value = g_ascii_strtoll(minCA, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->minCA = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MIN_CA;
-		}
+	if (ratings[0][0] && ratings[1][0] && options.minRating > options.maxRating) {
+		snprintf(error, 128, "The minimum rating must not exceed the maximum.");
+		return false;
 	}
-	if (maxCA != NULL && *maxCA != '\0') {
-		value = g_ascii_strtoll(maxCA, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->maxCA = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MAX_CA;
-		}
-	}
-	if (minPA != NULL && *minPA != '\0') {
-		value = g_ascii_strtoll(minPA, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->minPA = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MIN_PA;
-		}
-	}
-	if (maxPA != NULL && *maxPA != '\0') {
-		value = g_ascii_strtoll(maxPA, NULL, 10);
-		if (valueFitsOneByte(value)) {
-			options->maxPA = (uint8_t)value;
-			options->filterMask |= FILTER_HAS_MAX_PA;
-		}
-	}
-	if (minRating != NULL && *minRating != '\0') {
-		options->minRating = (float)g_ascii_strtod(minRating, NULL);
-		options->filterMask |= FILTER_HAS_MIN_RATING;
-	}
-	if (maxRating != NULL && *maxRating != '\0') {
-		options->maxRating = (float)g_ascii_strtod(maxRating, NULL);
-		options->filterMask |= FILTER_HAS_MAX_RATING;
-	}
+	options.positions = buffer->positions;
+	if (options.positions)
+		options.filterMask |= FILTER_HAS_POSITION;
+	gameContext.filterOptions = options;
+	error[0] = '\0';
+	return true;
 }
 
-void searchHandler_doSearch(const bool refreshFilterCache) {
-	if (refreshFilterCache) {
-		searchHandler_cacheFilters();
-	}
-
+bool searchHandler_doSearch(const bool refreshFilterCache, char error[128]) {
+	if (refreshFilterCache && !searchHandler_cacheFilters(error))
+		return false;
+	gameContext.searchActive = true;
 	search_findPlayers();
 	playerTable_populate();
+	return true;
 }
 
 void searchHandler_clearFilters(void) {
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.minAge, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxAge, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.minCA, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxCA, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.minPA, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxPA, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.minRating, "", 1);
-	gtk_entry_buffer_set_text(gameContext.filterBuffer.maxRating, "", 1);
-	gtk_editable_set_text(GTK_EDITABLE(gameContext.clubDatalist->entry), "");
-	gtk_editable_set_text(GTK_EDITABLE(gameContext.nationalityDatalist->entry), "");
-
-	const CheckBox *checks = &gameContext.checkboxes;
-	gtk_check_button_set_active(checks->positionGK, FALSE);
-	gtk_check_button_set_active(checks->positionDL, FALSE);
-	gtk_check_button_set_active(checks->positionDC, FALSE);
-	gtk_check_button_set_active(checks->positionDR, FALSE);
-	gtk_check_button_set_active(checks->positionWBL, FALSE);
-	gtk_check_button_set_active(checks->positionDM, FALSE);
-	gtk_check_button_set_active(checks->positionWBR, FALSE);
-	gtk_check_button_set_active(checks->positionML, FALSE);
-	gtk_check_button_set_active(checks->positionMC, FALSE);
-	gtk_check_button_set_active(checks->positionMR, FALSE);
-	gtk_check_button_set_active(checks->positionAML, FALSE);
-	gtk_check_button_set_active(checks->positionAMC, FALSE);
-	gtk_check_button_set_active(checks->positionAMR, FALSE);
-	gtk_check_button_set_active(checks->positionST, FALSE);
-
-	gameContext.filterOptions.positions = 0;
+	gameContext.filterBuffer = (FilterBuffer){0};
+	gameContext.filterOptions = (FilterOptions){0};
+	gameContext.searchActive = false;
+	playerTable_clear();
 }

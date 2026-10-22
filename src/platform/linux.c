@@ -142,6 +142,11 @@ void platform_openProcess(ProcessContext *context) {
 }
 
 // Time
+void platform_closeProcess(ProcessContext *context) {
+	if (context->handle) close((int)(intptr_t)context->handle);
+	*context = (ProcessContext){0};
+}
+
 #include <time.h>
 
 

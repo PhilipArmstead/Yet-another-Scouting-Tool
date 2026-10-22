@@ -81,19 +81,19 @@ void platform_openProcess(ProcessContext *context) {
 		return;
 	}
 
-	PROCESSENTRY32 pe;
-	pe.dwSize = sizeof(PROCESSENTRY32);
+	PROCESSENTRY32W pe;
+	pe.dwSize = sizeof(pe);
 
 
 	DWORD pid = 0;
 	{
-		BOOL hResult = Process32First(hSnapshot, &pe);
+		BOOL hResult = Process32FirstW(hSnapshot, &pe);
 		while (hResult) {
-			if (stricmp(pe.szExeFile, "fm.exe") == 0) {
+			if (_wcsicmp(pe.szExeFile, L"fm.exe") == 0) {
 				pid = pe.th32ProcessID;
 				break;
 			}
-			hResult = Process32Next(hSnapshot, &pe);
+			hResult = Process32NextW(hSnapshot, &pe);
 		}
 	}
 
@@ -146,11 +146,16 @@ void platform_openProcess(ProcessContext *context) {
 }
 
 // Time
+void platform_closeProcess(ProcessContext *context) {
+	if (context->handle) CloseHandle(context->handle);
+	*context = (ProcessContext){0};
+}
+
 int64_t platform_getMicroseconds(void) {
 	LARGE_INTEGER freq, count;
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&count);
-	return count.QuadPart * 1000000 / freq.QuadPart;
+	return count.QuadPart / freq.QuadPart * 1000000 + count.QuadPart % freq.QuadPart * 1000000 / freq.QuadPart;
 }
 
 // Paths
@@ -159,19 +164,19 @@ void platform_getExecutableDirectory(char *buffer, const size_t size) {
 		return;
 	}
 
-	const DWORD length = GetModuleFileNameA(NULL, buffer, (DWORD)size);
-	if (length == 0 || length >= size) {
+	wchar_t wide[4096];
+	const DWORD length = GetModuleFileNameW(NULL, wide, 4096);
+	if (length == 0 || length >= 4096 ||
+		!WideCharToMultiByte(CP_UTF8, 0, wide, -1, buffer, (int)size, NULL, NULL)) {
 		platform_consoleWriteError("Could not resolve executable path\n", LogLevelError);
 		buffer[0] = '\0';
 		return;
 	}
 
-	buffer[length] = '\0';
-
 	// Strip the executable filename, leaving the directory (handle both separators).
 	char *lastSlash = strrchr(buffer, '\\');
 	char *lastForward = strrchr(buffer, '/');
-	if (lastForward > lastSlash) {
+	if (!lastSlash || (lastForward && lastForward > lastSlash)) {
 		lastSlash = lastForward;
 	}
 	if (lastSlash) {

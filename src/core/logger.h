@@ -11,7 +11,10 @@
 bool logger_init(void);
 void logger_shutdown(void);
 void logger_flush(void);
-void logger_output(LogLevel level, const char *message, ...) G_GNUC_PRINTF(2, 3);
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 2, 3)))
+#endif
+void logger_output(LogLevel level, const char *message, ...);
 
 #define ERROR_EXIT(...) { LOG_FATAL(__VA_ARGS__); exit(1); }
 #define ERROR_RETURN(R, ...) { LOG_FATAL(__VA_ARGS__); return (R); }

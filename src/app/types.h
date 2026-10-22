@@ -4,14 +4,14 @@
 #pragma once
 
 #include <stdint.h>
-#include <gtk/gtk.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 #include "types/entities.h"
 #include "types/logger.h"
 #include "types/position.h"
 #include "types/options.h"
 #include "types/process.h"
-#include "types/search.h"
 #include "types/shared-pointer.h"
 #include "types/ui.h"
 
@@ -68,54 +68,20 @@ typedef struct {
 } FilterOptions;
 
 typedef struct {
-	GtkCheckButton *positionGK;
-	GtkCheckButton *positionDL;
-	GtkCheckButton *positionDC;
-	GtkCheckButton *positionDR;
-	GtkCheckButton *positionWBL;
-	GtkCheckButton *positionDM;
-	GtkCheckButton *positionWBR;
-	GtkCheckButton *positionML;
-	GtkCheckButton *positionMC;
-	GtkCheckButton *positionMR;
-	GtkCheckButton *positionAML;
-	GtkCheckButton *positionAMC;
-	GtkCheckButton *positionAMR;
-	GtkCheckButton *positionST;
-} CheckBox;
-
-typedef enum {
-	WINDOW_PLAYER_SEARCH,
-	WINDOW_PLAYER_INFO,
-	WINDOW_BEST_XI,
-} WindowType;
-
-
-typedef struct {
-	GtkBuilder *builder;
-	GtkWidget *window;
-	void *data;
-	WindowType type;
-} WindowContext;
-
-typedef struct {
-	CheckBox checkboxes;
 	FilterBuffer filterBuffer;
 	FilterOptions filterOptions;
 	char gameVersion[GAME_STATUS_STRING_BUFFER_SIZE];
 	Options options;
-	SearchDatalist *clubDatalist;
-	SearchDatalist *nationalityDatalist;
 	SharedPointer *searchResults;
 	DateTime currentDate;
-	GtkBuilder *builder;
-	GtkApplication *app;
 	Club *clubs;
 	Nation *nations;
 	Player *players;
-	WindowContext *windows;
 	uint64_t gameKey;
 	uint64_t clubCount;
 	uint64_t nationCount;
 	uint64_t playerCount;
+	uint64_t revision;
+	uint64_t optionsRevision;
+	bool searchActive;
 } GameContext;

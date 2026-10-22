@@ -1,0 +1,83 @@
+name: Desktop builds
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        configuration: [Debug, Release]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux window libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols xvfb
+      - name: Configure mock graphics checks
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+          -DYAST_USE_LOCAL_CONFIG=OFF -DYAST_MOCKS_MODE=ON -DYAST_UI_TESTS=ON
+      - run: cmake --build build --parallel 4
+      - name: Core and native graphics/input checks
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ctest --test-dir build --output-on-failure
+      - name: Core and native graphics/input checks
+        if: runner.os == 'macOS'
+        run: ctest --test-dir build --output-on-failure
+      - name: Mock walkthrough
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/yast-home" "$RUNNER_TEMP/screenshots"
+          HOME="$RUNNER_TEMP/yast-home" XDG_CONFIG_HOME="$RUNNER_TEMP/yast-home/config" \
+            XDG_STATE_HOME="$RUNNER_TEMP/yast-home/state" \
+            xvfb-run -a build/YaST --smoke-test "$RUNNER_TEMP/screenshots"
+      - name: Compile live backend
+        run: |
+          cmake -S . -B build-live -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DYAST_USE_LOCAL_CONFIG=OFF -DYAST_MOCKS_MODE=OFF -DBUILD_TESTING=OFF
+          cmake --build build-live --parallel 4
+          cmake --install build-live --prefix "$RUNNER_TEMP/yast-install"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yast-${{ matrix.os }}-${{ matrix.configuration }}
+          path: ${{ runner.temp }}/yast-install
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja mingw-w64-x86_64-nsis
+      - name: Build and test
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DYAST_USE_LOCAL_CONFIG=OFF -DYAST_MOCKS_MODE=ON
+          cmake --build build --parallel 4
+          ctest --test-dir build --output-on-failure
+      - name: Compile live backend and package
+        run: |
+          cmake -S . -B build -DYAST_MOCKS_MODE=OFF
+          cmake --build build --parallel 4
+          cmake --build build --target package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yast-windows-${{ matrix.configuration }}
+          path: |
+            build/YaST-*.zip
+            build/YaST-*.exe

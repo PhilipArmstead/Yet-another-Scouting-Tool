@@ -4,7 +4,6 @@
 #include "options.h"
 #include "app/player.h"
 #include "app/types.h"
-#include "app/ui.h"
 #include "app/helpers/file-watcher.h"
 #include "app/helpers/vector.h"
 #include "core/logger.h"
@@ -13,6 +12,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <math.h>
 
 
 #define OPTIONS_FILE_NAME "options.yaml"
@@ -100,8 +101,9 @@ static const char *positionGroupedCodes[POSITION_GROUPED_COUNT + 1] = {
 extern GameContext gameContext;
 
 // Resolved once at startup and reused by the watcher; empty if it could not be resolved.
-static char optionsPath[OPTIONS_PATH_BUFFER_SIZE];
+static char optionsPath[4096];
 static FileWatcher *optionsWatcher;
+static char optionsError[256];
 
 static void parseOptionsFile(FILE *file);
 static void watchOptionsFile(void);
@@ -285,8 +287,14 @@ static void formationParser_positions(FormationParser *parser, char *value) {
 
 static void formationParser_weight(RatingsParser *parser, const char *key, const char *value) {
 	for (uint8_t i = 0; i < ATTRIBUTE_COUNT; ++i) {
-		if (!strcasecmp(key, attributeNames[i])) {
-			vector_push(parser->current.weights, ((RatingWeight){.attribute = i, .weight = strtof(value, NULL)}));
+		if (equalsIgnoreCase(key, attributeNames[i])) {
+			char *end;
+			const float weight = strtof(value, &end);
+			if (end == value || *end || !isfinite(weight)) {
+				LOG_WARN("Invalid weight '%s' for %s", value, key);
+				return;
+			}
+			vector_push(parser->current.weights, ((RatingWeight){.attribute = i, .weight = weight}));
 			return;
 		}
 	}
@@ -294,7 +302,7 @@ static void formationParser_weight(RatingsParser *parser, const char *key, const
 
 static inline PositionGrouped readRatingsPosition(const char *value) {
 	for (PositionGrouped i = 0; i < POSITION_GROUPED_COUNT; ++i) {
-		if (!strcasecmp(value, positionGroupedCodes[i])) {
+		if (equalsIgnoreCase(value, positionGroupedCodes[i])) {
 			return i;
 		}
 	}
@@ -333,7 +341,11 @@ static void ratingsParser_keyValue(RatingsParser *parser, const char *key, char 
 	}
 
 	if (!strcmp(key, "scale")) {
-		parser->current.scale = strtof(value, NULL);
+		char *end;
+		errno = 0;
+		float scale = strtof(value, &end);
+		if (errno || end == value || *end || !isfinite(scale)) LOG_WARN("Invalid rating scale '%s'", value);
+		else parser->current.scale = scale;
 		parser->inWeights = false;
 		return;
 	}
@@ -424,7 +436,7 @@ static void freeWeights(void) {
 	vector_free(options->weights);
 }
 
-static void setDefaults(void) {
+void options_defaults(void) {
 	Options *options = &gameContext.options;
 	freeWeights();
 	vector_free(options->formations);
@@ -554,11 +566,11 @@ static void setDefaults(void) {
 
 // Writes the current in-memory defaults to a new options file so the user has one to edit.
 // The output is intentionally in the same form the parser reads back, so it round-trips.
-static void writeDefaultOptions(const char *path) {
-	FILE *file = fopen(path, "w");
+static bool writeDefaultOptions(const char *path) {
+	FILE *file = platform_fopen(path, "wx");
 	if (!file) {
 		LOG_WARN("Could not create default options file '%s'; continuing with in-memory defaults", path);
-		return;
+		return false;
 	}
 
 	const Options *options = &gameContext.options;
@@ -585,7 +597,7 @@ static void writeDefaultOptions(const char *path) {
 		for (uint64_t j = 0; j < vector_length(options->weights[i].weights); ++j) {
 			const float weight = options->weights[i].weights[j].weight;
 			const uint8_t attribute = options->weights[i].weights[j].attribute;
-			if (weight > 0) {
+			if (weight != 0) {
 				if (isFirstAttribute) {
 					fprintf(file, "      - %s: %.2f\n", attributeNames[attribute], weight);
 					isFirstAttribute = false;
@@ -596,53 +608,115 @@ static void writeDefaultOptions(const char *path) {
 		}
 	}
 
-	fclose(file);
+	bool written = !ferror(file);
+	if (fclose(file) != 0) written = false;
+	if (!written) {
+		LOG_ERROR("Could not finish default options file '%s': %s", path, strerror(errno));
+		if (!platform_removeFile(path)) LOG_ERROR("Cannot remove incomplete options file '%s'", path);
+		return false;
+	}
 
 	LOG_INFO("Created default options file '%s'", path);
+	return true;
 }
 
-void options_init(void) {
-	setDefaults();
+bool options_init(void) {
+	options_defaults();
+	snprintf(optionsError, sizeof(optionsError), "Options could not be loaded or watched. See the log.");
 
 	char directory[OPTIONS_PATH_BUFFER_SIZE];
-	platform_getExecutableDirectory(directory, sizeof(directory));
-	if (directory[0] == '\0') {
-		LOG_WARN("Could not resolve executable directory; using default options");
-		return;
-	}
+	if (!platform_getUserDirectory(directory, sizeof(directory), false)) return false;
 
 	snprintf(optionsPath, sizeof(optionsPath), "%s%s", directory, OPTIONS_FILE_NAME);
 
-	FILE *file = fopen(optionsPath, "r");
+	FILE *file = platform_fopen(optionsPath, "r");
 	if (!file) {
-		LOG_INFO("Options file '%s' not found; writing defaults", optionsPath);
-		writeDefaultOptions(optionsPath);
-		watchOptionsFile();
-		return;
+		if (errno != ENOENT) {
+			LOG_ERROR("Cannot open options file '%s': %s", optionsPath, strerror(errno));
+			return false;
+		}
+		char legacy[4096];
+		platform_getExecutableDirectory(directory, sizeof(directory));
+		snprintf(legacy, sizeof(legacy), "%s%s", directory, OPTIONS_FILE_NAME);
+		FILE *old = directory[0] ? platform_fopen(legacy, "rb") : NULL;
+		if (old) {
+			FILE *copy = platform_fopen(optionsPath, "wbx");
+			if (!copy) {
+				fclose(old);
+				LOG_ERROR("Cannot import legacy options to '%s'", optionsPath);
+				return false;
+			}
+			char bytes[4096];
+			size_t count;
+			bool copied = true;
+			while ((count = fread(bytes, 1, sizeof(bytes), old)) != 0) {
+				if (fwrite(bytes, 1, count, copy) != count) { copied = false; break; }
+			}
+			copied = !ferror(old) && copied;
+			if (fclose(copy) != 0) copied = false;
+			fclose(old);
+			if (!copied) {
+				if (!platform_removeFile(optionsPath)) LOG_ERROR("Cannot remove incomplete import '%s'", optionsPath);
+				LOG_ERROR("Legacy options import failed; original '%s' is unchanged", legacy);
+				return false;
+			}
+			LOG_INFO("Imported options from '%s'", legacy);
+		} else if (directory[0] && errno != ENOENT) {
+			LOG_ERROR("Cannot read legacy options '%s': %s", legacy, strerror(errno));
+			return false;
+		} else {
+			if (!writeDefaultOptions(optionsPath)) return false;
+		}
+		file = platform_fopen(optionsPath, "r");
+		if (!file) return false;
 	}
 
 	parseOptionsFile(file);
-	fclose(file);
+	bool read = !ferror(file);
+	if (fclose(file) != 0) read = false;
+	if (!read) {
+		LOG_ERROR("Could not read options file '%s'", optionsPath);
+		options_defaults();
+		return false;
+	}
 
 	LOG_DEBUG("Loaded options from '%s'", optionsPath);
 
 	watchOptionsFile();
+	if (optionsWatcher) optionsError[0] = '\0';
+	return optionsWatcher != NULL;
 }
 
 // Re-reads the options file from scratch, falling back to defaults for anything it no longer
-// defines, then repaints every open window so new formations and weights take effect immediately.
+// defines, then refreshes every open view.
 static void reloadOptions(void *userData) {
 	(void)userData;
 
-	FILE *file = fopen(optionsPath, "r");
+	FILE *file = platform_fopen(optionsPath, "r");
 	if (!file) {
-		LOG_WARN("Options file '%s' disappeared; keeping current options", optionsPath);
+		LOG_WARN("Cannot read options file '%s': %s; keeping current options", optionsPath, strerror(errno));
+		snprintf(optionsError, sizeof(optionsError), "Options could not be read; keeping current settings. See the log.");
 		return;
 	}
 
-	setDefaults();
+	Options previous = gameContext.options;
+	gameContext.options = (Options){0};
+	options_defaults();
 	parseOptionsFile(file);
-	fclose(file);
+	bool read = !ferror(file);
+	if (fclose(file) != 0) read = false;
+	if (!read) {
+		freeWeights();
+		vector_free(gameContext.options.formations);
+		gameContext.options = previous;
+		LOG_ERROR("Could not finish reading options '%s'; keeping current settings", optionsPath);
+		snprintf(optionsError, sizeof(optionsError), "Options read failed; keeping current settings. See the log.");
+		return;
+	}
+	for (size_t i = 0; i < vector_length(previous.weights); ++i) vector_free(previous.weights[i].weights);
+	vector_free(previous.weights);
+	vector_free(previous.formations);
+	optionsError[0] = '\0';
 
 	LOG_INFO("Reloaded options from '%s'", optionsPath);
 
@@ -651,14 +725,20 @@ static void reloadOptions(void *userData) {
 		getSortedPositionRatings(&gameContext.players[i]);
 	}
 
-	ui_loadStylesheet(
-		gameContext.options.darkMode ? "styles-dark.css" : "styles-light.css",
-		GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1
-	);
-
-	ui_refreshAllWindows();
+	++gameContext.optionsRevision;
 }
 
+void options_update(void) {
+	if (optionsWatcher && !fileWatcher_poll(optionsWatcher))
+		snprintf(optionsError, sizeof(optionsError), "Options hot reload stopped. Restart the app; see the log.");
+}
+
+const char *options_error(void) {
+	return optionsError;
+}
+const char *options_getPath(void) {
+	return optionsPath;
+}
 static void watchOptionsFile(void) {
 	if (optionsWatcher) {
 		return;
@@ -669,6 +749,8 @@ static void watchOptionsFile(void) {
 void options_shutdown(void) {
 	fileWatcher_destroy(optionsWatcher);
 	optionsWatcher = NULL;
+	freeWeights();
+	vector_free(gameContext.options.formations);
 }
 
 // Parses an already-opened options file into `gameContext.options`, overriding the defaults.

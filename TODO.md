@@ -1,6 +1,7 @@
 TODO
 ===
 
+- Devise a new way of switching between mock mode and production mode
 - To player-info
 	- 🚩 Add contract details
 - To player search

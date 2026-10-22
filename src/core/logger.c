@@ -8,14 +8,15 @@
 #include "platform/platform.h"
 
 
-#define LOG_FILE_PATH "yast.log"
-
 static FILE *logFile = NULL;
 
 bool logger_init(void) {
-	logFile = fopen(LOG_FILE_PATH, "a");
+	char directory[4096], path[4128];
+	if (!platform_getUserDirectory(directory, sizeof(directory), true)) return false;
+	snprintf(path, sizeof(path), "%syast.log", directory);
+	logFile = platform_fopen(path, "a");
 	if (logFile == NULL) {
-		platform_consoleWriteError("[ERROR]: Failed to open log file: " LOG_FILE_PATH "\n", LogLevelError);
+		platform_consoleWriteError("[ERROR]: Failed to open per-user yast.log\n", LogLevelError);
 		return false;
 	}
 

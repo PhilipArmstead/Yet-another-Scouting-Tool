@@ -5,3 +5,8 @@ cmake-build-release
 cmake-build-relwithdebinfo
 
 src/app/config.h
+/lib/raylib/
+/lib/raygui/
+/lib/utf8proc/
+/lib/.dependencies.lock
+/build-*/

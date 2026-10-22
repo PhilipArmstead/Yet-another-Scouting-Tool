@@ -1,185 +1,150 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-#include <gtk/gtk.h>
-
 #include "app/cache.h"
-#include "app/callbacks.h"
-#include "app/config.h"
+#include "app/configuration.h"
+#include "app/helpers/game.h"
 #include "app/injury-names.h"
-#include "app/maths.h"
 #include "app/options.h"
 #include "app/player-table.h"
 #include "app/ui.h"
-#include "app/helpers/formatter.h"
-#include "app/helpers/game.h"
-#include "app/helpers/icons.h"
-#include "app/helpers/vector-shared-pointer.h"
-#include "app/helpers/vector.h"
 #include "core/logger.h"
 #include "platform/platform.h"
+#include "raylib.h"
+#include <string.h>
 
-
-ProcessContext processContext = {0};
+ProcessContext processContext;
 GameContext gameContext = {.gameKey = 1};
-
-static void activate(GtkApplication *app);
-static gboolean update(gpointer userData);
-static void handleDisconnect(void);
-static void handleConnect(void);
-static inline void updateWhileConnected(void);
-static inline void updateWhileDisconnected(void);
-static guint cacheTimeoutId;
-static gboolean scheduleCacheRun(gpointer data);
-
-int main(const int argc, char **argv) {
-	logger_init();
-
-	LOG_INFO("App started");
-
-	GtkApplication *app = gtk_application_new("com.philarmstead.yast", G_APPLICATION_DEFAULT_FLAGS);
-	gameContext.app = app;
-	g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
-	const int status = g_application_run(G_APPLICATION(app), argc, argv);
-	g_object_unref(app);
-
-	options_shutdown();
-	injuryNames_destroy();
-	logger_shutdown();
-
-	return status;
-}
-
-static void activate(GtkApplication *app) {
-	vector_reserve(gameContext.windows, 10);
-
-	// GtkApplication has already added the bundled resource icon theme by this point, so every
-	// window created below picks the application icon up by name.
-	gtk_window_set_default_icon_name("com.philarmstead.yast");
-
-	options_init();
-	formatter_init();
-	icons_init();
-	ui_init(app);
-	callbacks_init();
-	playerTable_init();
-
-	g_timeout_add(1000, update, NULL);
-	update(NULL);
-}
-
-static gboolean update(gpointer userData) {
-	(void)userData;
+static double cacheAt;
 
 #ifndef MOCKS_MODE
-	if (processContext.handle != NULL) {
-		updateWhileConnected();
-	} else {
-		updateWhileDisconnected();
-	}
-#else
-	updateWhileConnected();
-#endif
-	return G_SOURCE_CONTINUE;
+static void disconnect(void) {
+	cacheAt = 0;
+	cache_shutdown();
+	platform_closeProcess(&processContext);
+	gameContext.gameKey = 1;
+	gameContext.currentDate = (DateTime){0};
+	gameContext.gameVersion[0] = '\0';
+	ui_setCurrentStatus("Disconnected; waiting for FM24");
 }
+#endif
 
-
-static inline void updateWhileConnected(void) {
-	// Get the current date/time
-	const DateTime dateTime = game_getDateTime(&processContext);
-
-	// Bail if the date is invalid and assume we're no longer connected
-	if (dateTime.days == 0 || dateTime.year == 0) {
-		LOG_INFO("Disconnecting because the date is blank");
-		handleDisconnect();
+static void pollGame(void) {
+#ifndef MOCKS_MODE
+	if (!processContext.handle) {
+		platform_openProcess(&processContext);
+		if (!processContext.handle) {
+			ui_setCurrentStatus("Cannot find a supported running process 'fm.exe'");
+			return;
+		}
+		LOG_INFO("Connected to process %u", processContext.pid);
+	}
+#endif
+	const DateTime date = game_getDateTime(&processContext);
+	if (!date.days || !date.year) {
+#ifndef MOCKS_MODE
+		disconnect();
+#endif
 		return;
 	}
-
-	// Cache the new date if it's different from the last one we saw
-	if (
-		dateTime.days != gameContext.currentDate.days ||
-		dateTime.year != gameContext.currentDate.year ||
-		dateTime.time != gameContext.currentDate.time
-	) {
-		LOG_INFO("Date/time change");
-		gameContext.currentDate = dateTime;
-		ui_updateInGameDate();
-		// This is a hack to force invalidate the cache (TODO improve this)
+	if (date.days != gameContext.currentDate.days || date.year != gameContext.currentDate.year || date.time != gameContext.currentDate.time) {
+		gameContext.currentDate = date;
 		gameContext.gameKey = 1;
 	}
-
-	// Update the game version if it's different from the last one we saw
-	char versionBuffer[GAME_STATUS_STRING_BUFFER_SIZE] = {0};
-	game_getVersion(&processContext, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
-	if (strncmp(versionBuffer, gameContext.gameVersion, GAME_STATUS_STRING_BUFFER_SIZE) != 0) {
-		strncpy(gameContext.gameVersion, versionBuffer, GAME_STATUS_STRING_BUFFER_SIZE);
-		LOG_INFO("Game Version: %s", versionBuffer);
-
-		ui_updateGameVersion();
-	}
-
-	GameKeyStatus gameKeyStatus;
-	const uint64_t gameKey = game_getKey(&processContext, &gameKeyStatus);
-	if (gameKey != gameContext.gameKey) {
-		gameContext.gameKey = gameKey;
-
-		if (gameKeyStatus == GAME_KEY_FOUND && gameContext.currentDate.year > 1970) {
-			// The clubs and nations are kept until the replacements land, so the search widgets
-			// keep working through the second or more this rebuild takes.
+	game_getVersion(&processContext, gameContext.gameVersion, sizeof(gameContext.gameVersion));
+	GameKeyStatus status;
+	const uint64_t key = game_getKey(&processContext, &status);
+	if (gameContext.gameKey != key) {
+		gameContext.gameKey = key;
+		if (status == GAME_KEY_FOUND && date.year > 1970) {
 			cache_clear();
+			cacheAt = GetTime() + 1;
 			ui_setCurrentStatus("Caching data");
-
-			if (cacheTimeoutId != 0) {
-				g_source_remove(cacheTimeoutId);
-			}
-
-			cacheTimeoutId = g_timeout_add(1000, scheduleCacheRun, NULL);
 		} else {
-			// No rebuild is coming, so nothing stale is worth holding on to.
 			cache_reset();
+			cacheAt = 0;
 			ui_setCurrentStatus("Cannot read save data");
 		}
 	}
 }
 
-static inline void updateWhileDisconnected(void) {
-	cache_reset();
-	platform_openProcess(&processContext);
-
-	if (processContext.handle != NULL) {
-		handleConnect();
-	} else {
-		ui_setCurrentStatus("Cannot find running process 'fm.exe'");
+int main(int argc, char **argv) {
+	bool smoke = argc >= 2 && !strcmp(argv[1], "--smoke-test");
+	int result = 0;
+	const bool loggerReady = logger_init();
+	LOG_INFO("Starting " APP_NAME " " APP_VERSION);
+	if (!injuryNames_init()) {
+		logger_shutdown();
+		return 1;
 	}
-}
-
-
-static void handleDisconnect(void) {
-	processContext.handle = NULL;
-
-	gameContext.gameKey = 1; // Setting this to 0 means we can't tell when it's NULL in game
-	gameContext.gameVersion[0] = '\0';
-	gameContext.currentDate = (DateTime){0};
-
-	cache_reset();
-
-	update(NULL);
-}
-
-static void handleConnect(void) {
-	LOG_INFO(
-		"Process opened with PID: %u (base module address of %p)",
-		processContext.pid,
-		(void*)processContext.moduleBaseAddress
-	);
-	update(NULL);
-}
-
-static gboolean scheduleCacheRun(gpointer data) {
-	(void)data;
-
-	cacheTimeoutId = 0;
-	cache_run();
-
-	return G_SOURCE_REMOVE;
+	const bool optionsReady = options_init();
+	playerTable_init();
+	if (!ui_init()) {
+		LOG_ERROR("The Raylib frontend could not be initialized");
+		ui_shutdown();
+		playerTable_shutdown();
+		options_shutdown();
+		injuryNames_destroy();
+		logger_shutdown();
+		return 1;
+	}
+	if (!optionsReady)
+		ui_setCurrentStatus("Options could not be loaded or watched. See the log.");
+	double nextPoll = 0;
+	int frameRate = 60;
+	const double start = GetTime();
+	while (!ui_shouldClose()) {
+		const double now = GetTime();
+		if (now >= nextPoll) {
+			pollGame();
+			nextPoll = now + 1;
+		}
+		if (cacheAt > 0 && now >= cacheAt) {
+			cacheAt = 0;
+			cache_run();
+		}
+		if (cache_poll()) {
+			if (cache_error()[0])
+				ui_setCurrentStatus(cache_error());
+			else if (!cache_isRunning())
+				ui_setCurrentStatus("Ready");
+		} else if (cache_error()[0])
+			ui_setCurrentStatus(cache_error());
+		options_update();
+		if (!loggerReady)
+			ui_setCurrentStatus("Log file is unavailable. Check per-user directory permissions.");
+		ui_update();
+		const int target = IsWindowMinimized() ? 5 : IsWindowFocused() ? 60
+																																	 : 15;
+		if (frameRate != target) {
+			SetTargetFPS(target);
+			frameRate = target;
+		}
+		ui_draw();
+		if (smoke) {
+#ifdef MOCKS_MODE
+			const int status = ui_smokeTest(argc > 2 ? argv[2] : NULL);
+			if (status) {
+				if (status < 0)
+					result = 1;
+				break;
+			}
+			if (now - start > 15) {
+				LOG_ERROR("UI smoke test timed out");
+				result = 1;
+				break;
+			}
+#else
+			if (now - start > 3)
+				break;
+#endif
+		}
+	}
+	cache_shutdown();
+	ui_shutdown();
+	platform_closeProcess(&processContext);
+	playerTable_shutdown();
+	options_shutdown();
+	injuryNames_destroy();
+	LOG_INFO("Application stopped");
+	logger_shutdown();
+	return result;
 }

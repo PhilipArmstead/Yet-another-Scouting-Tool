@@ -1,780 +1,130 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
-// SPDX-License-Identifier: GPL-3.0-or-later
-
 #include "player-table.h"
-#include "app/entities.h"
-#include "app/injury-names.h"
-#include "app/ui.h"
-#include "app/helpers/formatter.h"
 #include "app/helpers/vector-shared-pointer.h"
 #include "app/helpers/vector.h"
-#include "core/logger.h"
-#include "platform/platform.h"
 #include "types/position-code-names.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include <glib.h>
+extern GameContext gameContext;
+static struct {
+	Column column;
+	int direction;
+} sortKeys[6] = {{COLUMN_RATING, -1}};
+static size_t sortCount = 1;
 
-#include "maths.h"
-
-
-typedef struct {
-	GtkColumnView *table;
-	GtkSingleSelection *selection;
-	double savedScrollValue;
-	gulong scrollGuardId;
-} PlayerTableContext;
-
-static PlayerTableContext context = {0};
-
-G_DEFINE_TYPE(SearchPlayerRow, search_player_row, G_TYPE_OBJECT)
-
-static void search_player_row_finalize(GObject *object) {
-	G_OBJECT_CLASS(search_player_row_parent_class)->finalize(object);
-}
-
-enum {
-	PROP_PLAYER = 1,
-	PROP_SURNAME,
-	PROP_AGE,
-	PROP_CA,
-	PROP_PA,
-	PROP_DIFF,
-	PROP_RATING,
-	N_PROPS
-};
-
-typedef enum {
-	COLUMN_NATIONALITIES,
-	COLUMN_NAME,
-	COLUMN_AGE,
-	COLUMN_POSITIONS,
-	COLUMN_CA,
-	COLUMN_PA,
-	COLUMN_CA_PA_DELTA,
-	COLUMN_STATUS,
-	COLUMN_RATING,
-	COLUMN_VALUE,
-	COLUMN_CLUB,
-	COLUMN_REPUTATION_HOME,
-	COLUMN_REPUTATION_CURRENT,
-	COLUMN_REPUTATION_WORLD,
-} Columns;
-
-static GParamSpec *properties[N_PROPS];
-
-static void search_player_row_set_property(
-	GObject *object,
-	const guint propertyId,
-	const GValue *value,
-	GParamSpec *pspec
-) {
-	SearchPlayerRow *self = SEARCH_PLAYER_ROW(object);
-	if (propertyId == PROP_PLAYER) {
-		self->player = (Player*)g_value_get_pointer(value);
-	} else {
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, pspec);
-	}
-}
-
-static void search_player_row_get_property(GObject *object, const guint propertyId, GValue *value, GParamSpec *pspec) {
-	const SearchPlayerRow *self = SEARCH_PLAYER_ROW(object);
-	if (propertyId == PROP_PLAYER) {
-		g_value_set_pointer(value, self->player);
-	} else if (propertyId == PROP_SURNAME) {
-		g_value_set_string(value, self->player->surname);
-	} else if (propertyId == PROP_AGE) {
-		g_value_set_uint(value, self->player->age);
-	} else if (propertyId == PROP_CA) {
-		g_value_set_uint(value, self->player->ca);
-	} else if (propertyId == PROP_PA) {
-		g_value_set_uint(value, self->player->pa);
-	} else if (propertyId == PROP_DIFF) {
-		g_value_set_uint(value, self->player->pa - self->player->ca);
-	} else if (propertyId == PROP_RATING) {
-		g_value_set_float(value, self->player->ratings[0].value);
-	} else {
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, pspec);
-	}
-}
-
-static void search_player_row_init(SearchPlayerRow *self) {
-	// Don't do anything here — let properties handle initialization
-	(void)self;
-}
-
-static void search_player_row_class_init(SearchPlayerRowClass *klass) {
-	GObjectClass *object_class = G_OBJECT_CLASS(klass);
-
-	object_class->set_property = search_player_row_set_property;
-	object_class->get_property = search_player_row_get_property;
-	object_class->finalize = search_player_row_finalize;
-
-	properties[PROP_PLAYER] = g_param_spec_pointer(
-		"player",
-		"Player",
-		"Player data",
-		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY
-	);
-	properties[PROP_SURNAME] = g_param_spec_string(
-		"surname",
-		"Surname",
-		"Player surname",
-		NULL,
-		G_PARAM_READABLE
-	);
-	properties[PROP_AGE] = g_param_spec_uint(
-		"age",
-		"Age",
-		"Player age",
-		0,
-		100,
-		0,
-		G_PARAM_READABLE
-	);
-	properties[PROP_CA] = g_param_spec_uint(
-		"ca",
-		"CA",
-		"Player CA",
-		0,
-		200,
-		0,
-		G_PARAM_READABLE
-	);
-	properties[PROP_PA] = g_param_spec_uint(
-		"pa",
-		"PA",
-		"Player PA",
-		0,
-		200,
-		0,
-		G_PARAM_READABLE
-	);
-	properties[PROP_DIFF] = g_param_spec_uint(
-		"diff",
-		"Diff",
-		"Player PA - CA",
-		0,
-		200,
-		0,
-		G_PARAM_READABLE
-	);
-	properties[PROP_RATING] = g_param_spec_float(
-		"rating",
-		"Rating",
-		"Player's best rating",
-		0,
-		200,
-		0,
-		G_PARAM_READABLE
-	);
-
-	g_object_class_install_properties(object_class, N_PROPS, properties);
-}
-
-static void onRowClicked(
-	const GtkGestureClick *gesture,
-	const uint8_t clickCount,
-	const double x,
-	const double y,
-	gpointer data
-) {
-	(void)gesture;
-	(void)x;
-	(void)y;
-
-	GtkListItem *listItem = GTK_LIST_ITEM(data);
-	const SearchPlayerRow *row = gtk_list_item_get_item(listItem);
-
-	if (row != NULL && row->player != NULL && clickCount == 2) {
-		ui_createPlayerInfoWindow(row->player);
-	}
-}
-
-static void bindClickHandler(GtkWidget *widget, GtkListItem *item) {
-	GtkGestureClick *gesture = GTK_GESTURE_CLICK(gtk_gesture_click_new());
-	gtk_widget_add_controller(widget, GTK_EVENT_CONTROLLER(gesture));
-	g_signal_connect(gesture, "pressed", G_CALLBACK(onRowClicked), item);
-}
-
-static void setupTextLabel(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
-	(void)factory;
-	(void)data;
-
-	GtkWidget *label = gtk_label_new("");
-	gtk_list_item_set_child(item, label);
-
-	bindClickHandler(label, item);
-}
-
-static void setupBox(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
-	(void)factory;
-	(void)data;
-
-	GtkWidget *box = gtk_box_new(0, 2);
-	gtk_list_item_set_child(item, box);
-
-	bindClickHandler(box, item);
-}
-
-/**
- * The colourised rating is Pango markup, and text attributes take precedence over CSS, so a
- * selected row cannot recolour it. Render it plain whenever the row is selected instead.
- */
-static void applyRating(GtkLabel *label, const float rating, const bool selected) {
-	// Shared by both formatters below, so it has to satisfy the larger of the two.
-	char buffer[FORMATTER_RATING_SIZE];
-
-	if (selected) {
-		formatter_formatRatingPlain(rating, buffer);
-		gtk_label_set_text(label, buffer);
-	} else {
-		formatter_formatRating(rating, buffer);
-		gtk_label_set_markup(label, buffer);
-	}
-}
-
-static void onRatingSelectionChanged(GtkListItem *item, GParamSpec *pspec, gpointer data) {
-	(void)pspec;
-	(void)data;
-
-	GtkWidget *label = gtk_list_item_get_child(item);
-	const SearchPlayerRow *row = gtk_list_item_get_item(item);
-
-	if (label != NULL && row != NULL && row->player != NULL) {
-		applyRating(GTK_LABEL(label), row->player->ratings[0].value, gtk_list_item_get_selected(item));
-	}
-}
-
-/**
- * Connected at setup rather than bind so the handler lives exactly as long as the recycled list
- * item, with no per-bind connect/disconnect churn.
- */
-static void setupRatingLabel(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
-	setupTextLabel(factory, item, data);
-	g_signal_connect(item, "notify::selected", G_CALLBACK(onRatingSelectionChanged), NULL);
-}
-
-static void printNumeric(GtkWidget *label, const int64_t value) {
-	gchar buffer[FORMATTER_NUMBER_SIZE];
-	g_snprintf(buffer, sizeof(buffer), "%" PRId64, value);
-	if (value > 999 || value < -999) {
-		formatter_printNumber(buffer);
-	}
-	gtk_label_set_text(GTK_LABEL(label), buffer);
-}
-
-static void printCurrency(GtkWidget *label, const uint64_t value) {
-	gchar buffer[FORMATTER_NUMBER_SIZE];
-	g_snprintf(buffer, sizeof(buffer), "%" PRIu64, value);
-	formatter_printCurrency(buffer);
-	gtk_label_set_xalign(GTK_LABEL(label), 0);
-	gtk_label_set_text(GTK_LABEL(label), buffer);
-}
-
-static GString *formatPlayerPositions(const uint8_t *positions) {
-	GString *str = g_string_new(NULL);
-	bool hasPrevious = false;
-	bool sameRow = false;
-
-	if (positions[POSITION_CODE_GK] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		g_string_append(str, positionCodeNames[POSITION_CODE_GK]);
-		hasPrevious = true;
-	}
-
-	if (positions[POSITION_CODE_DL] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
+static int compare(const void *a, const void *b) {
+	const Player *left = &gameContext.players[*(const uint32_t *)a];
+	const Player *right = &gameContext.players[*(const uint32_t *)b];
+	for (size_t i = 0; i < sortCount; ++i) {
+		int result = 0;
+		switch (sortKeys[i].column) {
+			case COLUMN_NAME: result = strcmp(left->surname, right->surname); break;
+			case COLUMN_AGE: result = (int)left->age - right->age; break;
+			case COLUMN_CA: result = (int)left->ca - right->ca; break;
+			case COLUMN_PA: result = (int)left->pa - right->pa; break;
+			case COLUMN_CA_PA_DELTA: result = ((int)left->pa - left->ca) - ((int)right->pa - right->ca); break;
+			case COLUMN_RATING: result = (left->ratings[0].value > right->ratings[0].value) - (left->ratings[0].value < right->ratings[0].value); break;
+			default: break;
 		}
-		hasPrevious = true;
-		sameRow = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_DL]);
+		if (result)
+			return (result > 0 ? 1 : -1) * sortKeys[i].direction;
 	}
-
-	if (positions[POSITION_CODE_DR] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (sameRow) {
-			sameRow = false;
-			g_string_append(str, "/R");
-		} else if (hasPrevious) {
-			g_string_append(str, ", ");
-		} else {
-			g_string_append(str, positionCodeNames[POSITION_CODE_DR]);
-		}
-		hasPrevious = true;
-	}
-
-	if (positions[POSITION_CODE_DC] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		g_string_append(str, positionCodeNames[POSITION_CODE_DC]);
-		hasPrevious = true;
-	}
-
-
-	if (positions[POSITION_CODE_WBL] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		sameRow = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_WBL]);
-	}
-
-	if (positions[POSITION_CODE_WBR] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (sameRow) {
-			sameRow = false;
-			g_string_append(str, "/R");
-		} else {
-			if (hasPrevious) {
-				g_string_append(str, ", ");
-			}
-
-			g_string_append(str, positionCodeNames[POSITION_CODE_WBR]);
-		}
-		hasPrevious = true;
-	}
-
-	if (positions[POSITION_CODE_DM] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_DM]);
-	}
-
-	sameRow = false;
-
-	if (positions[POSITION_CODE_ML] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		sameRow = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_ML]);
-	}
-
-	if (positions[POSITION_CODE_MR] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (sameRow) {
-			g_string_append(str, "/R");
-		} else {
-			if (hasPrevious) {
-				g_string_append(str, ", ");
-			}
-
-			g_string_append(str, positionCodeNames[POSITION_CODE_MR]);
-		}
-		hasPrevious = true;
-	}
-
-	sameRow = false;
-
-	if (positions[POSITION_CODE_MC] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_MC]);
-	}
-
-	if (positions[POSITION_CODE_AML] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		sameRow = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_AML]);
-	}
-
-	if (positions[POSITION_CODE_AMR] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (sameRow) {
-			g_string_append(str, "/R");
-		} else {
-			if (hasPrevious) {
-				g_string_append(str, ", ");
-			}
-
-			g_string_append(str, positionCodeNames[POSITION_CODE_AMR]);
-		}
-		hasPrevious = true;
-	}
-
-	sameRow = false;
-
-	if (positions[POSITION_CODE_AMC] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_AMC]);
-	}
-
-	if (positions[POSITION_CODE_ST] >= MINIMUM_POSITIONAL_PROFICIENCY) {
-		if (hasPrevious) {
-			g_string_append(str, ", ");
-		}
-		hasPrevious = true;
-		g_string_append(str, positionCodeNames[POSITION_CODE_ST]);
-	}
-
-	return str;
-}
-
-static void bindCellValue(const GtkSignalListItemFactory *factory, GtkListItem *item, const uint8_t columnId) {
-	(void)factory;
-
-	GtkWidget *label = gtk_list_item_get_child(GTK_LIST_ITEM(item));
-	gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_LEFT);
-	const SearchPlayerRow *row = gtk_list_item_get_item(GTK_LIST_ITEM(item));
-
-	if (row == NULL || row->player == NULL) {
-		return;
-	}
-
-	const Player *player = row->player;
-
-	switch (columnId) {
-		case COLUMN_NAME:
-			if (player->commonName[0] == '\0') {
-				char buffer[PERSON_FORENAME_LENGTH + PERSON_SURNAME_LENGTH + 2];
-				snprintf(buffer, sizeof(buffer), "%s %s", player->forename, player->surname);
-				gtk_label_set_text(GTK_LABEL(label), buffer);
-			} else {
-				gtk_label_set_text(GTK_LABEL(label), player->commonName);
-			}
-			gtk_label_set_xalign(GTK_LABEL(label), 0);
-			break;
-		case COLUMN_AGE:
-			printNumeric(label, player->age);
-			break;
-		case COLUMN_POSITIONS: {
-			GString *str = formatPlayerPositions(row->player->positions);
-			gtk_label_set_text(GTK_LABEL(label), str->str);
-			gtk_label_set_xalign(GTK_LABEL(label), 0);
-			g_string_free(str, TRUE);
-			break;
-		}
-		case COLUMN_CA:
-			printNumeric(label, player->ca);
-			break;
-		case COLUMN_PA:
-			printNumeric(label, player->pa);
-			break;
-		case COLUMN_CA_PA_DELTA:
-			printNumeric(label, player->pa - player->ca);
-			break;
-		case COLUMN_RATING:
-			applyRating(GTK_LABEL(label), player->ratings[0].value, gtk_list_item_get_selected(item));
-			break;
-		case COLUMN_VALUE:
-			printCurrency(label, player->guideValue);
-			break;
-		case COLUMN_CLUB: {
-			const Club *club = entities_getClub(player->clubIndex);
-			gtk_label_set_text(GTK_LABEL(label), club != NULL ? club->shortName : "");
-			gtk_label_set_xalign(GTK_LABEL(label), 0);
-			break;
-		}
-		case COLUMN_REPUTATION_HOME:
-			printNumeric(label, player->homeReputation);
-			break;
-		case COLUMN_REPUTATION_CURRENT:
-			printNumeric(label, player->currentReputation);
-			break;
-		case COLUMN_REPUTATION_WORLD:
-			printNumeric(label, player->worldReputation);
-			break;
-		default:
-			break;
-	}
-}
-
-static void bindStatusValue(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
-	(void)factory;
-	(void)data;
-
-	GtkWidget *box = gtk_list_item_get_child(GTK_LIST_ITEM(item));
-	const SearchPlayerRow *row = gtk_list_item_get_item(GTK_LIST_ITEM(item));
-
-	GtkWidget *child;
-	while ((child = gtk_widget_get_first_child(GTK_WIDGET(box))) != NULL) {
-		gtk_box_remove(GTK_BOX(box), child);
-	}
-
-	if (row == NULL || row->player == NULL) {
-		return;
-	}
-
-	if (row->player->injury.duration > 0) {
-		GtkWidget *label = gtk_label_new("🚑");
-		gtk_box_append(GTK_BOX(box), label);
-		char buffer[128] = {0};
-		snprintf(buffer, 128, "Injured: %s", injuryNames_get(row->player->injury.nameIndex));
-		gtk_widget_set_tooltip_text(label, buffer);
-	}
-
-	if (row->player->canDevelopQuickly) {
-		GtkWidget *label = gtk_label_new("🧠");
-		gtk_box_append(GTK_BOX(box), label);
-		gtk_widget_set_tooltip_text(label, "Can develop quickly");
-	}
-	if (row->player->isHotProspect) {
-		GtkWidget *label = gtk_label_new("🔥");
-		gtk_box_append(GTK_BOX(box), label);
-		gtk_widget_set_tooltip_text(label, "A hot prospect");
-	}
-}
-
-static void bindNationalitiesValue(const GtkSignalListItemFactory *factory, GtkListItem *item, gpointer data) {
-	(void)factory;
-	(void)data;
-
-	GtkWidget *box = gtk_list_item_get_child(GTK_LIST_ITEM(item));
-	const SearchPlayerRow *row = gtk_list_item_get_item(GTK_LIST_ITEM(item));
-
-	GtkWidget *child;
-	while ((child = gtk_widget_get_first_child(GTK_WIDGET(box))) != NULL) {
-		gtk_box_remove(GTK_BOX(box), child);
-	}
-
-	if (row == NULL || row->player == NULL) {
-		return;
-	}
-
-	uint8_t nationalityIndex = 0;
-	while (nationalityIndex < 4 && row->player->nationality[nationalityIndex] != 0xFF) {
-		const Nation *nation = entities_getNation(row->player->nationality[nationalityIndex]);
-		if (nation == NULL) {
-			nationalityIndex++;
-			continue;
-		}
-
-		char pathToFlag[256] = {0};
-		snprintf(
-			pathToFlag,
-			sizeof(pathToFlag),
-			RESOURCE_BASE "/assets/flags/%s.png",
-			nation->code
-		);
-		GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
-		gtk_box_append(GTK_BOX(box), flagImage);
-		gtk_widget_set_tooltip_text(flagImage, nation->name);
-		nationalityIndex++;
-	}
-}
-
-static gboolean restoreScroll(gpointer data) {
-	GtkAdjustment *adj = data;
-	const double max = gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj);
-	gtk_adjustment_set_value(adj, CLAMP(context.savedScrollValue, 0, max));
-	return G_SOURCE_REMOVE;
-}
-
-// One-shot correction: the sort makes GTK scroll the focused row into view, and
-// that happens on an indeterminate later frame — so instead of guessing when,
-// we react. The first time the scroll value changes after a sort, we snap it
-// back to the saved position and immediately disconnect, so normal user
-// scrolling afterwards is untouched.
-static void onScrollGuard(GtkAdjustment *adjustment, gpointer data) {
-	(void)data;
-
-	if (context.scrollGuardId != 0) {
-		g_signal_handler_disconnect(adjustment, context.scrollGuardId);
-		context.scrollGuardId = 0;
-	}
-
-	g_idle_add_full(GDK_PRIORITY_REDRAW - 1, restoreScroll, adjustment, NULL);
-}
-
-// Runs when the user clicks a column header to change the sort. This fires
-// before the GtkSortListModel reorders (we connect first), so we snapshot the
-// current scroll position here and arm a one-shot guard that undoes GTK's
-// follow-the-focused-row scroll whenever it lands.
-static void onSorterChanged(GtkSorter *sorter, const GtkSorterChange change, gpointer data) {
-	(void)sorter;
-	(void)change;
-	(void)data;
-
-	if (context.table == NULL) {
-		return;
-	}
-
-	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(context.table));
-	if (adjustment == NULL) {
-		return;
-	}
-
-	context.savedScrollValue = gtk_adjustment_get_value(adjustment);
-
-	if (context.scrollGuardId == 0) {
-		context.scrollGuardId = g_signal_connect(
-			adjustment,
-			"value-changed",
-			G_CALLBACK(onScrollGuard),
-			NULL
-		);
-	}
-}
-
-static GtkColumnViewColumn *createColumn(const char *title, const uint8_t columnType, GtkSorter *sorter) {
-	GtkListItemFactory *factory = gtk_signal_list_item_factory_new();
-	if (columnType == COLUMN_NATIONALITIES) {
-		g_signal_connect(factory, "setup", G_CALLBACK(setupBox), NULL);
-		g_signal_connect(factory, "bind", G_CALLBACK(bindNationalitiesValue), NULL);
-	} else if (columnType == COLUMN_STATUS) {
-		g_signal_connect(factory, "setup", G_CALLBACK(setupBox), NULL);
-		g_signal_connect(factory, "bind", G_CALLBACK(bindStatusValue), NULL);
-	} else {
-		g_signal_connect(
-			factory,
-			"setup",
-			G_CALLBACK(columnType == COLUMN_RATING ? setupRatingLabel : setupTextLabel),
-			NULL
-		);
-		g_signal_connect(factory, "bind", G_CALLBACK(bindCellValue), (void *)(uint64_t)columnType);
-	}
-
-	GtkColumnViewColumn *column = gtk_column_view_column_new(title, factory);
-
-	// Attach sorter if provided
-	if (sorter != NULL) {
-		gtk_column_view_column_set_sorter(column, sorter);
-	}
-
-	return column;
+	return (left->uid > right->uid) - (left->uid < right->uid);
 }
 
 void playerTable_init(void) {
-	GtkSorter *nameSorter = GTK_SORTER(
-		gtk_string_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "surname")
-		)
-	);
-	GtkSorter *ageSorter = GTK_SORTER(
-		gtk_numeric_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "age")
-		)
-	);
-	GtkSorter *caSorter = GTK_SORTER(
-		gtk_numeric_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "ca")
-		)
-	);
-	GtkSorter *paSorter = GTK_SORTER(
-		gtk_numeric_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "pa")
-		)
-	);
-	GtkSorter *diffSorter = GTK_SORTER(
-		gtk_numeric_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "diff")
-		)
-	);
-	GtkSorter *ratingSorter = GTK_SORTER(
-		gtk_numeric_sorter_new(
-			gtk_property_expression_new(SEARCH_TYPE_PLAYER_ROW, NULL, "rating")
-		)
-	);
-
-	GtkColumnView *table = GTK_COLUMN_VIEW(GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "table:player-list")));
-	context.table = table;
-
-	GtkColumnViewColumn *ratingColumn = createColumn("Rating", COLUMN_RATING, ratingSorter);
-
-	gtk_column_view_append_column(table, createColumn("", COLUMN_NATIONALITIES, NULL));
-	gtk_column_view_append_column(table, createColumn("Name", COLUMN_NAME, nameSorter));
-	gtk_column_view_append_column(table, createColumn("Age", COLUMN_AGE, ageSorter));
-	gtk_column_view_append_column(table, createColumn("Positions", COLUMN_POSITIONS, NULL));
-	gtk_column_view_append_column(table, createColumn("CA", COLUMN_CA, caSorter));
-	gtk_column_view_append_column(table, createColumn("PA", COLUMN_PA, paSorter));
-	gtk_column_view_append_column(table, createColumn("Diff", COLUMN_CA_PA_DELTA, diffSorter));
-	gtk_column_view_append_column(table, createColumn("Status", COLUMN_STATUS, NULL));
-	gtk_column_view_append_column(table, ratingColumn);
-	gtk_column_view_append_column(table, createColumn("Value", COLUMN_VALUE, NULL));
-	gtk_column_view_append_column(table, createColumn("Club", COLUMN_CLUB, NULL));
-	gtk_column_view_append_column(table, createColumn("Home rep", COLUMN_REPUTATION_HOME, NULL));
-	gtk_column_view_append_column(table, createColumn("Current rep", COLUMN_REPUTATION_CURRENT, NULL));
-	gtk_column_view_append_column(table, createColumn("World rep", COLUMN_REPUTATION_WORLD, NULL));
-
-	context.selection = NULL;
-
-	GtkSorter *columnViewSorter = gtk_column_view_get_sorter(context.table);
-	if (columnViewSorter != NULL) {
-		g_signal_connect(columnViewSorter, "changed", G_CALLBACK(onSorterChanged), NULL);
-	}
-
-	gameContext.searchResults = sharedPointer_new(NULL);
-	playerTable_clear();
-
-	gtk_column_view_sort_by_column(context.table, ratingColumn, GTK_SORT_DESCENDING);
-}
-
-static SearchPlayerRow *search_player_row_new(Player *player) {
-	return g_object_new(SEARCH_TYPE_PLAYER_ROW, "player", player, NULL);
+	sortKeys[0].column = COLUMN_RATING;
+	sortKeys[0].direction = -1;
+	sortCount = 1;
+	if (!gameContext.searchResults)
+		gameContext.searchResults = sharedPointer_new(NULL);
 }
 
 void playerTable_clear(void) {
-	if (gameContext.searchResults != NULL && vector_length(gameContext.searchResults->data) > 0) {
+	if (gameContext.searchResults)
 		sharedPointer_unref(gameContext.searchResults);
-		gameContext.searchResults = sharedPointer_new(NULL);
-	}
-	playerTable_populate();
+	gameContext.searchResults = sharedPointer_new(NULL);
 }
 
 void playerTable_populate(void) {
-#ifdef DEBUG
-	const int64_t timeStart = platform_getMicroseconds();
-#endif
+	const size_t count = playerTable_count();
+	if (count > 1)
+		qsort(gameContext.searchResults->data, count, sizeof(uint32_t), compare);
+}
 
-	GtkAdjustment *adjustment = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(context.table));
-	gtk_adjustment_set_value(adjustment, 0);
+bool playerTable_sortable(const Column column) {
+	return column == COLUMN_NAME || column == COLUMN_AGE || column == COLUMN_CA || column == COLUMN_PA ||
+				 column == COLUMN_CA_PA_DELTA || column == COLUMN_RATING;
+}
 
-	const uint32_t *playerIds = gameContext.searchResults->data;
-	const size_t playerCount = vector_length(playerIds);
+int playerTable_direction(const Column column) {
+	for (size_t i = 0; i < sortCount; ++i)
+		if (sortKeys[i].column == column)
+			return sortKeys[i].direction;
+	return 0;
+}
 
-	GtkWidget *clearAll = GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "button:clear-all"));
-	gtk_widget_set_visible(clearAll, playerCount > 0);
+void playerTable_sort(const Column column, const bool append) {
+	if (!playerTable_sortable(column))
+		return;
+	int direction = playerTable_direction(column);
+	direction = direction ? -direction : 1;
+	size_t index = 0;
+	if (append) {
+		while (index < sortCount && sortKeys[index].column != column)
+			++index;
+		if (index == sortCount && sortCount < 6)
+			++sortCount;
+		if (index >= 6)
+			index = 5;
+	} else
+		sortCount = 1;
+	sortKeys[index].column = column;
+	sortKeys[index].direction = direction;
+	playerTable_populate();
+}
 
-	GListStore *store = g_list_store_new(SEARCH_TYPE_PLAYER_ROW);
-	for (size_t i = 0; i < playerCount; ++i) {
-		// Defensive: results taken before a cache swap can outrun the current buffer.
-		if (playerIds[i] >= gameContext.playerCount) {
+size_t playerTable_count(void) {
+	return gameContext.searchResults ? vector_length(gameContext.searchResults->data) : 0;
+}
+
+const Player *playerTable_player(const size_t row) {
+	if (row >= playerTable_count())
+		return NULL;
+	const uint32_t index = ((const uint32_t *)gameContext.searchResults->data)[row];
+	return index < gameContext.playerCount ? &gameContext.players[index] : NULL;
+}
+
+void playerTable_shutdown(void) {
+	if (gameContext.searchResults)
+		sharedPointer_unref(gameContext.searchResults);
+	gameContext.searchResults = NULL;
+}
+
+void player_formatName(const Player *player, char *buffer, const size_t size) {
+	if (player->commonName[0])
+		snprintf(buffer, size, "%s", player->commonName);
+	else
+		snprintf(buffer, size, "%s %s", player->forename, player->surname);
+}
+
+void player_formatPositions(const Player *player, char *buffer, const size_t size) {
+	static const PositionCode order[] = {POSITION_CODE_GK, POSITION_CODE_DL, POSITION_CODE_DR, POSITION_CODE_DC,
+																			 POSITION_CODE_WBL, POSITION_CODE_WBR, POSITION_CODE_DM, POSITION_CODE_ML, POSITION_CODE_MR, POSITION_CODE_MC,
+																			 POSITION_CODE_AML, POSITION_CODE_AMR, POSITION_CODE_AMC, POSITION_CODE_ST};
+	size_t used = 0;
+	buffer[0] = '\0';
+	for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); ++i) {
+		if (player->positions[order[i]] < MINIMUM_POSITIONAL_PROFICIENCY)
 			continue;
-		}
-
-		Player *player = &gameContext.players[playerIds[i]];
-		SearchPlayerRow *row = search_player_row_new(player);
-		g_list_store_append(store, row);
-		g_object_unref(row);
+		const bool pair = i && ((order[i] == POSITION_CODE_DR && player->positions[POSITION_CODE_DL] >= MINIMUM_POSITIONAL_PROFICIENCY) ||
+														(order[i] == POSITION_CODE_WBR && player->positions[POSITION_CODE_WBL] >= MINIMUM_POSITIONAL_PROFICIENCY) ||
+														(order[i] == POSITION_CODE_MR && player->positions[POSITION_CODE_ML] >= MINIMUM_POSITIONAL_PROFICIENCY) ||
+														(order[i] == POSITION_CODE_AMR && player->positions[POSITION_CODE_AML] >= MINIMUM_POSITIONAL_PROFICIENCY));
+		const int written = snprintf(buffer + used, size - used, "%s%s", pair ? "" : (used ? ", " : ""), pair ? "/R" : positionCodeNames[order[i]]);
+		if (written < 0 || (size_t)written >= size - used)
+			return;
+		used += (size_t)written;
 	}
-
-	GtkSorter *sorter = g_object_ref(gtk_column_view_get_sorter(context.table));
-	GtkSortListModel *sortModel = gtk_sort_list_model_new(G_LIST_MODEL(store), sorter);
-	GtkSingleSelection *newSelection = gtk_single_selection_new(G_LIST_MODEL(sortModel));
-	gtk_single_selection_set_autoselect(newSelection, false);
-
-	GtkSingleSelection *oldSelection = context.selection;
-
-	gtk_column_view_set_model(context.table, GTK_SELECTION_MODEL(newSelection));
-
-	if (oldSelection != NULL)
-		g_object_unref(oldSelection);
-
-	context.selection = newSelection;
-
-	GtkLabel *resultsCountLabel = GTK_LABEL(
-		GTK_WIDGET(gtk_builder_get_object(gameContext.builder, "label:results-count"))
-	);
-	char resultCountString[32] = {0};
-	char formattedResults[FORMATTER_NUMBER_SIZE] = {0};
-	snprintf(formattedResults, sizeof(formattedResults), "%zu", playerCount);
-	formatter_printNumber(formattedResults);
-	snprintf(
-		resultCountString,
-		sizeof(resultCountString),
-		playerCount == 1 ? "1 result" : "%s results",
-		formattedResults
-	);
-	gtk_label_set_text(resultsCountLabel, resultCountString);
-
-	LOG_DEBUG("Rendered %zu players in %" PRId64 " microseconds", playerCount, platform_getMicroseconds() - timeStart);
 }

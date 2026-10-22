@@ -4,6 +4,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+
+bool injuryNames_init(void);
 
 
 #define INJURY_NAME_NONE 0

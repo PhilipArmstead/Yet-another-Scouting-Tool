@@ -1,11 +1,6 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
-// SPDX-License-Identifier: GPL-3.0-or-later
-
 #pragma once
+#include <stdbool.h>
 
-#include "app/types.h"
-
-
-void searchHandler_doSearch(bool refreshFilterCache);
+bool searchHandler_cacheFilters(char error[128]);
+bool searchHandler_doSearch(bool refreshFilterCache, char error[128]);
 void searchHandler_clearFilters(void);
-void searchHandler_cacheFilters(void);

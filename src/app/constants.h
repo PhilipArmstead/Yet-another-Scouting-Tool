@@ -3,8 +3,6 @@
 
 #pragma once
 
-#define RESOURCE_BASE "/com/philarmstead/yast"
-
 #define MINIMUM_POSITIONAL_PROFICIENCY 15
 #define MAX_RATING_VALUE 120.f
 

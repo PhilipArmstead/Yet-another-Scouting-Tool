@@ -6,6 +6,7 @@
 
 // Logging
 #include <stdio.h>
+#include <time.h>
 
 
 // Fatal, error, warn, info, debug
@@ -169,6 +170,11 @@ void platform_openProcess(ProcessContext *context) {
 	if (context->handle == NULL) {
 		platform_consoleWriteError("Process 'fm.exe' not found\n", LogLevelError);
 	}
+}
+
+void platform_closeProcess(ProcessContext *context) {
+	if (context->handle) mach_port_deallocate(mach_task_self(), (mach_port_t)(uintptr_t)context->handle);
+	*context = (ProcessContext){0};
 }
 
 // Time

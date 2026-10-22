@@ -1,511 +1,385 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
-// SPDX-License-Identifier: GPL-3.0-or-later
-
 #include "cache.h"
-#include "app/callbacks.h"
-#include "app/config.h"
+#include "app/configuration.h"
 #include "app/injury-names.h"
 #include "app/maths.h"
 #include "app/mocks.h"
-#include "app/player.h"
 #include "app/player-table.h"
-#include "app/search-handler.h"
-#include "app/helpers/formatter.h"
+#include "app/player.h"
+#include "app/search.h"
 #include "core/logger.h"
 #include "platform/platform.h"
-
+#include "platform/thread.h"
+#include <stdatomic.h>
 #include <stdlib.h>
+#include <string.h>
 
-#include "ui.h"
-
+#define PLAYER_WORKERS 8
+#define WORKER_COUNT (PLAYER_WORKERS + 2)
 
 extern ProcessContext processContext;
 extern GameContext gameContext;
 
-static GThread *threads[THREAD_COUNT];
-static gint cacheInProgress = false;
-static uint8_t completedPlayerThreads = 0;
-
-/**
- * Bumped on every run and every clear, and captured by each worker when it starts. A publish whose
- * generation no longer matches belongs to a cache run that has since been abandoned, so its buffer
- * is discarded instead of being swapped in.
- *
- * Only ever touched on the main thread, and only while no workers are running.
- */
-static uint32_t cacheGeneration = 0;
-
-/**
- * The club search runs on a detached thread that cannot be joined, so it can be halfway through
- * gameContext.clubs when the main thread decides to free it. Every swap and free of that buffer is
- * taken under this lock, and the search holds it for the length of its scan.
- */
-static GMutex clubsLock;
-
-// Filled by the player workers and swapped into gameContext once the last of them finishes.
-static Player *stagingPlayers = NULL;
-static uint64_t stagingPlayerCount = 0;
-
+typedef struct CacheJob CacheJob;
 typedef struct {
-	uint32_t generation;
-	uint8_t index;
+	CacheJob *job;
+	unsigned index;
+	atomic_bool done;
+	bool failed;
+	Thread thread;
 } Worker;
 
-typedef struct {
-	Nation *nations;
-	uint64_t count;
-	uint32_t generation;
-} NationsPublish;
-
-typedef struct {
+struct CacheJob {
+	ProcessContext process;
+	DateTime date;
+	atomic_bool cancel;
+	Worker workers[WORKER_COUNT];
+	Player *players;
 	Club *clubs;
-	uint64_t count;
-	uint32_t generation;
-} ClubsPublish;
+	Nation *nations;
+	uint64_t playerCount, clubCount, nationCount;
+	uintptr_t playerStart;
+	bool playersPublished, clubsPublished, nationsPublished;
+};
 
-static gboolean onPlayerThreadComplete(gpointer userData);
-static void cachePlayers(uint8_t workerIndex);
-static void cacheClubs(uint32_t generation);
-static void cacheNations(uint32_t generation);
+static CacheJob *job;
+static bool requested;
+static char error[128];
 
-void cache_lockClubs(void) {
-	g_mutex_lock(&clubsLock);
+#ifndef MOCKS_MODE
+static bool readList(CacheJob *self, uintptr_t base, uintptr_t offset, uintptr_t startOffset,
+										 uintptr_t endOffset, uint64_t stride, uintptr_t *start, uint64_t *count) {
+	uint8_t bytes[8];
+	const ProcessContext *p = &self->process;
+	if (!readFromMemory(p->handle, p->moduleBaseAddress + base, 8, bytes))
+		return false;
+	uintptr_t list = (uintptr_t)hexBytesToInt(bytes, 8);
+	if (offset) {
+		if (!list || !readFromMemory(p->handle, list + offset, 8, bytes))
+			return false;
+		list = (uintptr_t)hexBytesToInt(bytes, 8);
+	}
+	if (!list || !readFromMemory(p->handle, list + startOffset, 8, bytes))
+		return false;
+	*start = (uintptr_t)hexBytesToInt(bytes, 8);
+	if (!readFromMemory(p->handle, list + endOffset, 8, bytes))
+		return false;
+	const uintptr_t end = (uintptr_t)hexBytesToInt(bytes, 8);
+	if (end < *start || (end - *start) % stride || (end - *start) / stride > 2000000)
+		return false;
+	*count = (end - *start) / stride;
+	return true;
 }
+#endif
 
-void cache_unlockClubs(void) {
-	g_mutex_unlock(&clubsLock);
-}
-
-/**
- * The result table's rows point into the buffer we just replaced, so they are rebuilt here rather
- * than left to dereference freed memory on the next redraw. Open windows own copies of their
- * players and are refreshed separately, once the replacement buffer exists.
- */
-static void invalidatePlayerTable(void) {
-	// The table is built after the first cache_clear(), so there may be nothing to invalidate yet.
-	if (gameContext.searchResults == NULL) {
+static void cacheNations(Worker *worker) {
+	CacheJob *self = worker->job;
+#ifdef MOCKS_MODE
+	self->nationCount = 251;
+#else
+	uintptr_t start;
+	if (!readList(self, NATION_LIST_PTR_BASE, NATION_LIST_PTR_BASE_OFFSET, NATION_LIST_START,
+								NATION_LIST_END, NATION_LIST_STRIDE, &start, &self->nationCount)) {
+		worker->failed = true;
 		return;
 	}
-
-	if (gameContext.playerCount > 0 && gameContext.filterOptions.filterMask != 0) {
-		searchHandler_doSearch(false);
-	} else {
-		playerTable_clear();
+#endif
+	self->nations = calloc((size_t)self->nationCount, sizeof(Nation));
+	if (!self->nations) {
+		worker->failed = self->nationCount != 0;
+		return;
 	}
+#ifdef MOCKS_MODE
+	self->nations[189] = PLAYER_BY_ID_NATION_1;
+	self->nations[170] = PLAYER_BY_ID_NATION_2;
+	self->nations[1] = (Nation){.name = "Germany", .code = "GER"};
+	self->nations[2] = (Nation){.name = "Greece", .code = "GRE"};
+#else
+	for (uint64_t i = 0; i < self->nationCount && !atomic_load(&self->cancel); ++i) {
+		uint8_t bytes[8];
+		if (!readFromMemory(self->process.handle, start + i * NATION_LIST_STRIDE, 8, bytes))
+			continue;
+		const uintptr_t nation = (uintptr_t)hexBytesToInt(bytes, 8);
+		readFromMemory(self->process.handle, nation + NATION_OFFSET_NAME, 8, bytes);
+		readFromMemory(self->process.handle, (uintptr_t)hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+									 sizeof(self->nations[i].name) - 1, (uint8_t *)self->nations[i].name);
+		readFromMemory(self->process.handle, nation + NATION_OFFSET_NAME_CODE, 8, bytes);
+		readFromMemory(self->process.handle, (uintptr_t)hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+									 3, (uint8_t *)self->nations[i].code);
+	}
+#endif
 }
 
-static gpointer threadFunction(gpointer arg) {
-	Worker *worker = arg;
-
-	if (worker->index == 0) {
-		cacheNations(worker->generation);
-		g_free(worker);
-	} else if (worker->index == 1) {
-		cacheClubs(worker->generation);
-		g_free(worker);
-	} else {
-		cachePlayers(worker->index - NON_PLAYERS_THREAD_COUNT);
-		g_idle_add(onPlayerThreadComplete, worker);
+static void cacheClubs(Worker *worker) {
+	CacheJob *self = worker->job;
+#ifdef MOCKS_MODE
+	self->clubCount = 36289;
+#else
+	uintptr_t start;
+	if (!readList(self, CLUB_LIST_PTR_BASE, CLUB_LIST_PTR_BASE_OFFSET, CLUB_LIST_START, CLUB_LIST_END,
+								CLUB_LIST_STRIDE, &start, &self->clubCount)) {
+		worker->failed = true;
+		return;
 	}
-
-	return NULL;
+#endif
+	self->clubs = calloc((size_t)self->clubCount, sizeof(Club));
+	if (!self->clubs) {
+		worker->failed = self->clubCount != 0;
+		return;
+	}
+#ifdef MOCKS_MODE
+	self->clubs[1125] = PLAYER_BY_ID_CLUB;
+	self->clubs[1] = (Club){.name = "Futebol Clube do Porto", .shortName = "Porto"};
+	self->clubs[2] = (Club){.name = "Fußball Club Bayern München", .shortName = "Bayern München"};
+#else
+	for (uint64_t i = 0; i < self->clubCount && !atomic_load(&self->cancel); ++i) {
+		uint8_t bytes[8];
+		if (!readFromMemory(self->process.handle, start + i * CLUB_LIST_STRIDE, 8, bytes))
+			continue;
+		const uintptr_t club = (uintptr_t)hexBytesToInt(bytes, 8);
+		self->clubs[i].address = club;
+		readFromMemory(self->process.handle, club + CLUB_OFFSET_NAME, 8, bytes);
+		readFromMemory(self->process.handle, (uintptr_t)hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+									 sizeof(self->clubs[i].name) - 1, (uint8_t *)self->clubs[i].name);
+		readFromMemory(self->process.handle, club + CLUB_OFFSET_NAME_SHORT, 8, bytes);
+		readFromMemory(self->process.handle, (uintptr_t)hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
+									 sizeof(self->clubs[i].shortName) - 1, (uint8_t *)self->clubs[i].shortName);
+	}
+#endif
 }
 
-// Swaps a finished buffer into gameContext, replacing whatever it held before.
-static gboolean publishNations(gpointer userData) {
-	NationsPublish *publish = userData;
-
-	if (publish->generation == cacheGeneration) {
-		free(gameContext.nations);
-		gameContext.nations = publish->nations;
-		gameContext.nationCount = publish->count;
-		ui_rerenderPlayerWindows();
-	} else {
-		LOG_DEBUG("Discarding nations from an abandoned cache run");
-		free(publish->nations);
-	}
-
-	g_free(publish);
-
-	return G_SOURCE_REMOVE;
-}
-
-static gboolean publishClubs(gpointer userData) {
-	ClubsPublish *publish = userData;
-
-	if (publish->generation == cacheGeneration) {
-		cache_lockClubs();
-		free(gameContext.clubs);
-		gameContext.clubs = publish->clubs;
-		gameContext.clubCount = publish->count;
-		cache_unlockClubs();
-		ui_rerenderPlayerWindows();
-	} else {
-		LOG_DEBUG("Discarding clubs from an abandoned cache run");
-		free(publish->clubs);
-	}
-
-	g_free(publish);
-
-	return G_SOURCE_REMOVE;
-}
-
-/**
- * Abandons any in-flight cache run and drops the players, but leaves the clubs and nations in
- * place: they are lookup tables the UI reads constantly, and the re-cache that follows takes
- * seconds to land. Freeing them here left the club search scanning an empty list — and so showing
- * no popover — for most of the time the game was unpaused, since every in-game clock change forces
- * a re-cache. publishClubs/publishNations free whatever they replace, so nothing is leaked.
- *
- * Use cache_reset() when the buffers must actually go, i.e. when the process is gone.
- */
-void cache_clear(void) {
-	g_atomic_int_set(&cacheInProgress, false);
-
-	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
-		if (threads[i] != NULL) {
-			g_thread_join(threads[i]);
-			threads[i] = NULL;
+static void cachePlayers(Worker *worker) {
+	CacheJob *self = worker->job;
+	const unsigned index = worker->index - 2;
+	const uint64_t start = self->playerCount * index / PLAYER_WORKERS;
+	const uint64_t end = self->playerCount * (index + 1) / PLAYER_WORKERS;
+	for (uint64_t i = start; i < end && !atomic_load(&self->cancel); ++i) {
+#ifdef MOCKS_MODE
+		Player player = i % 3 == 0 ? PLAYER_GK : (i % 2 ? PLAYER_VINI : PLAYER_JEFF);
+		player.uid = (uint32_t)i + 1;
+		player.clubIndex = i % 5 == 0 ? 1 : (i % 7 == 0 ? 2 : 1125);
+		player.dateOfBirth = (Date){.year = (uint16_t)(self->date.year - player.age), .days = 1};
+		player.height = 180;
+		player.weight = 78;
+		if (i >= 5) {
+			memset(player.positions, 0, sizeof(player.positions));
+			static const PositionCode positions[] = {POSITION_CODE_GK, POSITION_CODE_DL, POSITION_CODE_DC, POSITION_CODE_DR,
+																							 POSITION_CODE_WBL, POSITION_CODE_DM, POSITION_CODE_WBR, POSITION_CODE_ML, POSITION_CODE_MC,
+																							 POSITION_CODE_MR, POSITION_CODE_AML, POSITION_CODE_AMC, POSITION_CODE_AMR, POSITION_CODE_ST};
+			player.positions[positions[i % 14]] = 20;
+			player.age = (uint8_t)(18 + i % 18);
+			player.condition = (uint16_t)(8500 + i % 1501);
+			if (i % 5)
+				player.injury.duration = 0;
 		}
-	}
-
-	// Invalidates any publish already queued by a worker that finished before the join.
-	++cacheGeneration;
-	completedPlayerThreads = 0;
-
-	free(stagingPlayers);
-	stagingPlayers = NULL;
-	stagingPlayerCount = 0;
-
-	const bool hadPlayers = gameContext.players != NULL;
-
-	if (gameContext.players != NULL) {
-		free(gameContext.players);
-		gameContext.players = NULL;
-		gameContext.playerCount = 0;
-	}
-
-	// Called every tick while disconnected, so only pay for the rebuild when something was dropped.
-	// Open windows are left showing the players they already hold until a new cache arrives.
-	if (hadPlayers) {
-		invalidatePlayerTable();
+		if (i == 1)
+			snprintf(player.commonName, sizeof(player.commonName), "%s", "Luka Modrić");
+		if (i == 2)
+			snprintf(player.commonName, sizeof(player.commonName), "%s", "Νίκος");
+		if (i == 3)
+			snprintf(player.commonName, sizeof(player.commonName), "%s", "Алексей");
+		if (i == 4)
+			snprintf(player.commonName, sizeof(player.commonName), "%s", "\xe4\xb8\xad\xe6\x9d\x91 \xe9\x9f\x93");
+		if (player.injury.duration)
+			player.injury.nameIndex = injuryNames_intern(MOCK_INJURY_NAME, sizeof(MOCK_INJURY_NAME) - 1);
+#else
+		uint8_t bytes[8];
+		if (!readFromMemory(self->process.handle, self->playerStart + i * PLAYER_LIST_STRIDE, 8, bytes))
+			continue;
+		const uintptr_t address = (uintptr_t)hexBytesToInt(bytes, 8);
+		const uint64_t person = getPersonAddressFromPlayerAddress(self->process.handle, address);
+		const Player player = player_read(self->process.handle, true, person, address, self->date);
+#endif
+		self->players[i] = player;
 	}
 }
 
-// Drops everything, including the club and nation lookup tables that cache_clear() deliberately
-// keeps. The join inside cache_clear() covers the cache workers; the detached club search does not
-// join, so the clubs swap is taken under its lock.
+static void executeWorker(void *argument) {
+	Worker *worker = argument;
+	if (worker->index == 0)
+		cacheNations(worker);
+	else if (worker->index == 1)
+		cacheClubs(worker);
+	else
+		cachePlayers(worker);
+	atomic_store(&worker->done, true);
+}
+
+static void refreshResults(void) {
+	if (gameContext.searchActive)
+		search_findPlayers();
+	else
+		playerTable_clear();
+	playerTable_populate();
+	++gameContext.revision;
+}
+
+void cache_clear(void) {
+	requested = false;
+	if (job)
+		atomic_store(&job->cancel, true);
+	const bool hadPlayers = gameContext.players != NULL;
+	free(gameContext.players);
+	gameContext.players = NULL;
+	gameContext.playerCount = 0;
+	if (hadPlayers)
+		refreshResults();
+}
+
 void cache_reset(void) {
 	cache_clear();
-
-	if (gameContext.clubs != NULL) {
-		cache_lockClubs();
-		free(gameContext.clubs);
-		gameContext.clubs = NULL;
-		gameContext.clubCount = 0;
-		cache_unlockClubs();
-	}
-	if (gameContext.nations != NULL) {
-		free(gameContext.nations);
-		gameContext.nations = NULL;
-		gameContext.nationCount = 0;
-	}
+	free(gameContext.clubs);
+	free(gameContext.nations);
+	gameContext.clubs = NULL;
+	gameContext.nations = NULL;
+	gameContext.clubCount = gameContext.nationCount = 0;
+	++gameContext.revision;
 }
 
-
-static void cacheNations(const uint32_t generation) {
-#ifdef DEBUG
-	const int64_t timeStart = platform_getMicroseconds();
-#endif
-
-#ifndef MOCKS_MODE
-	uint8_t bytes[8];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + NATION_LIST_PTR_BASE, 8, bytes);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_PTR_BASE_OFFSET, 8, bytes);
-
-	uint8_t nationStartBuffer[8];
-	uint8_t nationEndBuffer[8];
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_START, 8, nationStartBuffer);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + NATION_LIST_END, 8, nationEndBuffer);
-	const uint64_t nationStart = hexBytesToInt(nationStartBuffer, 8);
-	const uint64_t nationEnd = hexBytesToInt(nationEndBuffer, 8);
-	const uint64_t nationCount = (nationEnd - nationStart) / NATION_LIST_STRIDE;
-	Nation *nations = calloc(nationCount, sizeof(Nation));
-	if (nations == NULL) {
-		LOG_ERROR("Failed to allocate memory for %" PRIu64 " nations", nationCount);
+static void startJob(void) {
+	job = calloc(1, sizeof(*job));
+	if (!job) {
+		snprintf(error, sizeof(error), "Cannot allocate cache job");
+		LOG_ERROR("%s", error);
 		return;
 	}
-
-	for (uint64_t i = 0; i < nationCount; i++) {
-		if (!g_atomic_int_get(&cacheInProgress)) {
-			LOG_DEBUG("Ending nations cache early");
-			free(nations);
-			return;
-		}
-
-		uint8_t nationBuffer[8];
-		readFromMemory(processContext.handle, nationStart + i * NATION_LIST_STRIDE, 8, nationBuffer);
-		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME, 8, bytes);
-		const uint64_t nameAddress = hexBytesToInt(bytes, 8);
-		if (!nameAddress) {
-			LOG_WARN("Nation %" PRIu64 " has no name pointer", i);
-			free(nations);
-			return;
-		}
-		readFromMemory(
-			processContext.handle,
-			nameAddress + STRING_OFFSET_VALUE,
-			MAX_NATION_STRING_LENGTH,
-			(uint8_t*)nations[i].name
-		);
-		readFromMemory(processContext.handle, hexBytesToInt(nationBuffer, 8) + NATION_OFFSET_NAME_CODE, 8, bytes);
-		readFromMemory(
-			processContext.handle,
-			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
-			4,
-			(uint8_t*)nations[i].code
-		);
-	}
+	job->process = processContext;
+	job->date = gameContext.currentDate;
+	atomic_init(&job->cancel, false);
+#ifdef MOCKS_MODE
+	job->playerCount = 900;
 #else
-	const uint64_t nationCount = 251;
-	Nation *nations = calloc(nationCount, sizeof(Nation));
-	if (nations == NULL) {
-		LOG_ERROR("Failed to allocate memory for %" PRIu64 " nations", nationCount);
-		return;
-	}
-	nations[189] = PLAYER_BY_ID_NATION_1;
-	nations[170] = PLAYER_BY_ID_NATION_2;
+	uint8_t bytes[16];
+	if (!readFromMemory(job->process.handle, job->process.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 16, bytes))
+		goto fail;
+	job->playerStart = (uintptr_t)hexBytesToInt(bytes, 8);
+	const uintptr_t end = (uintptr_t)hexBytesToInt(bytes + 8, 8);
+	if (end < job->playerStart || (end - job->playerStart) % PLAYER_LIST_STRIDE)
+		goto fail;
+	job->playerCount = (end - job->playerStart) / PLAYER_LIST_STRIDE;
+	if (!job->playerCount || job->playerCount > 2000000)
+		goto fail;
 #endif
-
-	NationsPublish *publish = g_new(NationsPublish, 1);
-	publish->nations = nations;
-	publish->count = nationCount;
-	publish->generation = generation;
-	g_idle_add(publishNations, publish);
-
-	LOG_DEBUG(
-		"Cached %" PRIu64 " nations in %" PRId64 " microseconds",
-		nationCount,
-		platform_getMicroseconds() - timeStart
-	);
-}
-
-static void cacheClubs(const uint32_t generation) {
-#ifdef DEBUG
-	const int64_t timeStart = platform_getMicroseconds();
-#endif
-
-#ifndef MOCKS_MODE
-	uint8_t bytes[8];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + CLUB_LIST_PTR_BASE, 4, bytes);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 4) + CLUB_LIST_PTR_BASE_OFFSET, 4, bytes);
-
-	uint8_t clubStartBuffer[8];
-	uint8_t clubEndBuffer[8];
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + CLUB_LIST_START, 8, clubStartBuffer);
-	readFromMemory(processContext.handle, hexBytesToInt(bytes, 8) + CLUB_LIST_END, 8, clubEndBuffer);
-	const uint64_t clubStart = hexBytesToInt(clubStartBuffer, 8);
-	const uint64_t clubEnd = hexBytesToInt(clubEndBuffer, 8);
-	const uint64_t clubCount = (clubEnd - clubStart) / CLUB_LIST_STRIDE;
-	// calloc so clubs we fail to read stay blank instead of holding another club's name; the slot
-	// is kept either way because a player's clubIndex is a row ID, i.e. a position in this list.
-	Club *clubs = calloc(clubCount, sizeof(Club));
-	if (clubs == NULL) {
-		LOG_ERROR("Failed to allocate memory for %" PRIu64 " clubs", (unsigned long long)clubCount);
-		return;
-	}
-
-	uint64_t missed = 0;
-	for (uint64_t i = 0; i < clubCount; i++) {
-		if (!g_atomic_int_get(&cacheInProgress)) {
-			LOG_DEBUG("Ending clubs cache early");
-			free(clubs);
-			return;
+	job->players = calloc((size_t)job->playerCount, sizeof(Player));
+	if (!job->players)
+		goto fail;
+	for (unsigned i = 0; i < WORKER_COUNT; ++i) {
+		Worker *worker = &job->workers[i];
+		worker->index = i;
+		worker->job = job;
+		atomic_init(&worker->done, false);
+		if (!thread_start(&worker->thread, executeWorker, worker)) {
+			worker->failed = true;
+			atomic_store(&worker->done, true);
+			atomic_store(&job->cancel, true);
+			snprintf(error, sizeof(error), "Could not start cache worker");
 		}
-
-		uint8_t clubBuffer[8];
-		readFromMemory(processContext.handle, clubStart + i * CLUB_LIST_STRIDE, 8, clubBuffer);
-		const uint64_t clubAddress = hexBytesToInt(clubBuffer, 8);
-		clubs[i].address = clubAddress;
-		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME, 8, bytes);
-		uint64_t namePointer = (uint32_t)hexBytesToInt(bytes, 8);
-		if (!namePointer || !readFromMemory(
-			processContext.handle,
-			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
-			CLUB_LONG_NAME_LENGTH,
-			(uint8_t*)clubs[i].name
-		)) {
-			clubs[i].name[0] = '\0';
-			missed++;
-			continue;
-		}
-
-		readFromMemory(processContext.handle, clubAddress + CLUB_OFFSET_NAME_SHORT, 8, bytes);
-		namePointer = (uint32_t)hexBytesToInt(bytes, 8);
-		readFromMemory(
-			processContext.handle,
-			hexBytesToInt(bytes, 8) + STRING_OFFSET_VALUE,
-			CLUB_SHORT_NAME_LENGTH,
-			(uint8_t*)clubs[i].shortName
-		);
 	}
-
-	const uint64_t cachedClubCount = clubCount;
-	if (missed > 0) {
-		LOG_WARN("Could not read a name for %" PRIu64 " of %" PRIu64 " clubs", missed, clubCount);
-	}
-#else
-	const uint32_t clubCount = 36289;
-	Club *clubs = calloc(clubCount, sizeof(Club));
-	if (clubs == NULL) {
-		LOG_ERROR("Failed to allocate memory for %" PRIu32 " clubs", clubCount);
-		return;
-	}
-	clubs[1125] = PLAYER_BY_ID_CLUB;
-	const uint64_t cachedClubCount = clubCount;
-#endif
-
-	ClubsPublish *publish = g_new(ClubsPublish, 1);
-	publish->clubs = clubs;
-	publish->count = cachedClubCount;
-	publish->generation = generation;
-	g_idle_add(publishClubs, publish);
-
-	LOG_DEBUG(
-		"Cached %" PRIu64 " clubs in %" PRId64 " microseconds",
-		cachedClubCount,
-		platform_getMicroseconds() - timeStart
-	);
-}
-
-static void cachePlayers(const uint8_t workerIndex) {
-#ifdef DEBUG
-	const int64_t timeStart = platform_getMicroseconds();
-	uint64_t cached = 0;
-#endif
-
-#ifndef MOCKS_MODE
-	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
-	const uint64_t end = stagingPlayerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
-
-	uint8_t bytes[8];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
-	const uint64_t playerStart = hexBytesToInt(bytes, 8);
-	for (uint64_t i = start; i < end; i++) {
-		if (!g_atomic_int_get(&cacheInProgress)) {
-			LOG_DEBUG("Ending players cache early");
-			return;
-		}
-
-		readFromMemory(processContext.handle, playerStart + i * PLAYER_LIST_STRIDE, 8, bytes);
-		const uint64_t playerAddress = hexBytesToInt(bytes, 8);
-		const uint64_t personAddress = getPersonAddressFromPlayerAddress(processContext.handle, playerAddress);
-		const Player player = getPlayer(processContext.handle, true, personAddress, playerAddress);
-		if (!player.uid) {
-			continue;
-		}
-		stagingPlayers[i] = player;
-#ifdef DEBUG
-		++cached;
-#endif
-	}
-#else
-	Player playerVini = PLAYER_VINI;
-	playerVini.injury.nameIndex = injuryNames_intern(MOCK_INJURY_NAME, sizeof(MOCK_INJURY_NAME) - 1);
-	const Player playerJeff = PLAYER_JEFF;
-	const Player playerGk = PLAYER_GK;
-	const uint64_t start = stagingPlayerCount * workerIndex / PLAYERS_THREAD_COUNT;
-	const uint64_t end = stagingPlayerCount * (workerIndex + 1) / PLAYERS_THREAD_COUNT;
-	for (uint64_t i = start; i < end; i++) {
-#ifdef DEBUG
-	++cached;
-#endif
-	if (i % 3 == 0) {
-		memcpy(&stagingPlayers[i], &playerGk, sizeof(Player));
-	} else {
-		memcpy(&stagingPlayers[i], i & 1 ? &playerVini : &playerJeff, sizeof(Player));
-	}
-	}
-#endif
-
-	LOG_DEBUG("Cached %" PRIu64 " players in %" PRId64 " microseconds", cached, platform_getMicroseconds() - timeStart);
+	return;
+fail:
+	snprintf(error, sizeof(error), "Could not read or allocate the player database");
+	LOG_ERROR("%s", error);
+	free(job->players);
+	free(job);
+	job = NULL;
 }
 
 void cache_run(void) {
-	if (g_atomic_int_get(&cacheInProgress)) {
-		return;
-	}
-
-	// Prepare player array for multithreaded writing
-#ifndef MOCKS_MODE
-	uint8_t bytes[8];
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE, 8, bytes);
-	const uint64_t playerStart = hexBytesToInt(bytes, 8);
-	readFromMemory(processContext.handle, processContext.moduleBaseAddress + PLAYER_LIST_PTR_BASE + 0x08, 8, bytes);
-	const uint64_t playerEnd = hexBytesToInt(bytes, 8);
-	const uint64_t playerCount = (playerEnd - playerStart) / 8;
-#else
-	const uint64_t playerCount = 900;
-#endif
-
-	// calloc so that slots the workers skip stay zeroed (uid == 0) and are
-	// recognisable to compactPlayers().
-	free(stagingPlayers);
-	stagingPlayers = calloc(playerCount, sizeof(Player));
-	if (stagingPlayers == NULL) {
-		LOG_ERROR("Failed to allocate memory for %" PRIu64 " players", playerCount);
-		stagingPlayerCount = 0;
-		return;
-	}
-	stagingPlayerCount = playerCount;
-
-	// Workers read the generation and the staging buffer, both of which are only ever written here
-	// and in cache_clear(), which joins every worker first.
-	++cacheGeneration;
-	completedPlayerThreads = 0;
-	g_atomic_int_set(&cacheInProgress, true);
-	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
-		char buffer[12] = {0};
-		snprintf(buffer, sizeof(buffer), "worker-%d", i);
-		Worker *worker = g_new(Worker, 1);
-		worker->generation = cacheGeneration;
-		worker->index = i;
-		threads[i] = g_thread_new(buffer, threadFunction, worker);
-	}
+	error[0] = '\0';
+	requested = true;
 }
 
-static gboolean onPlayerThreadComplete(gpointer userData) {
-	Worker *worker = userData;
-	const uint32_t generation = worker->generation;
-	g_free(worker);
-
-	if (generation != cacheGeneration) {
-		LOG_DEBUG("Ignoring player worker from an abandoned cache run");
-		return G_SOURCE_REMOVE;
+bool cache_poll(void) {
+	bool changed = false;
+	if (job) {
+		bool allDone = true, playersDone = true;
+		for (unsigned i = 0; i < WORKER_COUNT; ++i) {
+			if (!atomic_load(&job->workers[i].done)) {
+				allDone = false;
+				if (i >= 2)
+					playersDone = false;
+			}
+		}
+		if (!atomic_load(&job->cancel)) {
+			if (!job->nationsPublished && atomic_load(&job->workers[0].done)) {
+				if (!job->workers[0].failed) {
+					free(gameContext.nations);
+					gameContext.nations = job->nations;
+					gameContext.nationCount = job->nationCount;
+					job->nations = NULL;
+				} else {
+					snprintf(error, sizeof(error), "Could not cache nations");
+					LOG_ERROR("%s", error);
+				}
+				job->nationsPublished = true;
+				changed = true;
+			}
+			if (!job->clubsPublished && atomic_load(&job->workers[1].done)) {
+				if (!job->workers[1].failed) {
+					free(gameContext.clubs);
+					gameContext.clubs = job->clubs;
+					gameContext.clubCount = job->clubCount;
+					job->clubs = NULL;
+				} else {
+					snprintf(error, sizeof(error), "Could not cache clubs");
+					LOG_ERROR("%s", error);
+				}
+				job->clubsPublished = true;
+				changed = true;
+			}
+			if (!job->playersPublished && playersDone) {
+				uint64_t count = 0;
+				for (uint64_t i = 0; i < job->playerCount; ++i) {
+					if (!job->players[i].uid)
+						continue;
+					player_finishRead(&job->players[i]);
+					job->players[count++] = job->players[i];
+				}
+				free(gameContext.players);
+				gameContext.players = job->players;
+				gameContext.playerCount = count;
+				job->players = NULL;
+				job->playersPublished = true;
+				refreshResults();
+				changed = true;
+			}
+		}
+		if (allDone) {
+			for (unsigned i = 0; i < WORKER_COUNT; ++i)
+				thread_join(&job->workers[i].thread);
+			free(job->players);
+			free(job->clubs);
+			free(job->nations);
+			free(job);
+			job = NULL;
+		}
 	}
-
-	// Back in main thread; the players only become visible once every worker has finished writing.
-	if (++completedPlayerThreads < PLAYERS_THREAD_COUNT) {
-		return G_SOURCE_REMOVE;
+	if (requested && !job) {
+		requested = false;
+		startJob();
 	}
+	if (changed)
+		++gameContext.revision;
+	return changed;
+}
 
-	g_atomic_int_set(&cacheInProgress, false);
+bool cache_isRunning(void) {
+	return job != NULL || requested;
+}
+const char *cache_error(void) {
+	return error;
+}
 
-	free(gameContext.players);
-	gameContext.players = stagingPlayers;
-	gameContext.playerCount = stagingPlayerCount;
-	stagingPlayers = NULL;
-	stagingPlayerCount = 0;
-
-	char buffer[FORMATTER_NUMBER_SIZE];
-	snprintf(buffer, sizeof(buffer), "%llu", gameContext.playerCount);
-	formatter_printNumber(buffer);
-	char bufferStatus[32];
-	snprintf(bufferStatus, sizeof(bufferStatus), "%s players cached", buffer);
-	ui_setCurrentStatus(bufferStatus);
-
-	invalidatePlayerTable();
-	ui_rebindPlayerWindows();
-
-	return G_SOURCE_REMOVE;
+void cache_shutdown(void) {
+	requested = false;
+	if (job) {
+		atomic_store(&job->cancel, true);
+		for (unsigned i = 0; i < WORKER_COUNT; ++i)
+			thread_join(&job->workers[i].thread);
+		free(job->players);
+		free(job->clubs);
+		free(job->nations);
+		free(job);
+		job = NULL;
+	}
+	cache_reset();
 }

@@ -21,7 +21,6 @@ void search_findPlayers(void) {
 	const FilterOptions options = gameContext.filterOptions;
 
 	for (uint32_t i = 0; i < gameContext.playerCount; ++i) {
-#ifndef PLAYER_BY_ID
 		const Player *player = &gameContext.players[i];
 
 		if (
@@ -108,7 +107,6 @@ void search_findPlayers(void) {
 		) {
 			continue;
 		}
-#endif
 
 		vector_push(playerIds, i);
 	}

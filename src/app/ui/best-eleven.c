@@ -1,589 +1,120 @@
-// SPDX-FileCopyrightText: © 2026 Phil Armstead <philarmstead@mailbox.org>
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-#include "app/entities.h"
-#include "app/injury-names.h"
-#include "app/maths.h"
-#include "app/player.h"
-#include "app/ui.h"
 #include "app/helpers/formatter.h"
 #include "app/helpers/icons.h"
-#include "app/helpers/ratings.h"
-#include "app/helpers/vector.h"
-#include "core/logger.h"
-#include "platform/platform.h"
+#include "app/injury-names.h"
+#include "internal.h"
 #include "types/position-code-names.h"
+#include <math.h>
 
-
-typedef struct {
-	uint16_t minCondition;
-	uint16_t maxCondition;
-	uint8_t minAge;
-	uint8_t maxAge;
-	bool excludeInjured;
-} BestElevenFilters;
-
-#define INFEASIBLE_COST 1e9f
-
-static float getPlayerPositionalRating(const Player *player, PositionCode position);
-static void hungarian(float **matrix, uint32_t n, uint32_t *outAssignment);
-static void assignFormation(
-	const Player *players,
-	uint32_t playerCount,
-	const PositionCode positions[FORMATION_POSITION_COUNT],
-	BestElevenFilters filters,
-	BestElevenRow outSlots[FORMATION_POSITION_COUNT]
-);
-static void renderBestElevenTable(WindowContext context);
-static void onFormationSelected(GObject *object, GParamSpec *pspec, gpointer userData);
-static void onPlayerNameClicked(
-	const GtkGestureClick *gesture,
-	int clickCount,
-	double x,
-	double y,
-	const Player *player
-);
-static void onFilterChange(GObject *object, gpointer userData);
-
-void ui_createBestElevenWindow(void) {
-	// The window works from its own copy of the results: the indices point into a buffer the cache
-	// is free to replace, and the players themselves are re-matched by uid after every publish.
-	const SharedPointer *results = gameContext.searchResults;
-	const uint32_t *playerIds = results != NULL ? results->data : NULL;
-	PlayerSnapshot *snapshot = playerSnapshot_create(playerIds, playerIds != NULL ? vector_length(playerIds) : 0);
-	if (snapshot == NULL) {
+void ui_analysisRow(View *view, Rectangle bounds, const BestElevenRow *row, const char *position, unsigned index, bool positional) {
+	if (!CheckCollisionRecs(bounds, ui.clip))
+		return;
+	DrawRectangleRec(bounds, index & 1 ? ui.colour.alternate : ui.colour.card);
+	ui_text((Rectangle){bounds.x + 8, bounds.y, 38, bounds.height}, position, 12, ui.colour.muted, true);
+	const Player *player = row->player;
+	if (!player) {
+		ui_text((Rectangle){bounds.x + 90, bounds.y, bounds.width - 100, bounds.height}, "No eligible player", 12, ui.colour.muted, false);
 		return;
 	}
-
-	const WindowContext context = openWindow("best-xi", "window:best-xi", WINDOW_BEST_XI, snapshot);
-	g_object_set_data_full(G_OBJECT(context.window), "best-xi:players", snapshot, playerSnapshot_free);
-
-	WindowContext *cbContext = g_new(WindowContext, 1);
-	*cbContext = context; // copy the two pointers
-	g_object_set_data_full(G_OBJECT(context.window), "best-xi:context", cbContext, g_free);
-
-	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
-
-	GtkSpinButton *spinMinAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-age"));
-	GtkSpinButton *spinMaxAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-age"));
-	GtkSpinButton *spinMinCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-condition"));
-	GtkSpinButton *spinMaxCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-condition"));
-	GtkWidget *checkboxExcludeInjured = GTK_WIDGET(
-		gtk_builder_get_object(context.builder, "checkbox:best-xi:exclude-injured")
-	);
-	g_signal_connect(formationDropDown, "notify::selected", G_CALLBACK(onFormationSelected), cbContext);
-	g_signal_connect(spinMinAge, "value-changed", G_CALLBACK(onFilterChange), cbContext);
-	g_signal_connect(spinMaxAge, "value-changed", G_CALLBACK(onFilterChange), cbContext);
-	g_signal_connect(spinMinCondition, "value-changed", G_CALLBACK(onFilterChange), cbContext);
-	g_signal_connect(spinMaxCondition, "value-changed", G_CALLBACK(onFilterChange), cbContext);
-	g_signal_connect(checkboxExcludeInjured, "toggled", G_CALLBACK(onFilterChange), cbContext);
-
-	ui_renderBestElevenWindow(context);
-	ui_presentWindow(context);
+	ui_flag(player->nationality[0], (Rectangle){bounds.x + 48, bounds.y + 11, 22, 14});
+	char name[80], value[80];
+	player_formatName(player, name, sizeof(name));
+	if (ui_button(ui_id(view, 300 + index), (Rectangle){bounds.x + 80, bounds.y + 3, bounds.width - 246, bounds.height - 6}, name, false, "Open player details"))
+		ui_openPlayer(player);
+	snprintf(value, sizeof(value), "%u yrs", player->age);
+	ui_text((Rectangle){bounds.x + bounds.width - 155, bounds.y, 47, bounds.height}, value, 12, ui.colour.muted, false);
+	Rectangle heart = {bounds.x + bounds.width - 100, bounds.y + 9, 18, 18};
+	icons_draw(YAST_ICON_HEART, heart, player->injury.duration ? 0 : icons_conditionQuantise(player->condition));
+	if (player->injury.duration)
+		snprintf(value, sizeof(value), "Injured: %s", injuryNames_get(player->injury.nameIndex));
+	else
+		snprintf(value, sizeof(value), "Condition: %.1f%%", (double)player->condition / 100);
+	ui_tip(ui_id(view, 600 + index), heart, value);
+	const float rating = positional ? row->rating : player->ratings[0].value;
+	formatter_formatRating(rating, value);
+	ui_text((Rectangle){bounds.x + bounds.width - 70, bounds.y, 62, bounds.height}, value, 12, ui_quality(rating), true);
 }
 
-void ui_renderBestElevenWindow(const WindowContext context) {
-	GtkStringList *formationList = GTK_STRING_LIST(gtk_builder_get_object(context.builder, "string-list:formation"));
-	while (gtk_string_list_get_string(formationList, 0) != NULL) {
-		gtk_string_list_remove(formationList, 0);
-	}
-	for (uint64_t i = 0; i < vector_length(gameContext.options.formations); ++i) {
-		gtk_string_list_append(formationList, gameContext.options.formations[i].name);
-	}
-
-	const PlayerSnapshot *snapshot = context.data;
-	Player *players = snapshot != NULL ? snapshot->players : NULL;
-	const uint32_t playerCount = snapshot != NULL ? snapshot->count : 0;
-	for (uint32_t i = 0; i < playerCount; ++i) {
-		getSortedPositionRatings(&players[i]);
-	}
-
-	renderBestElevenTable(context);
-}
-
-/**
- * The snapshot's players are re-matched to the new cache by uid, so the window keeps showing the
- * same eleven with their latest data. Re-rendering also rebuilds the rows, which is what keeps the
- * click gestures pointing at live entries.
- */
-void ui_rebindBestElevenWindow(const WindowContext context, const PlayerLookup *lookup) {
-	playerSnapshot_refresh(context.data, lookup);
-	renderBestElevenTable(context);
-}
-
-static void renderBestElevenTable(const WindowContext context) {
-	GtkDropDown *formationDropDown = GTK_DROP_DOWN(gtk_builder_get_object(context.builder, "dropdown:formation"));
-	uint32_t selectedFormationIndex = gtk_drop_down_get_selected(formationDropDown);
-	if (selectedFormationIndex == GTK_INVALID_LIST_POSITION) {
-		selectedFormationIndex = 0;
-	}
-	const Formation formation = gameContext.options.formations[selectedFormationIndex];
-
-	const PlayerSnapshot *snapshot = context.data;
-
-	GtkListBox *listBox = GTK_LIST_BOX(gtk_builder_get_object(context.builder, "list-box:best-xi"));
-	gtk_list_box_remove_all(listBox);
-
-	const Player *players = snapshot != NULL ? snapshot->players : NULL;
-	const uint32_t playerCount = snapshot != NULL ? snapshot->count : 0;
-
-	GtkSpinButton *spinMinAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-age"));
-	GtkSpinButton *spinMaxAge = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-age"));
-	GtkSpinButton *spinMinCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:min-condition"));
-	GtkSpinButton *spinMaxCondition = GTK_SPIN_BUTTON(gtk_builder_get_object(context.builder, "spin:max-condition"));
-	GtkCheckButton *checkboxExcludeInjured = GTK_CHECK_BUTTON(
-		gtk_builder_get_object(context.builder, "checkbox:best-xi:exclude-injured")
-	);
-
-	const BestElevenFilters filters = {
-		.excludeInjured = gtk_check_button_get_active(checkboxExcludeInjured),
-		.maxAge = (uint8_t)gtk_spin_button_get_value_as_int(spinMaxAge),
-		.minAge = (uint8_t)gtk_spin_button_get_value_as_int(spinMinAge),
-		// Convert percentages to 0-10000 scale
-		.minCondition = (uint16_t)gtk_spin_button_get_value_as_int(spinMinCondition) * 100,
-		.maxCondition = (uint16_t)gtk_spin_button_get_value_as_int(spinMaxCondition) * 100,
-	};
-
-	BestElevenRow rows[FORMATION_POSITION_COUNT] = {0};
-#ifdef DEBUG
-	const int64_t timeStart = platform_getMicroseconds();
-#endif
-	assignFormation(players, playerCount, formation.positions, filters, rows);
-	LOG_DEBUG(
-		"Found best XI for %" PRIu32 " players in %" PRId64 " microseconds",
-		playerCount,
-		platform_getMicroseconds() - timeStart
-	);
-
-	uint8_t playerIncludedCount = 0;
-	float ratingTotal = 0;
-	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
-		GtkWidget *widgetRow = gtk_list_box_row_new();
-		GtkListBoxRow *row = GTK_LIST_BOX_ROW(widgetRow);
-		gtk_list_box_row_set_activatable(row, false);
-		gtk_list_box_row_set_selectable(row, false);
-		gtk_list_box_append(listBox, widgetRow);
-
-		GtkWidget *widgetGrid = gtk_grid_new();
-		GtkGrid *grid = GTK_GRID(widgetGrid);
-		gtk_grid_set_column_spacing(grid, 12);
-
-		GtkWidget *widgetLabelPosition = gtk_label_new(positionCodeNames[formation.positions[i]]);
-		gtk_label_set_yalign(GTK_LABEL(widgetLabelPosition), GTK_ALIGN_CENTER);
-		gtk_widget_add_css_class(widgetLabelPosition, "position");
-
-		GtkWidget *widgetBoxNationality = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-		GtkWidget *widgetLabelPlayer = gtk_label_new("");
-		GtkWidget *widgetLabelAge = gtk_label_new("");
-		GtkWidget *widgetHeart;
-		GtkWidget *widgetLabelRating = gtk_label_new("");
-
-		const Player *player = rows[i].player;
-		if (player != NULL) {
-			gtk_widget_set_hexpand(widgetLabelPlayer, true);
-			gtk_label_set_xalign(GTK_LABEL(widgetLabelPlayer), 0);
-			gtk_label_set_yalign(GTK_LABEL(widgetLabelPlayer), GTK_ALIGN_CENTER);
-			gtk_widget_set_hexpand(widgetLabelPlayer, true);
-			gtk_widget_add_css_class(widgetLabelPlayer, "name");
-
-			// Name
-			if (player->commonName[0] == '\0') {
-				char buffer[PERSON_FORENAME_LENGTH + PERSON_SURNAME_LENGTH + 2];
-				snprintf(buffer, sizeof(buffer), "%s %s", player->forename, player->surname);
-				gtk_label_set_text(GTK_LABEL(widgetLabelPlayer), buffer);
-			} else {
-				gtk_label_set_text(GTK_LABEL(widgetLabelPlayer), player->commonName);
-			}
-
-			// Age
-			char ageBuffer[8];
-			snprintf(ageBuffer, sizeof(ageBuffer), "%d yrs", player->age);
-			gtk_label_set_text(GTK_LABEL(widgetLabelAge), ageBuffer);
-
-			// Rating
-			char ratingBuffer[FORMATTER_RATING_SIZE];
-			formatter_formatRating(player->ratings[0].value, ratingBuffer);
-			gtk_label_set_markup(GTK_LABEL(widgetLabelRating), ratingBuffer);
-			gtk_label_set_xalign(GTK_LABEL(widgetLabelRating), 1.f);
-
-			// Country flag
-			const Nation *nation = entities_getNation(player->nationality[0]);
-			if (nation != NULL) {
-				char pathToFlag[256] = {0};
-				snprintf(
-					pathToFlag,
-					sizeof(pathToFlag),
-					RESOURCE_BASE "/assets/flags/%s.png",
-					nation->code
-				);
-				GtkWidget *flagImage = gtk_image_new_from_resource(pathToFlag);
-				gtk_box_append(GTK_BOX(widgetBoxNationality), flagImage);
-				gtk_widget_set_tooltip_text(flagImage, nation->name);
-			}
-
-			if (player->injury.duration > 0) {
-				widgetHeart = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-				GtkWidget *label = gtk_label_new("🚑");
-				gtk_box_append(GTK_BOX(widgetHeart), label);
-				char buffer[128] = {0};
-				snprintf(buffer, 128, "Injured: %s", injuryNames_get(player->injury.nameIndex));
-				gtk_widget_set_tooltip_text(label, buffer);
-			} else {
-				widgetHeart = icons_new(ICON_HEART, icons_conditionQuantise(player->condition));
-			}
-
-
-			++playerIncludedCount;
-			ratingTotal += player->ratings[0].value;
-
-			GtkGesture *gesture = gtk_gesture_click_new();
-			gtk_widget_add_controller(widgetLabelPlayer, GTK_EVENT_CONTROLLER(gesture));
-			g_signal_connect(gesture, "pressed", G_CALLBACK(onPlayerNameClicked), (gpointer)player);
-		} else {
-			widgetHeart = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-		}
-
-		uint8_t c = 1;
-		gtk_grid_attach(grid, widgetLabelPosition, c++, i, 1, 1);
-		gtk_grid_attach(grid, widgetBoxNationality, c++, i, 1, 1);
-		gtk_grid_attach(grid, widgetLabelPlayer, c++, i, 1, 1);
-		gtk_grid_attach(grid, widgetLabelAge, c++, i, 1, 1);
-		gtk_grid_attach(grid, widgetHeart, c++, i, 1, 1);
-		gtk_grid_attach(grid, widgetLabelRating, c++, i, 1, 1);
-		gtk_list_box_row_set_child(row, widgetGrid);
-	}
-
-	if (playerIncludedCount > 0) {
-		char ratingBuffer[FORMATTER_RATING_SIZE];
-		const float averageRating = ratingTotal / (float)playerIncludedCount;
-		formatter_formatRating(averageRating, ratingBuffer);
-
-		char averageRatingBuffer[128];
-		snprintf(averageRatingBuffer, sizeof(averageRatingBuffer), "<span weight=\"800\">Average:</span> %s", ratingBuffer);
-		GtkWidget *widgetLabelAverageRating = gtk_label_new("");
-		gtk_label_set_markup(GTK_LABEL(widgetLabelAverageRating), averageRatingBuffer);
-		GtkWidget *widgetRow = gtk_list_box_row_new();
-		GtkListBoxRow *row = GTK_LIST_BOX_ROW(widgetRow);
-		gtk_widget_add_css_class(widgetRow, "average-rating");
-		gtk_widget_set_hexpand(widgetRow, true);
-		gtk_widget_set_halign(widgetLabelAverageRating, GTK_ALIGN_END);
-		gtk_list_box_row_set_activatable(row, false);
-		gtk_list_box_row_set_selectable(row, false);
-		gtk_list_box_row_set_child(row, widgetLabelAverageRating);
-		gtk_list_box_append(listBox, widgetRow);
-	}
-}
-
-static void onFormationSelected(GObject *object, GParamSpec *pspec, gpointer userData) {
-	(void)object;
-	(void)pspec;
-	renderBestElevenTable(*(const WindowContext*)userData);
-}
-
-static void onFilterChange(GObject *object, gpointer userData) {
-	(void)object;
-	renderBestElevenTable(*(const WindowContext*)userData);
-}
-
-/**
- * O(n³) Hungarian algorithm (shortest-augmenting-path / Jonker–Volgenant variant).
- * Solves the square minimisation assignment problem.
- * @param matrix n×n cost matrix (1-indexed internally)
- * @param n size of matrix
- * @param outAssignment array of indices
- * @returns outAssignment[row] = col (both 0-indexed)
- */
-static void hungarian(float **matrix, const uint32_t n, uint32_t *outAssignment) {
-	// u[i] = potential for row i (1-indexed), v[j] = potential for col j (1-indexed)
-	float *u = calloc(n + 1, sizeof(float));
-	float *v = calloc(n + 1, sizeof(float));
-	// p[j] = row assigned to column j (1-indexed); p[0] is a sentinel
-	uint32_t *p = calloc(n + 1, sizeof(uint32_t));
-	int64_t *way = calloc(n + 1, sizeof(int64_t));
-	float *minDist = malloc((n + 1) * sizeof(float));
-	bool *used = malloc((n + 1) * sizeof(bool));
-
-	for (uint32_t i = 0; i < n; i++) {
-		outAssignment[i] = n;
-	}
-
-	for (uint32_t i = 0; i < n; i++) {
-		p[0] = i + 1;
-		int64_t j0 = 0;
-
-		for (uint32_t j = 0; j <= n; ++j) {
-			minDist[j] = INFINITY;
-		}
-		memset(used, 0, (size_t)(n + 1) * sizeof(bool));
-
-		do {
-			used[j0] = true;
-			const uint32_t i0 = p[j0];
-			float delta = INFINITY;
-			int64_t j1 = -1;
-
-			for (uint32_t j = 1; j <= n; j++) {
-				if (!used[j]) {
-					const float cur = matrix[i0 - 1][j - 1] - u[i0] - v[j];
-					if (cur < minDist[j]) {
-						minDist[j] = cur;
-						way[j] = j0;
-					}
-					if (minDist[j] < delta) {
-						delta = minDist[j];
-						j1 = (int64_t)j;
-					}
-				}
-			}
-
-			if (j1 < 0) {
-				LOG_ERROR("Assignment solver found no reachable column; leaving row %" PRIu32 " unassigned", i);
-				j0 = -1;
-				break;
-			}
-
-			for (uint32_t j = 0; j <= n; j++) {
-				if (used[j]) {
-					u[p[j]] += delta;
-					v[j] -= delta;
-				} else {
-					minDist[j] -= delta;
-				}
-			}
-
-			j0 = j1;
-		} while (p[j0] != 0);
-
-		if (j0 < 0) {
-			continue;
-		}
-
-		do {
-			const int64_t j1 = way[j0];
-			p[j0] = p[j1];
-			j0 = j1;
-		} while (j0);
-	}
-
-	free(used);
-	free(minDist);
-
-	// Invert p: assignment[row] = col (0-indexed)
-	for (uint32_t j = 1; j <= n; j++) {
-		if (p[j] != 0) {
-			outAssignment[p[j] - 1] = j - 1;
-		}
-	}
-
-	free(way);
-	free(p);
-	free(v);
-	free(u);
-}
-
-/**
- * Returns a player's rating for the grouped role that owns `position`, or
- * INFEASIBLE_COST if the player is not sufficiently proficient in `position`
- * or has no rating for the corresponding role. Higher is better.
- */
-static float getPlayerPositionalRating(const Player *player, const PositionCode position) {
-	if (player->positions[position] < MINIMUM_POSITIONAL_PROFICIENCY) {
-		return INFEASIBLE_COST;
-	}
-
-	// A zero rating means the role was never scored for this player, i.e. they cannot fill it.
-	const float rating = getRatingForPosition(player, position);
-
-	return rating > 0.f ? rating : INFEASIBLE_COST;
-}
-
-/**
- * Inserts (searchIndex, rating) into a rating-descending top-K list held in
- * topIndices/topValues, keeping at most `capacity` best entries. `*count` is the
- * current size. `searchIndex` is an index into the caller's playerIds array.
- */
-static void insertTopK(
-	uint32_t *topIndices,
-	float *topValues,
-	uint8_t *count,
-	const uint8_t capacity,
-	const uint32_t searchIndex,
-	const float rating
-) {
-	if (*count < capacity) {
-		uint8_t pos = (*count)++;
-		while (pos > 0 && topValues[pos - 1] < rating) {
-			topValues[pos] = topValues[pos - 1];
-			topIndices[pos] = topIndices[pos - 1];
-			--pos;
-		}
-		topValues[pos] = rating;
-		topIndices[pos] = searchIndex;
-	} else if (capacity > 0 && rating > topValues[capacity - 1]) {
-		uint8_t pos = capacity - 1;
-		while (pos > 0 && topValues[pos - 1] < rating) {
-			topValues[pos] = topValues[pos - 1];
-			topIndices[pos] = topIndices[pos - 1];
-			--pos;
-		}
-		topValues[pos] = rating;
-		topIndices[pos] = searchIndex;
-	}
-}
-
-/**
- * Assigns players from `players` to each slot in `positions` so as to maximise
- * the cumulative positional rating. A player is eligible for a slot only if they
- * meet MINIMUM_POSITIONAL_PROFICIENCY for the slot's position and have a rating
- * for the grouped role that owns it. Eligible cost = −rating (minimisation ≡
- * maximisation); ineligible/empty cost is chosen so the solver never prefers it
- * over a real, higher-rated candidate.
- *
- * Optimality-preserving pruning: with only FORMATION_POSITION_COUNT slots, an
- * optimal assignment can only ever draw from the top FORMATION_POSITION_COUNT
- * players per distinct slot-position. We therefore reduce the n players (which
- * may number in the tens of thousands) to a candidate set of at most
- * distinctPositions × FORMATION_POSITION_COUNT (≤ 121) before solving. Cost is
- * O(n · distinctPositions) for the scan plus O(dim³) for the solver, where
- * dim = max(FORMATION_POSITION_COUNT, candidateCount) is bounded by ~121.
- */
-static void assignFormation(
-	const Player *players,
-	const uint32_t playerCount,
-	const PositionCode positions[FORMATION_POSITION_COUNT],
-	const BestElevenFilters filters,
-	BestElevenRow outSlots[FORMATION_POSITION_COUNT]
-) {
-	// Default every slot to empty; filled in as the solver assigns players.
-	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
-		outSlots[i] = (BestElevenRow){.player = NULL, .rating = 0};
-	}
-
-	if (playerCount == 0) {
-		LOG_WARN("No players available to fill formation");
+void ui_bestEleven(View *view, Rectangle bounds) {
+	Rectangle previous = ui_clip(bounds);
+	const float width = bounds.width - 24, x = bounds.x + 12;
+	float y = bounds.y + 10;
+	char label[96];
+	snprintf(label, sizeof(label), "BEST XI  /  %u players in snapshot", view->snapshot->count);
+	ui_text((Rectangle){x, y, width, 28}, label, 14, ui.colour.title, true);
+	y += 36;
+	const size_t formations = vector_length(gameContext.options.formations);
+	if (!formations) {
+		ui_text((Rectangle){x, y, width, 50}, "No valid formations in options.yaml.", 12, ui.colour.orange, false);
+		ui_unclip(previous);
 		return;
 	}
-	if (playerCount < FORMATION_POSITION_COUNT) {
-		LOG_WARN("Not enough players (%" PRIu32 ") to fill formation; some slots will be empty", playerCount);
+	if (view->formation < 0 || (size_t)view->formation >= formations) {
+		view->formation = 0;
+		view->dirty = true;
 	}
-
-	// Distinct positions requested by the formation.
-	PositionCode distinctPositions[FORMATION_POSITION_COUNT];
-	uint8_t distinctCount = 0;
-	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
-		bool seen = false;
-		for (uint8_t d = 0; d < distinctCount; ++d) {
-			if (distinctPositions[d] == positions[i]) {
-				seen = true;
+	const Formation *formation = &gameContext.options.formations[view->formation];
+	if (strcmp(view->formationName, formation->name)) {
+		for (size_t i = 0; i < formations; ++i)
+			if (!strcmp(view->formationName, gameContext.options.formations[i].name)) {
+				view->formation = (int)i;
 				break;
 			}
-		}
-		if (!seen) {
-			distinctPositions[distinctCount++] = positions[i];
+		formation = &gameContext.options.formations[view->formation];
+		snprintf(view->formationName, sizeof(view->formationName), "%s", formation->name);
+	}
+	if (ui_button(ui_id(view, 10), (Rectangle){x, y, 26, 28}, "<", false, "Previous formation")) {
+		view->formation = (view->formation + (int)formations - 1) % (int)formations;
+		view->formationName[0] = '\0';
+		view->dirty = true;
+	}
+	ui_text((Rectangle){x + 34, y, width - 68, 28}, gameContext.options.formations[view->formation].name, 14, ui.colour.text, true);
+	if (ui_button(ui_id(view, 11), (Rectangle){x + width - 26, y, 26, 28}, ">", false, "Next formation")) {
+		view->formation = (view->formation + 1) % (int)formations;
+		view->formationName[0] = '\0';
+		view->dirty = true;
+	}
+	y += 38;
+	float half = fminf(240, (width - 10) * .5f);
+	bool changed = ui_number(ui_id(view, 20), (Rectangle){x, y, half, 26}, "Age", &view->minAge, 14, 50);
+	changed |= ui_number(ui_id(view, 24), (Rectangle){x + half + 8, y, half, 26}, "to", &view->maxAge, 14, 50);
+	y += 34;
+	changed |= ui_number(ui_id(view, 28), (Rectangle){x, y, half, 26}, "Cond.", &view->minCondition, 0, 100);
+	changed |= ui_number(ui_id(view, 32), (Rectangle){x + half + 8, y, half, 26}, "to", &view->maxCondition, 0, 100);
+	y += 32;
+	changed |= ui_check(ui_id(view, 36), (Rectangle){x, y, 180, 26}, "Exclude injured", &view->excludeInjured);
+	y += 38;
+	if (changed)
+		view->dirty = true;
+	const bool inRange = view->minAge >= 14 && view->maxAge <= 50 && view->minAge <= 50 &&
+											 view->maxAge >= 14 && view->minCondition >= 0 && view->maxCondition <= 100 &&
+											 view->minCondition <= 100 && view->maxCondition >= 0;
+	bool valid = inRange && view->minAge <= view->maxAge && view->minCondition <= view->maxCondition;
+	if (!valid) {
+		ui_text((Rectangle){x, y, width, 30}, inRange ? "Minimum must not exceed maximum." : "Use ages 14-50 and condition 0-100%.", 12, ui.colour.orange, false);
+		ui_unclip(previous);
+		return;
+	}
+	if (view->dirty) {
+		const BestElevenFilters filters = {.minAge = (uint8_t)view->minAge, .maxAge = (uint8_t)view->maxAge, .minCondition = (uint16_t)(view->minCondition * 100), .maxCondition = (uint16_t)(view->maxCondition * 100), .excludeInjured = view->excludeInjured};
+		if (!analysis_bestEleven(view->snapshot->players, view->snapshot->count, gameContext.options.formations[view->formation].positions, filters, view->eleven))
+			ui_setCurrentStatus("Cannot calculate Best XI. See the log.");
+		view->dirty = false;
+	}
+	Rectangle table = {bounds.x, y, bounds.width, bounds.height - (y - bounds.y)};
+	ui_scroll(ui_id(view, 40), table, 12 * 38 + 30, &view->scroll, false);
+	ui_scroll(ui_id(view, 41), table, 540, &view->horizontal, true);
+	ui_clip((Rectangle){table.x, table.y, table.width - 10, table.height - 10});
+	float rating = 0;
+	unsigned count = 0;
+	for (unsigned i = 0; i < 11; ++i) {
+		ui_analysisRow(view, (Rectangle){x - view->horizontal, y + (float)i * 38 - view->scroll, fmaxf(516, width - 10), 36}, &view->eleven[i], positionCodeNames[gameContext.options.formations[view->formation].positions[i]], i, false);
+		if (view->eleven[i].player) {
+			rating += view->eleven[i].player->ratings[0].value;
+			++count;
 		}
 	}
-
-	// Collect the union of the top-N eligible players for each distinct position.
-	// `candidates` holds indices into players; `chosen` dedupes across positions.
-	bool *chosen = calloc(playerCount, sizeof(bool));
-	uint32_t *candidates = malloc((size_t)distinctCount * FORMATION_POSITION_COUNT * sizeof(uint32_t));
-	uint32_t candidateCount = 0;
-
-	uint32_t topIndices[FORMATION_POSITION_COUNT];
-	float topValues[FORMATION_POSITION_COUNT];
-
-	for (uint8_t d = 0; d < distinctCount; ++d) {
-		const PositionCode position = distinctPositions[d];
-		uint8_t topCount = 0;
-		for (uint32_t j = 0; j < playerCount; ++j) {
-			const Player *player = &players[j];
-
-			if (
-				player->age < filters.minAge ||
-				player->age > filters.maxAge ||
-				player->condition < filters.minCondition ||
-				player->condition > filters.maxCondition ||
-				(filters.excludeInjured && player->injury.duration)
-			) {
-				continue;
-			}
-
-			const float rating = getPlayerPositionalRating(player, position);
-			if (rating >= INFEASIBLE_COST) {
-				continue;
-			}
-			insertTopK(topIndices, topValues, &topCount, FORMATION_POSITION_COUNT, j, rating);
-		}
-		for (uint8_t k = 0; k < topCount; ++k) {
-			const uint32_t searchIndex = topIndices[k];
-			if (!chosen[searchIndex]) {
-				chosen[searchIndex] = true;
-				candidates[candidateCount++] = searchIndex;
-			}
-		}
-	}
-
-	// Square cost matrix over slots (rows) and candidates (cols), padded so the
-	// solver always finds a perfect matching. Real eligible pairs get −rating so
-	// minimisation maximises total rating; ineligible pairs get INFEASIBLE_COST;
-	// padding (dummy rows / empty cols) costs 0 so it is only ever used when no
-	// feasible candidate remains.
-	const uint32_t dim = candidateCount > FORMATION_POSITION_COUNT ? candidateCount : FORMATION_POSITION_COUNT;
-
-	float **matrix = malloc(dim * sizeof(float*));
-	for (uint32_t i = 0; i < dim; ++i) {
-		matrix[i] = malloc(dim * sizeof(float));
-		for (uint32_t j = 0; j < dim; ++j) {
-			if (i < FORMATION_POSITION_COUNT && j < candidateCount) {
-				const float rating = getPlayerPositionalRating(&players[candidates[j]], positions[i]);
-				matrix[i][j] = rating >= INFEASIBLE_COST ? INFEASIBLE_COST : -rating;
-			} else {
-				matrix[i][j] = 0.f;
-			}
-		}
-	}
-
-	uint32_t *assignment = malloc(dim * sizeof(uint32_t));
-	hungarian(matrix, dim, assignment);
-
-	for (uint8_t i = 0; i < FORMATION_POSITION_COUNT; ++i) {
-		const uint32_t col = assignment[i];
-		if (col >= candidateCount) {
-			continue; // slot matched to padding: no eligible player
-		}
-
-		const Player *player = &players[candidates[col]];
-		const float rating = getPlayerPositionalRating(player, positions[i]);
-		if (rating >= INFEASIBLE_COST) {
-			LOG_DEBUG("No player is eligible for position \"%s\"", positionCodeNames[positions[i]]);
-			continue;
-		}
-
-		outSlots[i] = (BestElevenRow){.player = player, .rating = rating};
-	}
-
-	free(assignment);
-	for (uint32_t i = 0; i < dim; ++i) {
-		free(matrix[i]);
-	}
-	free(matrix);
-	free(candidates);
-	free(chosen);
-}
-
-static void onPlayerNameClicked(
-	const GtkGestureClick *gesture,
-	const int clickCount,
-	const double x,
-	const double y,
-	const Player *player
-) {
-	if (player != NULL && clickCount == 2) {
-		ui_createPlayerInfoWindow(player);
-	}
-
-	(void)gesture;
-	(void)clickCount;
-	(void)x;
-	(void)y;
+	snprintf(label, sizeof(label), "Average: %.1f  /  %u of 11 positions filled", count ? (double)rating / count : 0, count);
+	ui_text((Rectangle){x, y + 11 * 38 - view->scroll, width, 30}, label, 12, ui.colour.orange, true);
+	ui_unclip(previous);
 }
