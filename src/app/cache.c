@@ -25,6 +25,7 @@ extern GameContext gameContext;
 static GThread *threads[THREAD_COUNT];
 static gint cacheInProgress = false;
 static uint8_t completedPlayerThreads = 0;
+static uint8_t completedThreads = 0;
 
 /**
  * Bumped on every run and every clear, and captured by each worker when it starts. A publish whose
@@ -63,7 +64,7 @@ typedef struct {
 	uint32_t generation;
 } ClubsPublish;
 
-static gboolean onPlayerThreadComplete(gpointer userData);
+static gboolean onWorkerComplete(gpointer userData);
 static void cachePlayers(uint8_t workerIndex);
 static void cacheClubs(uint32_t generation);
 static void cacheNations(uint32_t generation);
@@ -99,14 +100,13 @@ static gpointer threadFunction(gpointer arg) {
 
 	if (worker->index == 0) {
 		cacheNations(worker->generation);
-		g_free(worker);
 	} else if (worker->index == 1) {
 		cacheClubs(worker->generation);
-		g_free(worker);
 	} else {
 		cachePlayers(worker->index - NON_PLAYERS_THREAD_COUNT);
-		g_idle_add(onPlayerThreadComplete, worker);
 	}
+	// Posted on every exit path, so cacheInProgress is always cleared once the run is over.
+	g_idle_add(onWorkerComplete, worker);
 
 	return NULL;
 }
@@ -463,6 +463,7 @@ void cache_run(void) {
 	// and in cache_clear(), which joins every worker first.
 	++cacheGeneration;
 	completedPlayerThreads = 0;
+	completedThreads = 0;
 	g_atomic_int_set(&cacheInProgress, true);
 	for (uint8_t i = 0; i < THREAD_COUNT; i++) {
 		char buffer[12] = {0};
@@ -474,22 +475,26 @@ void cache_run(void) {
 	}
 }
 
-static gboolean onPlayerThreadComplete(gpointer userData) {
+static gboolean onWorkerComplete(gpointer userData) {
 	Worker *worker = userData;
 	const uint32_t generation = worker->generation;
+	const bool isPlayerWorker = worker->index >= NON_PLAYERS_THREAD_COUNT;
 	g_free(worker);
 
 	if (generation != cacheGeneration) {
-		LOG_DEBUG("Ignoring player worker from an abandoned cache run");
+		LOG_DEBUG("Ignoring worker from an abandoned cache run");
 		return G_SOURCE_REMOVE;
 	}
 
-	// Back in main thread; the players only become visible once every worker has finished writing.
-	if (++completedPlayerThreads < PLAYERS_THREAD_COUNT) {
-		return G_SOURCE_REMOVE;
+	// Clearing this any earlier tells the still-running workers to abandon their lists.
+	if (++completedThreads == THREAD_COUNT) {
+		g_atomic_int_set(&cacheInProgress, false);
 	}
 
-	g_atomic_int_set(&cacheInProgress, false);
+	// Back in main thread; the players only become visible once every player worker has finished writing.
+	if (!isPlayerWorker || ++completedPlayerThreads < PLAYERS_THREAD_COUNT) {
+		return G_SOURCE_REMOVE;
+	}
 
 	free(gameContext.players);
 	gameContext.players = stagingPlayers;
